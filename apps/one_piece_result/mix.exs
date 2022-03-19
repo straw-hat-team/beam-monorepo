@@ -4,7 +4,7 @@ defmodule OnePiece.Result.MixProject do
   @app :one_piece_result
   @version "0.1.0"
   @elixir_version "~> 1.12"
-  @source_url "https://github.com/straw-hat-team/one_piece_result"
+  @source_url "https://github.com/straw-hat-team/elixir-monorepo"
 
   def project do
     [
@@ -91,8 +91,7 @@ defmodule OnePiece.Result.MixProject do
     [
       main: "readme",
       homepage_url: @source_url,
-      source_ref: "v#{@version}",
-      source_url: @source_url,
+      source_url_pattern: "#{@source_url}/blob/#{@app}@#{@version}/apps/#{@app}/%{path}#L%{line}",
       extras: ["README.md"]
     ]
   end
