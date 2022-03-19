@@ -4,7 +4,7 @@ defmodule OnePiece.Commanded.MixProject do
   @app :one_piece_commanded
   @version "0.7.3"
   @elixir_version "~> 1.12"
-  @source_url "https://github.com/straw-hat-team/elixir-monorepo"
+  @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
   def project do
     [
