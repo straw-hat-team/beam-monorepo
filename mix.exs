@@ -1,4 +1,4 @@
-defmodule OnePieceUmbrella.MixProject do
+defmodule BeamUmbrella.MixProject do
   use Mix.Project
 
   def project do
