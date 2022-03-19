@@ -1,4 +1,1 @@
-# OnePiece
-
-**TODO: Add description**
-
+# OnePiece Monorepo
