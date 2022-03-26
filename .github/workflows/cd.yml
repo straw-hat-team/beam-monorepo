@@ -5,7 +5,39 @@ on:
     types: [published]
 
 jobs:
-  hex-publish:
-    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-hex-publish.yml@v1.3.0
-    secrets:
-      HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+  dump_contexts_to_log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump GitHub context
+        id: github_context_step
+        run: echo '${{ toJSON(github) }}'
+      - name: Dump job context
+        run: echo '${{ toJSON(job) }}'
+      - name: Dump steps context
+        run: echo '${{ toJSON(steps) }}'
+      - name: Dump runner context
+        run: echo '${{ toJSON(runner) }}'
+      - name: Dump strategy context
+        run: echo '${{ toJSON(strategy) }}'
+      - name: Dump matrix context
+        run: echo '${{ toJSON(matrix) }}'
+
+# jobs:
+#   publish:
+#     name: Publish to Hex.pm
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v2
+
+#     - name: Setup Elixir
+#       uses: straw-hat-team/github-actions-workflows/elixir/setup@v1.3.0
+#       with:
+#         elixir-version: ${{ inputs.elixir-version }}
+#         otp-version: ${{ inputs.otp-version }}
+
+#     - name: Run Hex Publish
+#       shell: sh
+#       run: mix hex.publish --yes
+#       env:
+#         HEX_API_KEY: ${{ inputs.hex-api-key }}
+
