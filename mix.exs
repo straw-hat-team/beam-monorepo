@@ -1,4 +1,4 @@
-defmodule BeamUmbrella.MixProject do
+defmodule BeamMonorepoUmbrella.MixProject do
   use Mix.Project
 
   def project do
