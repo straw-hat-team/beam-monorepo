@@ -91,7 +91,7 @@ defmodule OnePiece.Result.MixProject do
     [
       main: "readme",
       homepage_url: @source_url,
-      source_url_pattern: "#{@source_url}/blob/#{@app}@#{@version}/apps/#{@app}/%{path}#L%{line}",
+      source_url_pattern: "#{@source_url}/blob/#{@app}@v#{@version}/apps/#{@app}/%{path}#L%{line}",
       extras: ["README.md"]
     ]
   end
