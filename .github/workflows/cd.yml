@@ -10,40 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
-      - name: Setup Elixir
-        uses: straw-hat-team/github-actions-workflows/elixir/setup@v1.3.0
+      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@master
         with:
-          elixir-version: ${{ inputs.elixir-version }}
-          otp-version: ${{ inputs.otp-version }}
-
-      - name: Release
-        env:
-          HEX_API_KEY: ${{ inputs.hex-api-key }}
-        run: |
-          PACKAGE_RELEASE_REGEX="^(.+)\@v([0-9]+\.[0-9]+\.[0-9])$"
-          REF_NAME="${{ github.ref_name }}"
-          ROOT="${{ github.workspace }}"
-
-          if [[ $REF_NAME =~ $PACKAGE_RELEASE_REGEX ]]; then
-            RELEASE_TAG_PACKAGE_NAME="${BASH_REMATCH[1]}"
-            RELEASE_TAG_PACKAGE_VERSION="${BASH_REMATCH[2]}"
-
-            if [ -d "$ROOT/apps/$RELEASE_TAG_PACKAGE_NAME" ]; then
-              cd "$ROOT/apps/$RELEASE_TAG_PACKAGE_NAME"
-              CURRENT_PACKAGE_MIX_VERSION=$(mix run --no-compile --no-start -e 'Mix.Project.config() |> Keyword.get(:version) |> IO.puts()')
-
-              if [ "$CURRENT_PACKAGE_MIX_VERSION" = "$RELEASE_TAG_PACKAGE_VERSION" ]; then
-                echo "LETS GOOO mix hex.publish --yes"
-              else
-                echo "\033[0;31m':$RELEASE_TAG_PACKAGE_NAME' package with '$CURRENT_PACKAGE_MIX_VERSION' version does not match the '$RELEASE_TAG_PACKAGE_VERSION' release tag version"
-                exit 1
-              fi
-            else
-              echo "\033[0;31m':$RELEASE_TAG_PACKAGE_NAME' package was not found under '$ROOT/apps' directory"
-              exit 1
-            fi
-          else
-            echo "no package release found in the release tag: $REF_NAME; skipping"
-            exit 0
-          fi
+          hex-api-key: ${{ secrets.HEX_API_KEY }}
+          ref-name: ${{ github.ref_name }}
