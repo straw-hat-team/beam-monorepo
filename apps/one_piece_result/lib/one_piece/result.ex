@@ -535,35 +535,35 @@ defmodule OnePiece.Result do
   into a `t:err/0`. When `t:t/0` is passed then returns it as it is. Otherwise
   wraps the value into a `t:ok/0`.
 
-      iex> OnePiece.Result.when_nil(nil, "ooopps")
+      iex> OnePiece.Result.reject_nil(nil, "ooopps")
       {:error, "ooopps"}
 
-      iex> OnePiece.Result.when_nil(42, "ooopps")
+      iex> OnePiece.Result.reject_nil(42, "ooopps")
       {:ok, 42}
 
       iex> 42
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.when_nil("ooopps")
+      ...> |> OnePiece.Result.reject_nil("ooopps")
       {:ok, 42}
 
       iex> "my error"
       ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.when_nil("ooopps")
+      ...> |> OnePiece.Result.reject_nil("ooopps")
       {:error, "my error"}
 
   > #### Lazy Evaluation {: .info}
   > It is recommended to pass a function as the default value, which is lazily evaluated.
 
       iex> new_error = fn -> "ooops" end
-      ...> OnePiece.Result.when_nil(nil, new_error)
+      ...> OnePiece.Result.reject_nil(nil, new_error)
       {:error, "ooops"}
   """
-  @spec when_nil(value :: any, on_nil :: (() -> any)) :: t
-  def when_nil(nil, on_nil) when is_function(on_nil), do: err(on_nil.())
-  def when_nil(nil, on_nil), do: err(on_nil)
-  def when_nil({:ok, _} = response, _), do: response
-  def when_nil({:error, _} = response, _), do: response
-  def when_nil(value, _), do: ok(value)
+  @spec reject_nil(value :: any, on_nil :: (() -> any)) :: t
+  def reject_nil(nil, on_nil) when is_function(on_nil), do: err(on_nil.())
+  def reject_nil(nil, on_nil), do: err(on_nil)
+  def reject_nil({:ok, _} = response, _), do: response
+  def reject_nil({:error, _} = response, _), do: response
+  def reject_nil(value, _), do: ok(value)
 
   @doc """
   Converts from a nested `t:t/0` to flatten `t:t/0`.
