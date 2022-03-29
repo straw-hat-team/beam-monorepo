@@ -1,7 +1,6 @@
 defmodule OnePiece.Commanded.ValueObject do
   @moduledoc """
-  Defines a module as a "Value Object". For more information about value objects,
-  please read the following:
+  Defines a module as a "Value Object". For more information about value objects, please read the following:
 
   - [Value Object Wikipedia](https://en.wikipedia.org/wiki/Value_object)
   - [ValueObject by Martin Fowler](https://martinfowler.com/bliki/ValueObject.html)

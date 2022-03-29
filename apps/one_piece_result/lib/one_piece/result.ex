@@ -399,8 +399,7 @@ defmodule OnePiece.Result do
   def map_err({:error, reason}, on_error), do: err(on_error.(reason))
 
   @doc """
-  Calls the closure if the result is `t:err/0`, otherwise returns the `t:ok/0`
-  value.
+  Calls the closure if the result is `t:err/0`, otherwise returns the `t:ok/0` value.
 
       iex> square = fn x -> OnePiece.Result.ok(x * x) end
       ...> 2
@@ -531,9 +530,8 @@ defmodule OnePiece.Result do
   def tap_err(result, func), do: map_err(result, &tap(&1, func))
 
   @doc ~S"""
-  When `nil` is passed then calls the `on_nil` function and wrap the result
-  into a `t:err/0`. When `t:t/0` is passed then returns it as it is. Otherwise
-  wraps the value into a `t:ok/0`.
+  When `nil` is passed then calls the `on_nil` function and wrap the result into a `t:err/0`. When `t:t/0` is passed
+  then returns it as it is. Otherwise wraps the value into a `t:ok/0`.
 
       iex> OnePiece.Result.reject_nil(nil, "ooopps")
       {:error, "ooopps"}

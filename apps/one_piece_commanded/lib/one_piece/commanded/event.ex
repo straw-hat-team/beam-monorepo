@@ -1,7 +1,7 @@
 defmodule OnePiece.Commanded.Event do
   @moduledoc """
-  Defines a module as a "Event" in terms of Event Sourcing context. For more
-  information about Event Sourcing, please read the following:
+  Defines a module as a "Event" in terms of Event Sourcing context. For more information about Event Sourcing, please
+  read the following:
 
   - [Event Sourcing pattern](https://docs.microsoft.com/en-us/azure/architecture/patterns/event-sourcing)
   """
