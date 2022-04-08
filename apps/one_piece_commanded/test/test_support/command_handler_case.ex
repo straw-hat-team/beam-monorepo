@@ -29,6 +29,14 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
               %MyAggregate{}
             )
           end
+
+          test "the error" do
+            assert_error(
+              [%InitialEvent{}]
+              %DoSomething{},
+              :already_exists
+            )
+          end
         end
       end
   """
@@ -121,13 +129,15 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
-    assert ^expected_error =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               initial_events,
-               command
-             )
+
+    assert {:error, reason} = aggregate_run(
+      aggregate_module,
+      command_handler_module,
+      initial_events,
+      command
+    )
+
+    assert reason == expected_error
   end
 
   defp aggregate_run(aggregate_module, command_handler_module, initial_events, command) do
