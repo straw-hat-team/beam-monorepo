@@ -14,7 +14,7 @@
     
   ```elixir
   defmodule MyTypeProvider do
-    use OnePiece::Commanded::TypeProvider, prefix: "accounts."
+    use OnePiece.Commanded.TypeProvider, prefix: "accounts."
   end
   ```
 

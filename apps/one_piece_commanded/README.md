@@ -5,6 +5,14 @@ ES), and Command and Query Responsibility Segregation (CQRS).
 
 ## Documentation
 
-- [How-to Guides](./docs/how-to-guides/README.md)
-- [References](api-reference.html)
-- [Explanations](./docs/explanations/README.md)
+### How-to
+
+- [Import Test Support files](./docs/how-to/import-test-support-files.md)
+
+### References
+
+- [API Reference](api-reference.html)
+
+### Explanations
+
+- [Enhancing Testing Environments](./docs/explanations/enhancing-testing-environments.md)

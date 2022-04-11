@@ -1,6 +1,4 @@
-# How-to Guides
-
-## Import Test Support files  
+# Import Test Support files  
 
 1. Open your `test_helper.exs`, add the following code-snippet before `ExUnit.start()`:
 

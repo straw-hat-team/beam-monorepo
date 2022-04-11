@@ -129,13 +129,13 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
-
-    assert {:error, reason} = aggregate_run(
-      aggregate_module,
-      command_handler_module,
-      initial_events,
-      command
-    )
+    assert {:error, reason} =
+             aggregate_run(
+               aggregate_module,
+               command_handler_module,
+               initial_events,
+               command
+             )
 
     assert reason == expected_error
   end

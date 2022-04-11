@@ -92,7 +92,15 @@ defmodule OnePiece.Result.MixProject do
       main: "readme",
       homepage_url: @source_url,
       source_url_pattern: "#{@source_url}/blob/#{@app}@v#{@version}/apps/#{@app}/%{path}#L%{line}",
-      extras: ["README.md"]
+      extras: [
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      groups_for_extras: [
+        "How-to": ~r/docs\/how-to\/.?/,
+        Explanations: ~r/docs\/explanations\/.?/,
+        References: ~r/docs\/references\/.?/
+      ]
     ]
   end
 end

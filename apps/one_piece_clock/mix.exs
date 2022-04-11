@@ -1,8 +1,8 @@
-defmodule OnePiece.Commanded.MixProject do
+defmodule OnePiece.Clock.MixProject do
   use Mix.Project
 
-  @app :one_piece_commanded
-  @version "0.7.4"
+  @app :one_piece_clock
+  @version "0.1.0"
   @elixir_version "~> 1.12"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
@@ -12,8 +12,8 @@ defmodule OnePiece.Commanded.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      name: "OnePiece.Commanded",
-      description: "Extend Commanded package",
+      name: "OnePiece.Clock",
+      description: "A Swiss Army Knife for dealing with clock-related tasks",
       app: @app,
       version: @version,
       elixir: @elixir_version,
@@ -37,11 +37,6 @@ defmodule OnePiece.Commanded.MixProject do
 
   defp deps do
     [
-      {:commanded, "~> 1.2"},
-      {:uniq, "~> 0.1"},
-      {:jason, "~> 1.2"},
-      {:ecto, "~> 3.6"},
-
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
       {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
@@ -86,8 +81,7 @@ defmodule OnePiece.Commanded.MixProject do
         "lib",
         "mix.exs",
         "README*",
-        "LICENSE*",
-        "test/test_support"
+        "LICENSE*"
       ],
       maintainers: ["Yordis Prieto"],
       licenses: ["MIT"],
@@ -102,12 +96,9 @@ defmodule OnePiece.Commanded.MixProject do
       main: "readme",
       homepage_url: @source_url,
       source_url_pattern: "#{@source_url}/blob/#{@app}@v#{@version}/apps/#{@app}/%{path}#L%{line}",
-      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: [
         "README.md",
-        "CHANGELOG.md",
-        "docs/how-to/import-test-support-files.md",
-        "docs/explanations/enhancing-testing-environments.md"
+        "CHANGELOG.md"
       ],
       groups_for_extras: [
         "How-to": ~r/docs\/how-to\/.?/,
