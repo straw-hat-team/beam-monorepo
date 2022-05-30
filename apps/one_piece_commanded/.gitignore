@@ -25,7 +25,3 @@ one_piece_commanded-*.tar
 # Temporary files for e.g. tests
 /tmp
 
-/priv/plts/*.plt
-/priv/plts/*.plt.hash
-
-!.tool-versions

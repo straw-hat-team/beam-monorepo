@@ -22,4 +22,7 @@ erl_crash.dump
 # Temporary files, for example, from tests.
 /tmp/
 
+**/priv/plts/*.plt
+**/priv/plts/*.plt.hash
+
 !.tool-versions

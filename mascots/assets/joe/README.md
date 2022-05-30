@@ -1,6 +1,6 @@
 # Joe Mascot
 
-Make it yours. Will encourage you to alter it, improve the it, and spread the
+Make it yours. Will encourage you to alter it, improve it, and spread the
 love for BEAM.
 
 ## Credit
