@@ -58,6 +58,25 @@ defmodule OnePiece.Result do
   def is_ok?({:error, _}), do: false
 
   @doc """
+  Returns true if the result is `t:ok/0` and the value inside of it matches a predicate.
+
+      iex> is_meaning_of_life = fn x -> x == 42 end
+      ...> 42
+      ...> |> OnePiece.Result.ok()
+      ...> |> OnePiece.Result.is_ok_and?(is_meaning_of_life)
+      true
+
+      iex> is_meaning_of_life = fn x -> x == 42 end
+      ...> "oops"
+      ...> |> OnePiece.Result.err()
+      ...> |> OnePiece.Result.is_ok_and?(is_meaning_of_life)
+      false
+  """
+  @spec is_ok_and?(value :: t, predicate :: (any -> boolean)) :: boolean
+  def is_ok_and?({:error, _}, _func), do: false
+  def is_ok_and?({:ok, val}, func), do: func.(val) == true
+
+  @doc """
   Returns true if the argument is an `t:err/0`.
 
       iex> 42
