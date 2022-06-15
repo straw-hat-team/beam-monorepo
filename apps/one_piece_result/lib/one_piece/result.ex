@@ -236,13 +236,13 @@ defmodule OnePiece.Result do
       iex> meaning_of_life = fn x -> x * 2 end
       ...> 21
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.map_ok(meaning_of_life, 84)
+      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, 84)
       42
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> "oops"
       ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.map_ok(meaning_of_life, 84)
+      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, 84)
       84
 
   > #### Lazy Evaluation {: .info}
@@ -252,20 +252,20 @@ defmodule OnePiece.Result do
       ...> went_wrong = fn reason -> "something went wrong because #{reason}" end
       ...> 21
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.map_ok(meaning_of_life, went_wrong)
+      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, went_wrong)
       42
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> went_wrong = fn reason -> "something went wrong because #{reason}" end
       ...> "a sleepy bear"
       ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.map_ok(meaning_of_life, went_wrong)
+      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, went_wrong)
       "something went wrong because a sleepy bear"
   """
-  @spec map_ok(result :: t, on_ok :: (any -> any), on_error :: any | (any -> any)) :: any
-  def map_ok({:ok, val}, on_ok, _), do: on_ok.(val)
-  def map_ok({:error, reason}, _, on_error) when is_function(on_error), do: on_error.(reason)
-  def map_ok({:error, _}, _, on_error), do: on_error
+  @spec map_ok_or(result :: t, on_ok :: (any -> any), on_error :: any | (any -> any)) :: any
+  def map_ok_or({:ok, val}, on_ok, _), do: on_ok.(val)
+  def map_ok_or({:error, reason}, _, on_error) when is_function(on_error), do: on_error.(reason)
+  def map_ok_or({:error, _}, _, on_error), do: on_error
 
   @doc """
   Applies a function when a `t:ok/0` is given, or propagates the error.
