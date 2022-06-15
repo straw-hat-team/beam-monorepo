@@ -94,6 +94,25 @@ defmodule OnePiece.Result do
   def is_err?({:error, _}), do: true
 
   @doc """
+  Returns true if the result is `t:err/0` and the value inside of it matches a predicate.
+
+      iex> is_not_found = fn err -> err == :not_found end
+      ...> 42
+      ...> |> OnePiece.Result.ok()
+      ...> |> OnePiece.Result.is_err_and?(is_not_found)
+      false
+
+      iex> is_not_found = fn err -> err == :not_found end
+      ...> :not_found
+      ...> |> OnePiece.Result.err()
+      ...> |> OnePiece.Result.is_err_and?(is_not_found)
+      true
+  """
+  @spec is_err_and?(value :: t, predicate :: (any -> boolean)) :: boolean
+  def is_err_and?({:ok, _}, _func), do: false
+  def is_err_and?({:error, val}, func), do: func.(val) == true
+
+  @doc """
   Is valid if and only if an `t:ok/0` is supplied.
 
       iex> check = fn
