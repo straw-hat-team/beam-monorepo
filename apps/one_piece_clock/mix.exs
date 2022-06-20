@@ -3,7 +3,7 @@ defmodule OnePiece.Clock.MixProject do
 
   @app :one_piece_clock
   @version "0.1.0"
-  @elixir_version "~> 1.12"
+  @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
   def project do
