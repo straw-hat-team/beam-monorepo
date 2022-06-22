@@ -2,7 +2,7 @@ defmodule OnePiece.Commanded.MixProject do
   use Mix.Project
 
   @app :one_piece_commanded
-  @version "0.9.0"
+  @version "0.9.1"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.9.1 - 2022-06-22
+
+- Move test support under `lib` directory.
+
 ## v0.7.0 - 2022-02-14
 
 - Added `OnePiece.Commanded.Id`
