@@ -86,8 +86,7 @@ defmodule OnePiece.Commanded.MixProject do
         "lib",
         "mix.exs",
         "README*",
-        "LICENSE*",
-        "test/test_support"
+        "LICENSE*"
       ],
       maintainers: ["Yordis Prieto"],
       licenses: ["MIT"],
@@ -105,9 +104,7 @@ defmodule OnePiece.Commanded.MixProject do
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: [
         "README.md",
-        "CHANGELOG.md",
-        "docs/how-to/import-test-support-files.md",
-        "docs/explanations/enhancing-testing-environments.md"
+        "CHANGELOG.md"
       ],
       groups_for_extras: [
         "How-to": ~r/docs\/how-to\/.?/,
