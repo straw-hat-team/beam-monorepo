@@ -5,13 +5,9 @@ defmodule OnePiece.Commanded do
   """
 
   @doc """
-  Copy the information from the `params` map into the given `target` map.
-
-      iex> OnePiece.Commanded.cast_to(%{}, %{name: "ubi-wan", last_name: "kenobi"}, [:last_name])
-      %{last_name: "kenobi"}
+  Deprecated, it has the same behavior as `OnePiece.Commanded.Helpers.cast_to/3`.
   """
   @spec cast_to(target :: map, params :: map, keys :: [Map.key]) :: map
-  def cast_to(target, params, keys) do
-    Enum.reduce(keys, target, &Map.put(&2, &1, Map.get(params, &1)))
-  end
+  @deprecated "Use `OnePiece.Commanded.Helpers.cast_to/3` instead."
+  defdelegate cast_to(target, params, keys), to: OnePiece.Commanded.Helpers
 end
