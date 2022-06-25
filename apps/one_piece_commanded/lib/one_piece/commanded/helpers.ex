@@ -38,7 +38,7 @@ defmodule OnePiece.Commanded.Helpers do
       iex> OnePiece.Commanded.Helpers.cast_to(%{}, %{name: "ubi-wan", last_name: "kenobi"}, [:last_name])
       %{last_name: "kenobi"}
   """
-  @spec cast_to(target :: map, source :: map, keys :: [Map.key]) :: map
+  @spec cast_to(target :: map, source :: map, keys :: [Map.key()]) :: map
   def cast_to(target, source, keys) do
     Map.merge(target, Map.take(source, keys))
   end
