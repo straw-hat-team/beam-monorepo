@@ -33,13 +33,13 @@ defmodule OnePiece.Commanded.Helpers do
   end
 
   @doc """
-  Copy the information from the `params` map into the given `target` map.
+  Copy the information from the `source` map into the given `target` map.
 
       iex> OnePiece.Commanded.Helpers.cast_to(%{}, %{name: "ubi-wan", last_name: "kenobi"}, [:last_name])
       %{last_name: "kenobi"}
   """
-  @spec cast_to(target :: map, params :: map, keys :: [Map.key]) :: map
-  def cast_to(target, params, keys) do
-    Enum.reduce(keys, target, &Map.put(&2, &1, Map.get(params, &1)))
+  @spec cast_to(target :: map, source :: map, keys :: [Map.key]) :: map
+  def cast_to(target, source, keys) do
+    Map.merge(target, Map.take(source, keys))
   end
 end
