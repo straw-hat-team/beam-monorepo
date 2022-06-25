@@ -7,7 +7,7 @@ defmodule OnePiece.Commanded do
   @doc """
   Deprecated, it has the same behavior as `OnePiece.Commanded.Helpers.cast_to/3`.
   """
-  @spec cast_to(target :: map, params :: map, keys :: [Map.key]) :: map
+  @spec cast_to(target :: map, params :: map, keys :: [Map.key()]) :: map
   @deprecated "Use `OnePiece.Commanded.Helpers.cast_to/3` instead."
   defdelegate cast_to(target, params, keys), to: OnePiece.Commanded.Helpers
 end
