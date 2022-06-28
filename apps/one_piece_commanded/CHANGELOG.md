@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.10.1 - 2022-06-28
+
+- Deprecate `OnePiece.Commanded.cast_to/3` (wrong module) and delegate to
+  `OnePiece.Commanded.Helpers` instead.
+- Add `OnePiece.Commanded.Helpers.cast_to/3`
+
+## v0.10.0 - 2022-06-23
+
+- Add `OnePiece.Commanded.cast_to/3`
+
 ## v0.9.1 - 2022-06-22
 
 - Move test support under `lib` directory.
