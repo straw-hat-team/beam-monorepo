@@ -42,4 +42,77 @@ defmodule OnePiece.Commanded.Helpers do
   def cast_to(target, source, keys) do
     Map.merge(target, Map.take(source, keys))
   end
+
+  @doc """
+  Returns a keyword list containing the "correlation id" and "causation id" tracing.
+
+      iex> OnePiece.Commanded.Helpers.tracing_from_metadata(%{
+      ...>   event_id: "26eb06fe-9ba6-4f58-a2dd-2bdba73de4f2",
+      ...>   correlation_id: "f634ba94-145c-4fa7-bf7f-0d73dd83b446"
+      ...> })
+      ...>
+      [causation_id: "26eb06fe-9ba6-4f58-a2dd-2bdba73de4f2", correlation_id: "f634ba94-145c-4fa7-bf7f-0d73dd83b446"]
+
+  Useful when dispatching commands to copy-forward `t:Commanded.Event.Handler.metadata/0` tracing information.
+
+      defmodule MyProcessor do
+          application: MyApp,
+        use Commanded.Event.Handler,
+          name: "my_processor"
+
+        alias OnePiece.Commanded.Helpers
+
+        def handle(%MyEvent{} = event, metadata) do
+          MyApp.dispatch(
+            %MyCommand{},
+            # copy-forward the information
+            Helpers.tracing_from_metadata(metadata)
+          )
+        end
+      end
+  """
+  @spec tracing_from_metadata(metadata :: Commanded.Event.Handler.metadata()) :: [
+          causation_id: String.t(),
+          correlation_id: String.t()
+        ]
+  def tracing_from_metadata(metadata) do
+    [causation_id: metadata.event_id, correlation_id: metadata.correlation_id]
+  end
+
+  @doc """
+  Adds the "correlation id" and "causation id" tracing to an existing keyword list configuration option.
+
+      iex> OnePiece.Commanded.Helpers.tracing_from_metadata([timeout: 30_000], %{
+      ...>   event_id: "26eb06fe-9ba6-4f58-a2dd-2bdba73de4f2",
+      ...>   correlation_id: "f634ba94-145c-4fa7-bf7f-0d73dd83b446"
+      ...> })
+      ...>
+      [timeout: 30_000, causation_id: "26eb06fe-9ba6-4f58-a2dd-2bdba73de4f2", correlation_id: "f634ba94-145c-4fa7-bf7f-0d73dd83b446"]
+
+  Useful when dispatching commands to copy-forward the `t:Commanded.Event.Handler.metadata/0` tracing information and
+  wants to also add other keyword list options.
+
+      defmodule MyProcessor do
+        use Commanded.Event.Handler,
+          application: MyApp,
+          name: "my_processor"
+
+        alias OnePiece.Commanded.Helpers
+
+        def handle(%MyEvent{} = event, metadata) do
+          MyApp.dispatch(
+            %MyCommand{},
+            # copy-forward the information
+            Helpers.tracing_from_metadata([timeout: 30_000], metadata)
+          )
+        end
+      end
+  """
+  @spec tracing_from_metadata(opts :: keyword, metadata :: Commanded.Event.Handler.metadata()) :: [
+          causation_id: String.t(),
+          correlation_id: String.t()
+        ]
+  def tracing_from_metadata(opts, metadata) do
+    Keyword.merge(opts, tracing_from_metadata(metadata))
+  end
 end
