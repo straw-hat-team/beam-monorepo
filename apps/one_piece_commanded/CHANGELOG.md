@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.11.0 - 2022-07-1
+
+- Add `OnePiece.Commanded.Helpers.tracing_from_metadata/1`
+- Add `OnePiece.Commanded.Helpers.tracing_from_metadata/2`
+
 ## v0.10.1 - 2022-06-28
 
 - Deprecate `OnePiece.Commanded.cast_to/3` (wrong module) and delegate to
