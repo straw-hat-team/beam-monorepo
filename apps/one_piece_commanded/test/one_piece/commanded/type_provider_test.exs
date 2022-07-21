@@ -2,6 +2,11 @@ defmodule OnePiece.Commanded.TypeProviderTest do
   use ExUnit.Case
   alias OnePiece.Commanded.TypeProvider
 
+  defmodule SomethingWithEnforceKeysHappened do
+    @enforce_keys [:aggregate_id]
+    defstruct [:aggregate_id, :foo, :bar]
+  end
+
   defmodule AccountCreated do
     defstruct [:id]
   end
@@ -25,6 +30,7 @@ defmodule OnePiece.Commanded.TypeProviderTest do
   defmodule AccountTypeProvider do
     use TypeProvider
     register_type "account_created", AccountCreated
+    register_type "something_with_enforce_keys_happened", SomethingWithEnforceKeysHappened
   end
 
   defmodule AccountWithPrefixTypeProvider do
@@ -163,5 +169,15 @@ defmodule OnePiece.Commanded.TypeProviderTest do
         end
       )
     end)
+  end
+
+  test "given a type provider with a struct that has enforce_keys a when calling to_string then it returns the mapped string" do
+    assert "something_with_enforce_keys_happened" ==
+             AccountTypeProvider.to_string(%SomethingWithEnforceKeysHappened{aggregate_id: nil})
+  end
+
+  test "given a type provider with a struct that has enforce_keys a when calling to_struct then it returns the mapped struct" do
+    assert struct(SomethingWithEnforceKeysHappened) ==
+             AccountTypeProvider.to_struct("something_with_enforce_keys_happened")
   end
 end
