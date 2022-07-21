@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.11.1 - 2022-07-21
+
+- Fix register type with a struct with enforce keys in  `OnePiece.Commanded.TypeProvider` module. 
+
 ## v0.11.0 - 2022-07-1
 
 - Add `OnePiece.Commanded.Helpers.tracing_from_metadata/1`

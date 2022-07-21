@@ -96,7 +96,7 @@ defmodule OnePiece.Commanded.TypeProvider do
       @spec to_struct(String.t()) :: struct() | no_return()
       for {_, name, struct_mod} <- @type_mapping do
         def to_struct(unquote(name)) do
-          %unquote(struct_mod){}
+          struct(unquote(struct_mod))
         end
       end
 
