@@ -268,22 +268,29 @@ defmodule OnePiece.Result do
   def map_ok_or({:error, _}, _, on_error), do: on_error
 
   @doc """
-  Applies a function when a `t:ok/0` is given, or propagates the error.
+  Applies a function or returns the value when a `t:ok/0` is given, or propagates the error.
+
+      iex> 21
+      ...> |> OnePiece.Result.ok()
+      ...> |> OnePiece.Result.when_ok(42)
+      42
+
+      iex> "oops"
+      ...> |> OnePiece.Result.err()
+      ...> |> OnePiece.Result.when_ok(42)
+      {:error, "oops"}
+
+  You can also pass a function to achieve lazy evaluation:
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> 21
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.when_ok(meaning_of_life)
       42
-
-      iex> meaning_of_life = fn x -> x * 2 end
-      ...> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.when_ok(meaning_of_life)
-      {:error, "oops"}
   """
-  @spec when_ok(result :: t, on_ok :: (any -> any)) :: t
-  def when_ok({:ok, val}, on_ok), do: on_ok.(val)
+  @spec when_ok(result :: t, on_ok :: (any -> any) | any) :: t
+  def when_ok({:ok, val}, on_ok) when is_function(on_ok), do: on_ok.(val)
+  def when_ok({:ok, _val}, value), do: value
   def when_ok({:error, _} = error, _), do: error
 
   @doc """
@@ -437,41 +444,30 @@ defmodule OnePiece.Result do
   def map_err({:error, reason}, on_error), do: err(on_error.(reason))
 
   @doc """
-  Calls the closure if the result is `t:err/0`, otherwise returns the `t:ok/0` value.
+  Applies a function or returns the value if the result is `t:err/0`, otherwise returns the `t:ok/0` value.
 
-      iex> square = fn x -> OnePiece.Result.ok(x * x) end
-      ...> 2
+      iex> "something wrong happened"
+      ...> |> OnePiece.Result.err()
+      ...> |> OnePiece.Result.when_err("ooops")
+      "ooops"
+
+      iex> 2
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.when_err(square)
-      ...> |> OnePiece.Result.when_err(square)
+      ...> |> OnePiece.Result.when_err("ooops")
       {:ok, 2}
 
-      iex> square = fn x -> OnePiece.Result.ok(x * x) end
-      ...> failure = fn x -> OnePiece.Result.err(x) end
-      ...> 2
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.when_err(failure)
-      ...> |> OnePiece.Result.when_err(square)
-      {:ok, 2}
+  You can also pass a function to achieve lazy evaluation:
 
-      iex> square = fn x -> OnePiece.Result.ok(x * x) end
-      ...> failure = fn x -> OnePiece.Result.err(x) end
-      ...> 3
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.when_err(square)
-      ...> |> OnePiece.Result.when_err(failure)
-      {:ok, 9}
-
-      iex> failure = fn x -> OnePiece.Result.err(x) end
-      ...> 3
+      iex> failure = fn x -> "lazy ooops" end
+      ...> "something wrong happened"
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.when_err(failure)
-      ...> |> OnePiece.Result.when_err(failure)
-      {:error, 3}
+      "lazy ooops"
   """
-  @spec when_err(result :: t, on_err :: (any -> t)) :: t
+  @spec when_err(result :: t, on_err :: (any -> t) | any) :: t
   def when_err({:ok, _} = resp, _), do: resp
-  def when_err({:error, reason}, on_err), do: on_err.(reason)
+  def when_err({:error, reason}, on_err) when is_function(on_err), do: on_err.(reason)
+  def when_err({:error, _}, value), do: value
 
   @doc """
   Do an `and` with a `t:err/0`.
