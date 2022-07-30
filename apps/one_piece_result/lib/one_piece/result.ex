@@ -207,26 +207,33 @@ defmodule OnePiece.Result do
   def contains_err?({:error, _}, _), do: false
 
   @doc """
-  Apply a function to the value contained in an `t:ok/0` wrapping the returned value in a `t:ok/0`. It propagates the
-  `t:err/0` result.
+  When the value contained in an `t:ok/0` result then applies a function or returns the mapped value, wrapping the
+  returning value in a `t:ok/0`, propagating the `t:err/0` result as it is.
 
   > #### Avoid Wrapping {: .info}
   > If you want to avoid the wrap then use `OnePiece.Result.when_ok/2` instead.
+
+      iex> 21
+      ...> |> OnePiece.Result.ok()
+      ...> |> OnePiece.Result.map_ok(42)
+      {:ok, 42}
+
+      iex> "oops"
+      ...> |> OnePiece.Result.err()
+      ...> |> OnePiece.Result.map_ok(42)
+      {:error, "oops"}
+
+  You can also pass a function to achieve lazy evaluation:
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> 21
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.map_ok(meaning_of_life)
       {:ok, 42}
-
-      iex> meaning_of_life = fn x -> x * 2 end
-      ...> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.map_ok(meaning_of_life)
-      {:error, "oops"}
   """
-  @spec map_ok(result :: t, on_ok :: (any -> any)) :: t
-  def map_ok({:ok, val}, on_ok), do: ok(on_ok.(val))
+  @spec map_ok(result :: t, on_ok :: (any -> any) | any) :: t
+  def map_ok({:ok, val}, on_ok) when is_function(on_ok), do: ok(on_ok.(val))
+  def map_ok({:ok, _val}, value), do: ok(value)
   def map_ok({:error, _} = error, _on_ok), do: error
 
   @doc ~S"""
@@ -421,27 +428,34 @@ defmodule OnePiece.Result do
   def tap_ok(result, func), do: map_ok(result, &tap(&1, func))
 
   @doc ~S"""
-  Apply a function to the value contained in an `t:err/0` result wrapping the returning in a `t:err/0`. It propagates
-  the `t:ok/0` result.
+  When the value contained in an `t:err/0` result then applies a function or returns the mapped value, wrapping the
+  returning value in a `t:err/0`, propagating the `t:ok/0` result as it is.
 
   > #### Avoid Wrapping {: .info}
   > If you want to avoid the wrap then use `OnePiece.Result.when_err/2` instead.
+
+        iex> 21
+        ...> |> OnePiece.Result.err()
+        ...> |> OnePiece.Result.map_err("must be 42")
+        {:error, "must be 42"}
+
+        iex> 42
+        ...> |> OnePiece.Result.ok()
+        ...> |> OnePiece.Result.map_err("must be 42")
+        {:ok, 42}
+
+  You can also pass a function to achieve lazy evaluation:
 
       iex> meaning_of_life = fn x -> "must be 42 instead of #{x}" end
       ...> 21
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.map_err(meaning_of_life)
       {:error, "must be 42 instead of 21"}
-
-      iex> meaning_of_life = fn x -> "must be 42 instead of #{x}" end
-      ...> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.map_err(meaning_of_life)
-      {:ok, 42}
   """
-  @spec map_err(result :: t, on_error :: (any -> any)) :: t
+  @spec map_err(result :: t, on_error :: (any -> any) | any) :: t
   def map_err({:ok, _} = result, _), do: result
-  def map_err({:error, reason}, on_error), do: err(on_error.(reason))
+  def map_err({:error, reason}, on_error) when is_function(on_error), do: err(on_error.(reason))
+  def map_err({:error, _}, reason), do: err(reason)
 
   @doc """
   Applies a function or returns the value if the result is `t:err/0`, otherwise returns the `t:ok/0` value.
@@ -458,7 +472,7 @@ defmodule OnePiece.Result do
 
   You can also pass a function to achieve lazy evaluation:
 
-      iex> failure = fn x -> "lazy ooops" end
+      iex> failure = fn _error -> "lazy ooops" end
       ...> "something wrong happened"
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.when_err(failure)
