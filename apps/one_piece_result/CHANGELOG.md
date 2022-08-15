@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.3.1 - 2022-08-15
+
+- Fix typespec of `OnePiece.Result.reject_nil/2`.
+
 ## v0.3.0 - 2022-07-29
 
 - Add support for eager value to `OnePiece.Result.map_ok/2`

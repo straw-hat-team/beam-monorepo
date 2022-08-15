@@ -579,7 +579,7 @@ defmodule OnePiece.Result do
 
   @doc ~S"""
   When `nil` is passed then calls the `on_nil` function and wrap the result into a `t:err/0`. When `t:t/0` is passed
-  then returns it as it is. Otherwise wraps the value into a `t:ok/0`.
+  then returns it as it is. Otherwise, wraps the value into a `t:ok/0`.
 
       iex> OnePiece.Result.reject_nil(nil, "ooopps")
       {:error, "ooopps"}
@@ -604,7 +604,7 @@ defmodule OnePiece.Result do
       ...> OnePiece.Result.reject_nil(nil, new_error)
       {:error, "ooops"}
   """
-  @spec reject_nil(value :: any, on_nil :: (() -> any)) :: t
+  @spec reject_nil(value :: any, on_nil :: any | (() -> any)) :: t
   def reject_nil(nil, on_nil) when is_function(on_nil), do: err(on_nil.())
   def reject_nil(nil, on_nil), do: err(on_nil)
   def reject_nil({:ok, _} = response, _), do: response
