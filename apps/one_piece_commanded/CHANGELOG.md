@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.13.0 - 2022-08-19
+
+- Added `OnePiece.Commanded.tracing_from_metadata/1`.
+- Added `OnePiece.Commanded.tracing_from_metadata/2`.
+
 ## v0.12.0 - 2022-08-19
 
 - Added `OnePiece.Commanded.skip_or_retry/2`.
