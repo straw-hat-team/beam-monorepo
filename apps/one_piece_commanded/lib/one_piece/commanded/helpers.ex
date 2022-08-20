@@ -3,6 +3,17 @@ defmodule OnePiece.Commanded.Helpers do
   A Swiss Army Knife Helper Module.
   """
 
+  @type error_context :: Commanded.Event.FailureContext.t() | map()
+
+  @type commanded_dispatch_response ::
+          :ok
+          | {:ok, aggregate_state :: struct()}
+          | {:ok, aggregate_version :: non_neg_integer()}
+          | {:ok, execution_result :: Commanded.Commands.ExecutionResult.t()}
+          | {:error, :unregistered_command}
+          | {:error, :consistency_timeout}
+          | {:error, reason :: term()}
+
   @doc """
   Deprecated, it has the same behavior as `OnePiece.Commanded.Id.new/0`.
   """
@@ -115,4 +126,56 @@ defmodule OnePiece.Commanded.Helpers do
   def tracing_from_metadata(opts, metadata) do
     Keyword.merge(opts, tracing_from_metadata(metadata))
   end
+
+  @doc """
+  Returns `skip` or a `retry` response.
+
+  When the `c:Commanded.Application.dispatch/1` or `c:Commanded.Application.dispatch/2` returns an `:skip` otherwise,
+  returns a `:retry` response. Useful when you are doing error handling in your `c:Commanded.Event.Handler.error/3`.
+
+      iex> success_dispatch = fn _ -> :ok end
+      ...> OnePiece.Commanded.Helpers.skip_or_retry(success_dispatch.(%{}), %{})
+      :skip
+
+      iex> success_dispatch = fn _ -> {:ok, %{}} end
+      ...> OnePiece.Commanded.Helpers.skip_or_retry(success_dispatch.(%{}), %{})
+      :skip
+
+      iex> failure_dispatch = fn _ -> {:error, :ooops} end
+      ...> OnePiece.Commanded.Helpers.skip_or_retry(failure_dispatch.(%{}), %{failures: 1})
+      {:retry, %{failures: 1}}
+  """
+  @spec skip_or_retry(tuple_response :: commanded_dispatch_response, context :: error_context) ::
+          :skip | {:retry, error_context}
+  def skip_or_retry(:ok, _context), do: :skip
+  def skip_or_retry({:ok, _}, _context), do: :skip
+  def skip_or_retry(_, context), do: {:retry, context}
+
+  @doc """
+  Returns `skip` or a `retry` response with a given delay.
+
+  When the `c:Commanded.Application.dispatch/1` or `c:Commanded.Application.dispatch/2` returns an `:skip` otherwise,
+  returns a `:retry` response. Useful when you are doing error handling in your `c:Commanded.Event.Handler.error/3`.
+
+      iex> success_dispatch = fn _ -> :ok end
+      ...> OnePiece.Commanded.Helpers.skip_or_retry(success_dispatch.(%{}), 5_000, %{})
+      :skip
+
+      iex> success_dispatch = fn _ -> {:ok, %{}} end
+      ...> OnePiece.Commanded.Helpers.skip_or_retry(success_dispatch.(%{}), 5_000, %{})
+      :skip
+
+      iex> failure_dispatch = fn _ -> {:error, :ooops} end
+      ...> OnePiece.Commanded.Helpers.skip_or_retry(failure_dispatch.(%{}), 5_000, %{failures: 1})
+      {:retry, 5_000, %{failures: 1}}
+  """
+  @spec skip_or_retry(
+          tuple_response :: commanded_dispatch_response,
+          delay :: non_neg_integer(),
+          context :: error_context
+        ) ::
+          :skip | {:retry, non_neg_integer(), error_context}
+  def skip_or_retry(:ok, _delay, _context), do: :skip
+  def skip_or_retry({:ok, _}, _delay, _context), do: :skip
+  def skip_or_retry(_, delay, context), do: {:retry, delay, context}
 end

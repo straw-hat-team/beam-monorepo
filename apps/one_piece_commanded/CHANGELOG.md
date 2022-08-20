@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.12.0 - 2022-08-19
+
+- Added `OnePiece.Commanded.skip_or_retry/2`.
+- Added `OnePiece.Commanded.skip_or_retry/3`.
+- Added `OnePiece.Commanded.Helpers.skip_or_retry/3`.
+- Added `OnePiece.Commanded.Helpers.skip_or_retry/3`.
+- Undo deprecation of `OnePiece.Commanded.cast_to/3`.
+
 ## v0.11.1 - 2022-07-21
 
 - Fix register type with a struct with enforce keys in  `OnePiece.Commanded.TypeProvider` module. 
