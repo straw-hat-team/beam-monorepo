@@ -4,10 +4,9 @@ defmodule OnePiece.Commanded do
   (ES), and Command and Query Responsibility Segregation (CQRS).
   """
 
-  @doc """
-  Deprecated, it has the same behavior as `OnePiece.Commanded.Helpers.cast_to/3`.
-  """
-  @spec cast_to(target :: map, params :: map, keys :: [Map.key()]) :: map
-  @deprecated "Use `OnePiece.Commanded.Helpers.cast_to/3` instead."
   defdelegate cast_to(target, params, keys), to: OnePiece.Commanded.Helpers
+  defdelegate skip_or_retry(tuple_response, context), to: OnePiece.Commanded.Helpers
+  defdelegate tracing_from_metadata(metadata), to: OnePiece.Commanded.Helpers
+  defdelegate tracing_from_metadata(opts, metadata), to: OnePiece.Commanded.Helpers
+  defdelegate skip_or_retry(tuple_response, delay, context), to: OnePiece.Commanded.Helpers
 end
