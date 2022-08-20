@@ -6,5 +6,7 @@ defmodule OnePiece.Commanded do
 
   defdelegate cast_to(target, params, keys), to: OnePiece.Commanded.Helpers
   defdelegate skip_or_retry(tuple_response, context), to: OnePiece.Commanded.Helpers
+  defdelegate tracing_from_metadata(metadata), to: OnePiece.Commanded.Helpers
+  defdelegate tracing_from_metadata(opts, metadata), to: OnePiece.Commanded.Helpers
   defdelegate skip_or_retry(tuple_response, delay, context), to: OnePiece.Commanded.Helpers
 end
