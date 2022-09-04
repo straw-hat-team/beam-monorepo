@@ -3,7 +3,9 @@ defmodule OnePiece.Commanded.Helpers do
   A Swiss Army Knife Helper Module.
   """
 
-  @type error_context :: Commanded.Event.FailureContext.t() | map()
+  alias Commanded.Event.FailureContext
+
+  @type error_context :: FailureContext.t() | map()
 
   @type commanded_dispatch_response ::
           :ok
@@ -178,4 +180,15 @@ defmodule OnePiece.Commanded.Helpers do
   def skip_or_retry(:ok, _delay, _context), do: :skip
   def skip_or_retry({:ok, _}, _delay, _context), do: :skip
   def skip_or_retry(_, delay, context), do: {:retry, delay, context}
+
+  @doc """
+  Increase the failure counter from `t:Commanded.Event.FailureContext.t/0` context by one.
+
+        iex> OnePiece.Commanded.Helpers.increase_failure_counter(%Commanded.Event.FailureContext{context: %{failures_count: 1}})
+        %{failures_count: 2}
+  """
+  @spec increase_failure_counter(failure_context :: FailureContext.t()) :: map()
+  def increase_failure_counter(%FailureContext{} = failure_context) do
+    Map.update(failure_context.context, :failures_count, 1, &(&1 + 1))
+  end
 end
