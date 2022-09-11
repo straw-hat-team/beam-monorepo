@@ -30,5 +30,5 @@
   "telemetry": {:hex, :telemetry, "1.1.0", "a589817034a27eab11144ad24d5c0f9fab1f58173274b1e9bae7074af9cbee51", [:rebar3], [], "hexpm", "b727b2a1f75614774cff2d7565b64d0dfa5bd52ba517f16543e6fc7efcc0df48"},
   "telemetry_registry": {:hex, :telemetry_registry, "0.3.0", "6768f151ea53fc0fbca70dbff5b20a8d663ee4e0c0b2ae589590e08658e76f1e", [:mix, :rebar3], [{:telemetry, "~> 1.0", [hex: :telemetry, repo: "hexpm", optional: false]}], "hexpm", "492e2adbc609f3e79ece7f29fec363a97a2c484ac78a83098535d6564781e917"},
   "unicode_util_compat": {:hex, :unicode_util_compat, "0.7.0", "bc84380c9ab48177092f43ac89e4dfa2c6d62b40b8bd132b1059ecc7232f9a78", [:rebar3], [], "hexpm", "25eee6d67df61960cf6a794239566599b09e17e668d3700247bc498638152521"},
-  "uniq": {:hex, :uniq, "0.5.1", "58358d3f6b7e4be4e39359a1126f2d349fd2e4643b92db4b5b52c8701a3598f1", [:mix], [{:ecto, "~> 3.0", [hex: :ecto, repo: "hexpm", optional: true]}], "hexpm", "3f8ec90bff62b17f155ea9c575718ed70cb61e632cc53179bbf73b7c4cf510c5"},
+  "uniq": {:hex, :uniq, "0.5.2", "da8d12560b26f32ee0eb854da477837bd98603dd7b6980bfa3686450187c0400", [:mix], [{:ecto, "~> 3.0", [hex: :ecto, repo: "hexpm", optional: true]}], "hexpm", "85885e320dea7fd269b1b4ea04c699b3dbba1569610aae2608158f3b7e742ab1"},
 }
