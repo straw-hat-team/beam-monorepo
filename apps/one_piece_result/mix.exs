@@ -2,7 +2,7 @@ defmodule OnePiece.Result.MixProject do
   use Mix.Project
 
   @app :one_piece_result
-  @version "0.3.1"
+  @version "0.3.2"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 

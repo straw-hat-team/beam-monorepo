@@ -295,7 +295,7 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.when_ok(meaning_of_life)
       42
   """
-  @spec when_ok(result :: t, on_ok :: (any -> any) | any) :: t
+  @spec when_ok(result :: t, on_ok :: (any -> any) | any) :: err() | any
   def when_ok({:ok, val}, on_ok) when is_function(on_ok), do: on_ok.(val)
   def when_ok({:ok, _val}, value), do: value
   def when_ok({:error, _} = error, _), do: error
@@ -478,7 +478,7 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.when_err(failure)
       "lazy ooops"
   """
-  @spec when_err(result :: t, on_err :: (any -> t) | any) :: t
+  @spec when_err(result :: t, on_err :: (any -> t) | any) :: ok() | any
   def when_err({:ok, _} = resp, _), do: resp
   def when_err({:error, reason}, on_err) when is_function(on_err), do: on_err.(reason)
   def when_err({:error, _}, value), do: value

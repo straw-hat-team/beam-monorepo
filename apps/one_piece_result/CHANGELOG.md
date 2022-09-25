@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.3.1 - 2022-09-25
+
+- Fix typespec of `OnePiece.Result.when_err/2`.
+- Fix typespec of `OnePiece.Result.when_ok/2`.
+
 ## v0.3.1 - 2022-08-15
 
 - Fix typespec of `OnePiece.Result.reject_nil/2`.
