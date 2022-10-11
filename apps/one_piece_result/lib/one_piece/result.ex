@@ -10,7 +10,7 @@ defmodule OnePiece.Result do
   @typedoc """
   An Ok result.
   """
-  @type ok :: {:ok, any}
+  @type ok :: {:ok, any} | :ok
 
   @typedoc """
   An Error result.
@@ -27,8 +27,12 @@ defmodule OnePiece.Result do
 
       iex> OnePiece.Result.ok(42)
       {:ok, 42}
+
+      iex> OnePiece.Result.ok(:ok)
+      :ok
   """
   @spec ok(value :: any) :: ok
+  def ok(:ok), do: :ok
   def ok(value), do: {:ok, value}
 
   @doc """
@@ -48,12 +52,16 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.is_ok?()
       true
 
+      iex> OnePiece.Result.is_ok?(:ok)
+      true
+
       iex> "oops"
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.is_ok?()
       false
   """
   @spec is_ok?(value :: t) :: boolean
+  def is_ok?(:ok), do: true
   def is_ok?({:ok, _}), do: true
   def is_ok?({:error, _}), do: false
 
@@ -66,6 +74,14 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.is_ok_and?(is_meaning_of_life)
       true
 
+      iex> is_meaning_of_life = fn x -> x == nil end
+      ...> OnePiece.Result.is_ok_and?(:ok, is_meaning_of_life)
+      true
+
+      iex> is_meaning_of_life = fn -> true end
+      ...> OnePiece.Result.is_ok_and?(:ok, is_meaning_of_life)
+      true
+
       iex> is_meaning_of_life = fn x -> x == 42 end
       ...> "oops"
       ...> |> OnePiece.Result.err()
@@ -75,6 +91,8 @@ defmodule OnePiece.Result do
   @spec is_ok_and?(value :: t, predicate :: (any -> boolean)) :: boolean
   def is_ok_and?({:error, _}, _func), do: false
   def is_ok_and?({:ok, val}, func), do: func.(val) == true
+  def is_ok_and?(:ok, func) when is_function(func, 0), do: func.() == true
+  def is_ok_and?(:ok, func) when is_function(func, 1), do: func.(nil) == true
 
   @doc """
   Returns true if the argument is an `t:err/0`.
@@ -84,12 +102,16 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.is_err?()
       false
 
+      iex> OnePiece.Result.is_err?(:ok)
+      false
+
       iex> "oops"
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.is_err?()
       true
   """
   @spec is_err?(value :: t) :: boolean
+  def is_err?(:ok), do: false
   def is_err?({:ok, _}), do: false
   def is_err?({:error, _}), do: true
 
@@ -103,12 +125,17 @@ defmodule OnePiece.Result do
       false
 
       iex> is_not_found = fn err -> err == :not_found end
+      ...> OnePiece.Result.is_err_and?(:ok, is_not_found)
+      false
+
+      iex> is_not_found = fn err -> err == :not_found end
       ...> :not_found
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.is_err_and?(is_not_found)
       true
   """
   @spec is_err_and?(value :: t, predicate :: (any -> boolean)) :: boolean
+  def is_err_and?(:ok, _func), do: false
   def is_err_and?({:ok, _}, _func), do: false
   def is_err_and?({:error, val}, func), do: func.(val) == true
 
@@ -128,13 +155,20 @@ defmodule OnePiece.Result do
       ...>   val when OnePiece.Result.is_ok_result(val) -> true
       ...>   _ -> false
       ...> end
+      ...> check.(:ok)
+      true
+
+      iex> check = fn
+      ...>   val when OnePiece.Result.is_ok_result(val) -> true
+      ...>   _ -> false
+      ...> end
       ...> "oops"
       ...> |> OnePiece.Result.err()
       ...> |> check.()
       false
   """
   @spec is_ok_result(value :: any) :: Macro.t()
-  defguard is_ok_result(val) when is_tuple(val) and elem(val, 0) == :ok
+  defguard is_ok_result(val) when (is_tuple(val) and elem(val, 0) == :ok) or val == :ok
 
   @doc """
   Is valid if and only if an `t:err/0` is supplied.
@@ -173,15 +207,23 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.contains_ok?(42)
       false
 
+      iex> OnePiece.Result.contains_ok?(:ok, :ok)
+      true
+
+      iex> OnePiece.Result.contains_ok?(:ok, 42)
+      false
+
       iex> "oops"
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.contains_ok?(42)
       false
   """
   @spec contains_ok?(result :: t, value :: any) :: boolean
-  def contains_ok?({:error, _}, _), do: false
+  def contains_ok?(:ok, :ok), do: true
   def contains_ok?({:ok, value}, value), do: true
+  def contains_ok?({:error, _}, _), do: false
   def contains_ok?({:ok, _}, _), do: false
+  def contains_ok?(:ok, _), do: false
 
   @doc """
   Returns true if the `t:err/0` result contains the given value.
@@ -200,9 +242,13 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.contains_err?("ops")
       false
+
+      iex> OnePiece.Result.contains_err?(:ok, "ops")
+      false
   """
   @spec contains_err?(result :: t, value :: any) :: boolean
   def contains_err?({:ok, _}, _), do: false
+  def contains_err?(:ok, _), do: false
   def contains_err?({:error, value}, value), do: true
   def contains_err?({:error, _}, _), do: false
 
@@ -230,10 +276,24 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.map_ok(meaning_of_life)
       {:ok, 42}
+
+      iex> meaning_of_life = fn -> 42 end
+      ...> OnePiece.Result.map_ok(:ok, meaning_of_life)
+      {:ok, 42}
+
+      iex> OnePiece.Result.map_ok(:ok, 42)
+      {:ok, 42}
+
+      iex> meaning_of_life = fn x -> x == 42 end
+      ...> OnePiece.Result.map_ok(:ok, meaning_of_life)
+      {:ok, false}
   """
   @spec map_ok(result :: t, on_ok :: (any -> any) | any) :: t
   def map_ok({:ok, val}, on_ok) when is_function(on_ok), do: ok(on_ok.(val))
   def map_ok({:ok, _val}, value), do: ok(value)
+  def map_ok(:ok, on_ok) when is_function(on_ok, 0), do: ok(on_ok.())
+  def map_ok(:ok, on_ok) when is_function(on_ok, 1), do: ok(on_ok.(nil))
+  def map_ok(:ok, value), do: ok(value)
   def map_ok({:error, _} = error, _on_ok), do: error
 
   @doc ~S"""
@@ -244,6 +304,14 @@ defmodule OnePiece.Result do
       ...> 21
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.map_ok_or(meaning_of_life, 84)
+      42
+
+      iex> meaning_of_life = fn -> 42 end
+      ...> OnePiece.Result.map_ok_or(:ok, meaning_of_life, 84)
+      42
+
+      iex> meaning_of_life = fn _ -> 21 * 2 end
+      ...> OnePiece.Result.map_ok_or(:ok, meaning_of_life, 84)
       42
 
       iex> meaning_of_life = fn x -> x * 2 end
@@ -271,6 +339,8 @@ defmodule OnePiece.Result do
   """
   @spec map_ok_or(result :: t, on_ok :: (any -> any), on_error :: any | (any -> any)) :: any
   def map_ok_or({:ok, val}, on_ok, _), do: on_ok.(val)
+  def map_ok_or(:ok, on_ok, _) when is_function(on_ok, 0), do: on_ok.()
+  def map_ok_or(:ok, on_ok, _) when is_function(on_ok, 1), do: on_ok.(nil)
   def map_ok_or({:error, reason}, _, on_error) when is_function(on_error), do: on_error.(reason)
   def map_ok_or({:error, _}, _, on_error), do: on_error
 
@@ -280,6 +350,9 @@ defmodule OnePiece.Result do
       iex> 21
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.when_ok(42)
+      42
+
+      iex> OnePiece.Result.when_ok(:ok, 42)
       42
 
       iex> "oops"
@@ -294,10 +367,21 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.when_ok(meaning_of_life)
       42
+
+      iex> meaning_of_life = fn _ -> 42 end
+      ...> OnePiece.Result.when_ok(:ok, meaning_of_life)
+      42
+
+      iex> meaning_of_life = fn -> 42 end
+      ...> OnePiece.Result.when_ok(:ok, meaning_of_life)
+      42
   """
   @spec when_ok(result :: t, on_ok :: (any -> any) | any) :: err() | any
   def when_ok({:ok, val}, on_ok) when is_function(on_ok), do: on_ok.(val)
   def when_ok({:ok, _val}, value), do: value
+  def when_ok(:ok, on_ok) when is_function(on_ok, 0), do: on_ok.()
+  def when_ok(:ok, on_ok) when is_function(on_ok, 1), do: on_ok.(nil)
+  def when_ok(:ok, value), do: value
   def when_ok({:error, _} = error, _), do: error
 
   @doc """
@@ -331,6 +415,7 @@ defmodule OnePiece.Result do
   def and_ok({:ok, _}, {:error, _} = second_result), do: second_result
   def and_ok({:error, _} = first_result, {:ok, _}), do: first_result
   def and_ok({:error, _} = first_result, {:error, _}), do: first_result
+  # TODO: add support for :ok to and_ok/2 function
 
   @doc """
   Returns the contained `t:ok/0` value or a provided default.
@@ -355,12 +440,17 @@ defmodule OnePiece.Result do
       42
 
       iex> say_hello_world = fn _x -> "hello, world!" end
+      ...> OnePiece.Result.unwrap_ok(:ok, say_hello_world)
+      nil
+
+      iex> say_hello_world = fn _x -> "hello, world!" end
       ...> "oops"
       ...> |> OnePiece.Result.err()
       ...> |> OnePiece.Result.unwrap_ok(say_hello_world)
       "hello, world!"
   """
   @spec unwrap_ok(result :: t, on_error :: any | (any -> any)) :: any
+  def unwrap_ok(:ok, _), do: nil
   def unwrap_ok({:ok, v}, _), do: v
   def unwrap_ok({:error, reason}, on_error) when is_function(on_error), do: on_error.(reason)
   def unwrap_ok({:error, _reason}, on_error), do: on_error
@@ -378,6 +468,13 @@ defmodule OnePiece.Result do
       42
 
       iex> try do
+      ...>   OnePiece.Result.unwrap_ok!(:ok)
+      ...> rescue
+      ...>   OnePiece.Result.OkUnwrapError -> "was a unwrap failure"
+      ...> end
+      nil
+
+      iex> try do
       ...>   "oops"
       ...>   |> OnePiece.Result.err()
       ...>   |> OnePiece.Result.unwrap_ok!()
@@ -387,6 +484,7 @@ defmodule OnePiece.Result do
       "was a unwrap failure"
   """
   @spec unwrap_ok!(result :: t) :: any | no_return
+  def unwrap_ok!(:ok), do: nil
   def unwrap_ok!({:ok, val}), do: val
   def unwrap_ok!({:error, reason}), do: raise(OkUnwrapError, reason: reason)
 
@@ -410,8 +508,16 @@ defmodule OnePiece.Result do
       ...>   _ -> "was a unwrap failure"
       ...> end
       42
+
+      iex> try do
+      ...>   OnePiece.Result.expect_ok!(:ok, "expected nil")
+      ...> rescue
+      ...>   _ -> "was a unwrap failure"
+      ...> end
+      nil
   """
   @spec expect_ok!(result :: t, message :: String.t()) :: any | no_return
+  def expect_ok!(:ok, _message), do: nil
   def expect_ok!({:ok, val}, _message), do: val
   def expect_ok!({:error, reason}, message), do: raise(ExpectedError, message: message, value: reason)
 
@@ -423,9 +529,25 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.ok()
       ...> |> OnePiece.Result.tap_ok(success_log)
       {:ok, 42}
+
+
+      iex> success_log = fn _ -> "Success" end
+      ...> OnePiece.Result.tap_ok(:ok, success_log)
+      {:ok, nil}
+
+      iex> success_log = fn -> "Success" end
+      ...> OnePiece.Result.tap_ok(:ok, success_log)
+      :ok
   """
   @spec tap_ok(result :: t, func :: (any -> any)) :: t
-  def tap_ok(result, func), do: map_ok(result, &tap(&1, func))
+  def tap_ok(result, func) when is_function(func, 0) do
+    map_ok(result, fn ->
+      func.()
+      result
+    end)
+  end
+
+  def tap_ok(result, func) when is_function(func, 1), do: map_ok(result, &tap(&1, func))
 
   @doc ~S"""
   When the value contained in an `t:err/0` result then applies a function or returns the mapped value, wrapping the
@@ -444,6 +566,9 @@ defmodule OnePiece.Result do
         ...> |> OnePiece.Result.map_err("must be 42")
         {:ok, 42}
 
+        iex> OnePiece.Result.map_err(:ok, "must be ok")
+        :ok
+
   You can also pass a function to achieve lazy evaluation:
 
       iex> meaning_of_life = fn x -> "must be 42 instead of #{x}" end
@@ -453,6 +578,7 @@ defmodule OnePiece.Result do
       {:error, "must be 42 instead of 21"}
   """
   @spec map_err(result :: t, on_error :: (any -> any) | any) :: t
+  def map_err(:ok, _), do: :ok
   def map_err({:ok, _} = result, _), do: result
   def map_err({:error, reason}, on_error) when is_function(on_error), do: err(on_error.(reason))
   def map_err({:error, _}, reason), do: err(reason)
@@ -470,6 +596,9 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.when_err("ooops")
       {:ok, 2}
 
+      iex> OnePiece.Result.when_err(:ok, "ooops")
+      :ok
+
   You can also pass a function to achieve lazy evaluation:
 
       iex> failure = fn _error -> "lazy ooops" end
@@ -479,6 +608,7 @@ defmodule OnePiece.Result do
       "lazy ooops"
   """
   @spec when_err(result :: t, on_err :: (any -> t) | any) :: ok() | any
+  def when_err(:ok, _), do: :ok
   def when_err({:ok, _} = resp, _), do: resp
   def when_err({:error, reason}, on_err) when is_function(on_err), do: on_err.(reason)
   def when_err({:error, _}, value), do: value
