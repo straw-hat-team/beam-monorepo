@@ -1,4 +1,4 @@
 defmodule OnePiece.Commanded.IdTest do
-  use ExUnit.Case, asyc: true
+  use ExUnit.Case, async: true
   doctest OnePiece.Commanded.Id
 end
