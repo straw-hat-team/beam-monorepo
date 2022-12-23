@@ -67,6 +67,8 @@ defmodule OnePiece.Commanded.Command do
       def put_aggregate_id(command, value) do
         Map.put(command, @aggregate_identifier_key, value)
       end
+
+      defoverridable new: 1
     end
   end
 end
