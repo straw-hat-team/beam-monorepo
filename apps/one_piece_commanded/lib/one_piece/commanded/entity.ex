@@ -35,20 +35,19 @@ defmodule OnePiece.Commanded.Entity do
     quote do
       use OnePiece.Commanded.ValueObject
 
-      @identifier_key unquote(identifier)
-      @primary_key {@identifier_key, :string, autogenerate: false}
-
       @typedoc """
       The key used to identify the entity.
       """
       @type identifier_key :: unquote(identifier)
+
+      @primary_key {unquote(identifier), :string, autogenerate: false}
 
       @doc """
       Returns the identity field of the entity.
       """
       @spec identifier :: identifier_key()
       def identifier do
-        @identifier_key
+        unquote(identifier)
       end
     end
   end

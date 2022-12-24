@@ -3,8 +3,6 @@ defmodule OnePiece.Commanded.Event do
   Defines "Event" modules.
   """
 
-  alias OnePiece.Commanded.Helpers
-
   @type t :: struct()
 
   @doc """
@@ -31,31 +29,21 @@ defmodule OnePiece.Commanded.Event do
     aggregate_identifier = Keyword.fetch!(opts, :aggregate_identifier)
 
     quote do
-      use Ecto.Schema
+      use OnePiece.Commanded.ValueObject
 
       @typedoc """
       The key used to identify the aggregate.
       """
       @type aggregate_identifier_key :: unquote(aggregate_identifier)
 
-      @aggregate_identifier_key unquote(aggregate_identifier)
-      @primary_key {@aggregate_identifier_key, :string, autogenerate: false}
-      @derive Jason.Encoder
-
-      @doc """
-      Creates a new `t:t/0` command.
-      """
-      @spec new(attrs :: map()) :: struct()
-      def new(attrs) do
-        Helpers.struct_from(attrs, __MODULE__)
-      end
+      @primary_key {unquote(aggregate_identifier), :string, autogenerate: false}
 
       @doc """
       Returns the aggregate identifier key.
       """
       @spec aggregate_identifier :: aggregate_identifier_key()
       def aggregate_identifier do
-        @aggregate_identifier_key
+        unquote(aggregate_identifier)
       end
     end
   end

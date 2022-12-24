@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.15.1 - 2022-12-24
+
+- Fix `OnePiece.Commanded.Event` and ``OnePiece.Commanded.Entity` to extend from `OnePiece.Commanded.ValueObject`.
+
 ## v0.15.0 - 2022-12-23
 
 - Added overridable to `OnePiece.Commanded.ValueObject.new/1`
