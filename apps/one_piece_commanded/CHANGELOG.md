@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.14.1 - 2022-12-23
+
+- Added overridable to `OnePiece.Commanded.Command.new/1`
+
 ## v0.14.0 - 2022-09-4
 
 - Added `OnePiece.Commanded.increase_failure_counter/1`
