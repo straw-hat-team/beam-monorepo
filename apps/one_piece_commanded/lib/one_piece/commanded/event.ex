@@ -1,9 +1,6 @@
 defmodule OnePiece.Commanded.Event do
   @moduledoc """
-  Defines a module as a "Event" in terms of Event Sourcing context. For more information about Event Sourcing, please
-  read the following:
-
-  - [Event Sourcing pattern](https://docs.microsoft.com/en-us/azure/architecture/patterns/event-sourcing)
+  Defines "Event" modules.
   """
 
   alias OnePiece.Commanded.Helpers
@@ -11,7 +8,9 @@ defmodule OnePiece.Commanded.Event do
   @type t :: struct()
 
   @doc """
-  Converts the module into an `Ecto.Schema`, and derive from `Jason.Encoder`.
+  Converts the module into an `Ecto.Schema`.
+
+  It derives from `Jason.Encoder`.
 
   ## Usage
 

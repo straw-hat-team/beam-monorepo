@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-## v0.14.1 - 2022-12-23
+## v0.15.0 - 2022-12-23
 
-- Added overridable to `OnePiece.Commanded.Command.new/1`
+- Added overridable to `OnePiece.Commanded.ValueObject.new/1`
+- Added overridable to `OnePiece.Commanded.ValueObject.new!/1`
+- Added overridable to `OnePiece.Commanded.ValueObject.changeset/2`
 
 ## v0.14.0 - 2022-09-4
 
@@ -25,7 +27,7 @@
 
 ## v0.11.1 - 2022-07-21
 
-- Fix register type with a struct with enforce keys in  `OnePiece.Commanded.TypeProvider` module. 
+- Fix register type with a struct with enforce keys in  `OnePiece.Commanded.TypeProvider` module.
 
 ## v0.11.0 - 2022-07-1
 
@@ -55,7 +57,7 @@
 ## v0.6.0 - 2022-02-14
 
 - Added `prefix` option to using `OnePiece.Commanded.TypeProvider`
-    
+
   ```elixir
   defmodule MyTypeProvider do
     use OnePiece.Commanded.TypeProvider, prefix: "accounts."

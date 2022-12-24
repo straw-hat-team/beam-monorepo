@@ -1,6 +1,6 @@
 defmodule OnePiece.Commanded.Entity do
   @moduledoc """
-  Defines a module as an "Entity" in the context of Domain-Driven Design.
+  Defines "Entity" modules.
   """
 
   @typedoc """
@@ -9,7 +9,10 @@ defmodule OnePiece.Commanded.Entity do
   @type identity :: String.t()
 
   @doc """
-  Converts the module into an `Ecto.Schema`, and derive from `Jason.Encoder`.
+  Converts the module into an `Ecto.Schema`.
+
+  It derives from `Jason.Encoder` and also adds some factory functions to create
+  structs.
 
   ## Usage
 
@@ -30,11 +33,10 @@ defmodule OnePiece.Commanded.Entity do
     identifier = Keyword.fetch!(opts, :identifier)
 
     quote do
-      use Ecto.Schema
+      use OnePiece.Commanded.ValueObject
 
       @identifier_key unquote(identifier)
       @primary_key {@identifier_key, :string, autogenerate: false}
-      @derive Jason.Encoder
 
       @typedoc """
       The key used to identify the entity.
