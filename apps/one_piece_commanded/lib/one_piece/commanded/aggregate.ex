@@ -1,6 +1,6 @@
 defmodule OnePiece.Commanded.Aggregate do
   @moduledoc """
-  Defines the an `OnePiece.Commanded.Aggregate` behaviour.
+  Defines "Aggregate" modules.
   """
 
   @type t :: struct()
@@ -37,9 +37,20 @@ defmodule OnePiece.Commanded.Aggregate do
       end
   """
   @spec __using__(opts :: []) :: any()
-  defmacro __using__(_opts \\ []) do
+  defmacro __using__(opts \\ []) do
     quote do
+      use OnePiece.Commanded.Entity, unquote(opts)
       @behaviour OnePiece.Commanded.Aggregate
+      @before_compile OnePiece.Commanded.Aggregate
+    end
+  end
+
+  defmacro __before_compile__(env) do
+    quote do
+      @impl OnePiece.Commanded.Aggregate
+      def apply(%unquote(env.module){} = aggregate, _event) do
+        aggregate
+      end
     end
   end
 end

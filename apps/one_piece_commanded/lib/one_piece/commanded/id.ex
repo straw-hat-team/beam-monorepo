@@ -11,6 +11,9 @@ defmodule OnePiece.Commanded.Id do
   @doc """
   Generates a UUID using the version 4 scheme, as described in
   [RFC 4122](https://datatracker.ietf.org/doc/html/rfc4122).
+
+      iex> OnePiece.Commanded.Id.new() |> String.length()
+      36
   """
   @spec new :: String.t()
   def new do
