@@ -117,9 +117,11 @@ defmodule OnePiece.Commanded.ValueObject do
       |> Changeset.cast(attrs, allowed)
       |> Changeset.validate_required(struct_module.__enforced_keys__() -- embeds)
 
-    Enum.reduce(embeds, changeset, fn field, changeset ->
-      Changeset.cast_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
-    end)
+    Enum.reduce(
+      embeds,
+      changeset,
+      &Changeset.cast_embed(&2, &1, required: struct_module.__enforced_keys__?(&1))
+    )
   end
 
   defp apply_changeset(struct_module, attrs) do
