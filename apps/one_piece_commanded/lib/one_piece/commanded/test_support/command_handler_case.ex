@@ -16,7 +16,7 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
         describe "my aggregate" do
           test "should do something" do
             assert_events(
-              [%InitialEvent{}]
+              [%InitialEvent{}],
               %DoSomething{},
               [%SomethingHappened{}]
             )
@@ -24,7 +24,7 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
 
           test "the state" do
             assert_state(
-              [%InitialEvent{}]
+              [%InitialEvent{}],
               %DoSomething{},
               %MyAggregate{}
             )
@@ -32,7 +32,7 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
 
           test "the error" do
             assert_error(
-              [%InitialEvent{}]
+              [%InitialEvent{}],
               %DoSomething{},
               :already_exists
             )
