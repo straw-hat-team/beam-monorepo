@@ -110,18 +110,35 @@ defmodule OnePiece.Commanded.ValueObject do
 
   def __changeset__(%struct_module{} = message, attrs) do
     embeds = struct_module.__schema__(:embeds)
-    allowed = struct_module.__schema__(:fields) -- embeds
+    fields = struct_module.__schema__(:fields)
 
     changeset =
       message
-      |> Changeset.cast(attrs, allowed)
+      |> Changeset.cast(attrs, fields -- embeds)
       |> Changeset.validate_required(struct_module.__enforced_keys__() -- embeds)
 
     Enum.reduce(
       embeds,
       changeset,
-      &Changeset.cast_embed(&2, &1, required: struct_module.__enforced_keys__?(&1))
+      &cast_embed(&1, &2, struct_module, attrs)
     )
+  end
+
+  defp cast_embed(field, changeset, struct_module, attrs) do
+    case is_struct(attrs[field]) do
+      false ->
+        Changeset.cast_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
+
+      true ->
+        # credo:disable-for-next-line Credo.Check.Design.TagTODO
+        # TODO: Validate that the struct is of the correct type.
+        #   It may be the case that you passed a completely different struct as the value. We could `cast_embed`
+        #   always and fix the `Changeset.cast(attrs, fields -- embeds)` by converting the `attrs` into a map. But it
+        #   would be a bit more expensive since it will run the casting for a field that was already casted.
+        #   Checking the struct types MAY be enough but taking into consideration `embeds_many` could complicated
+        #   things. For now, we'll just assume that the user knows what they're doing.
+        Changeset.put_change(changeset, field, attrs[field])
+    end
   end
 
   defp apply_changeset(struct_module, attrs) do
