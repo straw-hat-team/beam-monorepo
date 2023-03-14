@@ -21,6 +21,11 @@ defmodule OnePiece.Commanded.ValueObjectTest do
                TestSupport.MessageThree.new(%{target: %{title: "Hello, World!"}})
     end
 
+    test "do not cast structs" do
+      assert {:ok, %TestSupport.MessageThree{target: %TestSupport.MessageOne{title: "Hello, World!"}}} =
+               TestSupport.MessageThree.new(%{target: TestSupport.MessageOne.new!(%{title: "Hello, World!"})})
+    end
+
     test "validates casting embed fields with a wrong value" do
       {:error, changeset} = TestSupport.MessageThree.new(%{target: "a wrong value"})
       assert %{target: ["is invalid"]} = TestSupport.errors_on(changeset)
