@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.15.2 - 2023-03-14
+
+- Fix casting already cast structs in `OnePiece.Commanded.ValueObject`.
+
 ## v0.15.1 - 2022-12-24
 
 - Fix `OnePiece.Commanded.Event` and ``OnePiece.Commanded.Entity` to extend from `OnePiece.Commanded.ValueObject`.
