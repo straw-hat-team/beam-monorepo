@@ -53,7 +53,7 @@ defmodule OnePiece.Commanded.ValueObject do
       end
 
       @doc """
-      Returns an `t:Ecto.Changeset.t/0` for a given `t:t/0` command.
+      Returns an `t:Ecto.Changeset.t/0` for a given `t:t/0` value object.
       """
       @spec changeset(message :: %__MODULE__{}, attrs :: map()) :: Ecto.Changeset.t()
       def changeset(message, attrs) do
