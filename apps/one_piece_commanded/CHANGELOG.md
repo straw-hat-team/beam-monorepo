@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.16.0 - 2023-04-11
+
+- Added `OnePiece.Commanded.EventStore.JsonbSerializer` module.
+ 
 ## v0.15.2 - 2023-03-14
 
 - Fix casting already cast structs in `OnePiece.Commanded.ValueObject`.
