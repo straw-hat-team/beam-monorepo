@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.4.0 - 2023-04-26
+
+- Added `OnePiece.Result.unwrap/1`.
+
 ## v0.3.1 - 2022-09-25
 
 - Fix typespec of `OnePiece.Result.when_err/2`.
