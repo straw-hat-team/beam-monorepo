@@ -667,4 +667,21 @@ defmodule OnePiece.Result do
     err in OkUnwrapError ->
       err(err.reason)
   end
+
+  @doc """
+  Returns the contained `t:ok/0` value or `t:error/0` value from a `t:t/0`.
+
+      iex> 42
+      ...> |> OnePiece.Result.ok()
+      ...> |> OnePiece.Result.unwrap()
+      42
+
+      iex> "oops"
+      ...> |> OnePiece.Result.err()
+      ...> |> OnePiece.Result.unwrap()
+      "oops"
+  """
+  @spec unwrap(result :: t) :: any
+  def unwrap({:ok, v}), do: v
+  def unwrap({:error, v}), do: v
 end
