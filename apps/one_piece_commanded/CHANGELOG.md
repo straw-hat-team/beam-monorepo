@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.17.0 - 2023-04-28
+
+- Added `OnePiece.Commanded.Aggregate.StatelessLifespan` module.
+
 ## v0.16.0 - 2023-04-11
 
 - Added `OnePiece.Commanded.EventStore.JsonbSerializer` module.
