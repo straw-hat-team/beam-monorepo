@@ -7,3 +7,4 @@
 - [OnePiece.GracefulShutdown](./apps/one_piece_graceful_shutdown/README.md) Catches `SIGTERM` signal to gracefully stop
   the system.
 - [OnePiece.Result](./apps/one_piece_result/README.md) Handles ok-error tuple responses.
+- [OnePiece.TestSupport](./apps/one_piece_test_support/README.md) A Swiss Army Knife for the Testing.
