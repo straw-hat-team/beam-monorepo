@@ -191,4 +191,30 @@ defmodule OnePiece.Commanded.Helpers do
   def increase_failure_counter(%FailureContext{} = failure_context) do
     Map.update(failure_context.context, :failures_count, 1, &(&1 + 1))
   end
+
+  @doc """
+  Ignores a specific error from a command dispatch result.
+
+  This function takes a dispatch result and an error term. If the result represents an error that matches the provided
+  error term, the function returns `:ok`. Otherwise, it returns the original result.
+
+  This is useful when an error condition should be treated as a successful operation under specific circumstances.
+
+  ## Examples
+
+      iex> OnePiece.Commanded.Helpers.ignore_error({:error, :idempotency_failure}, :idempotency_failure)
+      :ok
+
+      iex> OnePiece.Commanded.Helpers.ignore_error({:error, :something_went_wrong}, :idempotency_failure)
+      {:error, :something_went_wrong}
+
+      iex> OnePiece.Commanded.Helpers.ignore_error(:ok, :idempotency_failure)
+      :ok
+
+      iex> OnePiece.Commanded.Helpers.ignore_error({:ok, %{name: "Billy"}}, :idempotency_failure)
+      {:ok, %{name: "Billy"}}
+  """
+  @spec ignore_error(result :: commanded_dispatch_response, error: any) :: commanded_dispatch_response
+  def ignore_error({:error, expected_error}, expected_error), do: :ok
+  def ignore_error(result, _expected_error), do: result
 end

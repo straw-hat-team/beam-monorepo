@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.18.0 - 2023-05-15
+
+- Added `OnePiece.Commanded.ignore_error/2`.
+
 ## v0.17.0 - 2023-04-28
 
 - Added `OnePiece.Commanded.Aggregate.StatelessLifespan` module.

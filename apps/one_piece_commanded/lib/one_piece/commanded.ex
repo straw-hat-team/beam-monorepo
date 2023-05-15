@@ -10,4 +10,5 @@ defmodule OnePiece.Commanded do
   defdelegate tracing_from_metadata(opts, metadata), to: OnePiece.Commanded.Helpers
   defdelegate skip_or_retry(tuple_response, delay, context), to: OnePiece.Commanded.Helpers
   defdelegate increase_failure_counter(failure_context), to: OnePiece.Commanded.Helpers
+  defdelegate ignore_error(result, error), to: OnePiece.Commanded.Helpers
 end
