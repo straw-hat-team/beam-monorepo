@@ -42,7 +42,7 @@ defmodule OnePiece.Commanded.TypeProvider do
   end
 
   @doc """
-  Imports all the types from another module defined by `OnePiece.Commanded.TypeProvider.TypeProvider`.
+  Imports all the types from another module defined by `OnePiece.Commanded.TypeProvider`.
 
   ## Example
 

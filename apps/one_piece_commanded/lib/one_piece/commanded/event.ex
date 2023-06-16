@@ -3,12 +3,25 @@ defmodule OnePiece.Commanded.Event do
   Defines "Event" modules.
   """
 
+  @typedoc """
+  A struct that represents an event.
+  """
   @type t :: struct()
 
-  @doc """
-  Converts the module into an `Ecto.Schema`.
+  @typedoc """
+  The aggregate identifier key of the event.
 
-  It derives from `Jason.Encoder`.
+  If it's a tuple, the type must be a module that implements the `OnePiece.Commanded.ValueObject` module or [`Ecto` built-in types](https://hexdocs.pm/ecto/Ecto.Schema.html#module-types-and-casting)
+  """
+  @type aggregate_identifier_opt ::
+          atom() | {key_name :: atom(), type :: atom()} | {key_name :: atom(), type :: module()}
+
+  @doc """
+  Converts the module into an `t:t/0`.
+
+  ## Using
+
+  - `OnePiece.Commanded.ValueObject`
 
   ## Usage
 
@@ -19,14 +32,37 @@ defmodule OnePiece.Commanded.Event do
           # ...
         end
       end
+
+  You can also define a custom type as the aggregate identifier:
+
+      defmodule IdentityRoleId do
+        use OnePiece.Commanded.ValueObject
+
+        embedded_schema do
+          field :identity_id, :string
+          field :role_id, :string
+        end
+      end
+
+      defmodule IdentityRoleAssigned do
+        use OnePiece.Commanded.Event,
+          aggregate_identifier: {:id, IdentityRoleId}
+
+        embedded_schema do
+          # ...
+        end
+      end
   """
-  @spec __using__(opts :: [aggregate_identifier: atom()]) :: any()
+  @spec __using__(opts :: [aggregate_identifier: aggregate_identifier_opt()]) :: any()
   defmacro __using__(opts \\ []) do
     unless Keyword.has_key?(opts, :aggregate_identifier) do
       raise ArgumentError, "missing :aggregate_identifier key"
     end
 
-    aggregate_identifier = Keyword.fetch!(opts, :aggregate_identifier)
+    {aggregate_identifier, aggregate_identifier_type} =
+      opts
+      |> Keyword.fetch!(:aggregate_identifier)
+      |> OnePiece.Commanded.Helpers.get_primary_key()
 
     quote do
       use OnePiece.Commanded.ValueObject
@@ -36,7 +72,7 @@ defmodule OnePiece.Commanded.Event do
       """
       @type aggregate_identifier_key :: unquote(aggregate_identifier)
 
-      @primary_key {unquote(aggregate_identifier), :string, autogenerate: false}
+      @primary_key {unquote(aggregate_identifier), unquote(aggregate_identifier_type), autogenerate: false}
 
       @doc """
       Returns the aggregate identifier key.

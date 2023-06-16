@@ -2,6 +2,62 @@
 
 ## Unreleased
 
+## v0.19.0 - 2023-06-15
+
+`OnePiece.Commanded.ValueObject` implements `Ecto.Type`, it means that `cast/2`, `dump/2`, and `load/2` are
+added to every module that uses `OnePiece.Commanded.ValueObject`. This will allow you to use 
+`OnePiece.Commanded.ValueObject` as a field in your `Ecto.Schema` and as custom type in your
+`OnePiece.Commanded.Aggregate`, `OnePiece.Commanded.Command`, and `OnePiece.Commanded.Event`.
+
+Added support for custom types for `OnePiece.Commanded.Aggregate`, `OnePiece.Commanded.Command`, and 
+`OnePiece.Commanded.Event`. This will allow you to have Custom aggregate identity. Read more about at 
+https://hexdocs.pm/commanded/commands.html#define-aggregate-identity under "Custom aggregate identity".
+
+```elixir
+defmodule AccountNumber do
+  use OnePiece.Commanded.ValueObject
+  
+  embedded_schema do
+    field :account_number, :string
+    field :branch, :string
+  end
+  
+  # You must implement `String.Chars` protocol in order to work when dispatching the Command. 
+  defimpl String.Chars do
+    def to_string(%AccountNumber{branch: branch, account_number: account_number}) do
+      branch <> ":" <> account_number
+    end
+  end
+end
+
+defmodule DepositAccount do
+  use OnePiece.Commanded.Aggregate,
+    identifier: {:account_number, AccountNumber}
+
+  embedded_schema do
+    # ...
+  end
+end
+
+defmodule DepositAccountOpened do
+  use OnePiece.Commanded.Event,
+    aggregate_identifier: {:account_number, AccountNumber} 
+
+  embedded_schema do
+    # ...
+  end
+end
+
+defmodule OpenDepositAccount do
+  use OnePiece.Commanded.Command,
+    aggregate_identifier: {:account_number, AccountNumber} 
+
+  embedded_schema do
+    # ...
+  end
+end
+```
+
 ## v0.18.0 - 2023-05-15
 
 - Added `OnePiece.Commanded.ignore_error/2`.
@@ -20,7 +76,7 @@
 
 ## v0.15.1 - 2022-12-24
 
-- Fix `OnePiece.Commanded.Event` and ``OnePiece.Commanded.Entity` to extend from `OnePiece.Commanded.ValueObject`.
+- Fix `OnePiece.Commanded.Event` and `OnePiece.Commanded.Entity` to extend from `OnePiece.Commanded.ValueObject`.
 
 ## v0.15.0 - 2022-12-23
 

@@ -217,4 +217,13 @@ defmodule OnePiece.Commanded.Helpers do
   @spec ignore_error(result :: commanded_dispatch_response, error: any) :: commanded_dispatch_response
   def ignore_error({:error, expected_error}, expected_error), do: :ok
   def ignore_error(result, _expected_error), do: result
+
+  @doc false
+  def get_primary_key({identifier, identifier_type}) do
+    {identifier, identifier_type}
+  end
+
+  def get_primary_key(identifier) when is_atom(identifier) do
+    {identifier, :string}
+  end
 end
