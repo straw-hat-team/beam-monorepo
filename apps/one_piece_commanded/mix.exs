@@ -2,7 +2,7 @@ defmodule OnePiece.Commanded.MixProject do
   use Mix.Project
 
   @app :one_piece_commanded
-  @version "0.18.0"
+  @version "0.19.0"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
@@ -105,6 +105,20 @@ defmodule OnePiece.Commanded.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md"
+      ],
+      groups_for_modules: [
+        Struct: [
+          OnePiece.Commanded.ValueObject,
+          OnePiece.Commanded.Entity,
+          OnePiece.Commanded.Aggregate,
+          OnePiece.Commanded.Command,
+          OnePiece.Commanded.Event
+        ],
+        "Test Support": [~r/TestSupport/]
+      ],
+      nest_modules_by_prefix: [
+        OnePiece.Commanded,
+        OnePiece.Commanded.TestSupport
       ],
       groups_for_extras: [
         "How-to": ~r/docs\/how-to\/.?/,

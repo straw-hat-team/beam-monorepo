@@ -3,6 +3,9 @@ defmodule OnePiece.Commanded.Aggregate do
   Defines "Aggregate" modules.
   """
 
+  @typedoc """
+  A struct that represents an aggregate.
+  """
   @type t :: struct()
 
   @type event :: struct()
@@ -12,8 +15,8 @@ defmodule OnePiece.Commanded.Aggregate do
 
   ## Example
 
-      def apply(account, event) do
-        account
+      def apply(%MyAggregate{} = aggregate, %MyEvent{} = event) do
+        aggregate
         |> Map.put(:name, event.name)
         |> Map.put(:description, event.description)
       end
@@ -21,16 +24,26 @@ defmodule OnePiece.Commanded.Aggregate do
   @callback apply(aggregate :: t(), event :: event()) :: t()
 
   @doc """
-  Convert the module into a `Aggregate` behaviour.
+  Convert the module into a `Aggregate` behaviour and a `t:t/0`.
+
+  It adds an `apply/2` callback to the module as a fallback, return the aggregate as it is.
+
+  ## Using
+
+  - `OnePiece.Commanded.Entity`
 
   ## Usage
 
       defmodule Account do
-        use OnePiece.Commanded.Aggregate
+        use OnePiece.Commanded.Aggregate, identifier: :name
+
+        embedded_schema do
+          field :description, :string
+        end
 
         @impl OnePiece.Commanded.Aggregate
-        def apply(account, event) do
-          account
+        def apply(%Account{} = aggregate, %AccountOpened{} = event) do
+          aggregate
           |> Map.put(:name, event.name)
           |> Map.put(:description, event.description)
         end

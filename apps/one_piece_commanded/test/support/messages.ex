@@ -1,6 +1,16 @@
 defmodule TestSupport do
   @moduledoc false
 
+  defmodule AccountNumber do
+    @moduledoc false
+    use OnePiece.Commanded.ValueObject
+
+    embedded_schema do
+      field :branch, :string
+      field :account_number, :string
+    end
+  end
+
   defmodule MessageOne do
     @moduledoc false
 
@@ -44,12 +54,34 @@ defmodule TestSupport do
     end
   end
 
+  defmodule BankAccountEntity do
+    @moduledoc false
+
+    use OnePiece.Commanded.Entity, identifier: {:uuid, AccountNumber}
+
+    @enforce_keys [:type]
+    embedded_schema do
+      field :type, Ecto.Enum, values: [:DEPOSITORY]
+    end
+  end
+
   defmodule MyCommandOne do
     @moduledoc false
 
     use OnePiece.Commanded.Command, aggregate_identifier: :uuid
 
     embedded_schema do
+    end
+  end
+
+  defmodule OpenDepositAccountCommand do
+    @moduledoc false
+
+    use OnePiece.Commanded.Command, aggregate_identifier: {:uuid, AccountNumber}
+
+    @enforce_keys [:type]
+    embedded_schema do
+      field :type, Ecto.Enum, values: [:DEPOSITORY]
     end
   end
 
@@ -60,6 +92,16 @@ defmodule TestSupport do
 
     embedded_schema do
       field :name, :string
+    end
+  end
+
+  defmodule DepositAccountOpened do
+    @moduledoc false
+
+    use OnePiece.Commanded.Event, aggregate_identifier: {:uuid, AccountNumber}
+
+    embedded_schema do
+      field :type, Ecto.Enum, values: [:DEPOSITORY]
     end
   end
 

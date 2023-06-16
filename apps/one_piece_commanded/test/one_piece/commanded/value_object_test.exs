@@ -39,4 +39,51 @@ defmodule OnePiece.Commanded.ValueObjectTest do
       end
     end
   end
+
+  describe "cast/1" do
+    test "casts a struct" do
+      assert {:ok, message} = TestSupport.MessageOne.cast(%TestSupport.MessageOne{title: "Hello, World!"})
+      assert message.title == "Hello, World!"
+    end
+
+    test "casts a map" do
+      assert {:ok, message} = TestSupport.MessageOne.cast(%{title: "Hello, World!"})
+      assert message.title == "Hello, World!"
+    end
+
+    test "casts a map with a wrong value" do
+      assert :error = TestSupport.MessageOne.cast(%{title: 1})
+    end
+
+    test "casts an invalid input" do
+      assert :error = TestSupport.MessageOne.cast(1)
+    end
+  end
+
+  describe "load/1" do
+    test "loads a map" do
+      assert {:ok, message} = TestSupport.MessageOne.load(%{title: "Hello, World!"})
+      assert message.title == "Hello, World!"
+    end
+
+    test "loads a struct" do
+      assert {:ok, message} = TestSupport.MessageOne.load(%{title: "Hello, World!"})
+      assert message.title == "Hello, World!"
+    end
+
+    test "loads an invalid input" do
+      assert :error = TestSupport.MessageOne.load(1)
+    end
+  end
+
+  describe "dump/1" do
+    test "dumps a struct" do
+      assert {:ok, %{title: "Hello, World!"}} =
+               TestSupport.MessageOne.dump(%TestSupport.MessageOne{title: "Hello, World!"})
+    end
+
+    test "dumps an invalid input" do
+      assert :error = TestSupport.MessageOne.dump(1)
+    end
+  end
 end

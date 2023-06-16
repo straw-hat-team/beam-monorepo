@@ -6,10 +6,16 @@ defmodule OnePiece.Commanded.ValueObject do
   alias Ecto.Changeset
 
   @doc """
-  Converts the module into an `Ecto.Schema`.
+  Converts the module into an `Ecto.Schema` and add factory functions to create structs.
 
-  It derives from `Jason.Encoder` and also adds some factory functions to create
-  structs.
+  ## Using
+
+  - `Ecto.Schema`
+  - `Ecto.Type`
+
+  ## Derives
+
+  - `Jason.Encoder`
 
   ## Usage
 
@@ -30,6 +36,7 @@ defmodule OnePiece.Commanded.ValueObject do
       alias OnePiece.Commanded.ValueObject
 
       use Ecto.Schema
+      use Ecto.Type
 
       @derive Jason.Encoder
       @primary_key false
@@ -59,6 +66,25 @@ defmodule OnePiece.Commanded.ValueObject do
       def changeset(message, attrs) do
         ValueObject.__changeset__(message, attrs)
       end
+
+      def type, do: :map
+
+      def cast(value) when is_struct(value, __MODULE__), do: {:ok, value}
+
+      def cast(value) when is_map(value) do
+        with {:error, _} <- new(value), do: :error
+      end
+
+      def cast(_), do: :error
+
+      def load(data) when is_map(data) do
+        with {:error, _} <- new(data), do: :error
+      end
+
+      def load(_), do: :error
+
+      def dump(value) when is_struct(value, __MODULE__), do: {:ok, Map.from_struct(value)}
+      def dump(_), do: :error
 
       defoverridable new: 1, new!: 1, changeset: 2
     end
