@@ -231,7 +231,7 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.map_ok(meaning_of_life)
       {:ok, 42}
   """
-  @spec map_ok(result :: t, on_ok :: (any -> any) | any) :: t
+  @spec map_ok(result :: t, on_ok :: (any -> any) | any) :: any
   def map_ok({:ok, val}, on_ok) when is_function(on_ok), do: ok(on_ok.(val))
   def map_ok({:ok, _val}, value), do: ok(value)
   def map_ok({:error, _} = error, _on_ok), do: error
@@ -424,7 +424,7 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.tap_ok(success_log)
       {:ok, 42}
   """
-  @spec tap_ok(result :: t, func :: (any -> any)) :: t
+  @spec tap_ok(result :: t, func :: (any -> any)) :: any
   def tap_ok(result, func), do: map_ok(result, &tap(&1, func))
 
   @doc ~S"""
@@ -452,7 +452,7 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.map_err(meaning_of_life)
       {:error, "must be 42 instead of 21"}
   """
-  @spec map_err(result :: t, on_error :: (any -> any) | any) :: t
+  @spec map_err(result :: t, on_error :: (any -> any) | any) :: any
   def map_err({:ok, _} = result, _), do: result
   def map_err({:error, reason}, on_error) when is_function(on_error), do: err(on_error.(reason))
   def map_err({:error, _}, reason), do: err(reason)
@@ -574,7 +574,7 @@ defmodule OnePiece.Result do
       ...> |> OnePiece.Result.tap_err(failure_log)
       {:error, "ooopsy"}
   """
-  @spec tap_err(result :: t, func :: (any -> any)) :: t
+  @spec tap_err(result :: t, func :: (any -> any)) :: any
   def tap_err(result, func), do: map_err(result, &tap(&1, func))
 
   @doc ~S"""
@@ -604,7 +604,7 @@ defmodule OnePiece.Result do
       ...> OnePiece.Result.reject_nil(nil, new_error)
       {:error, "ooops"}
   """
-  @spec reject_nil(value :: any, on_nil :: any | (() -> any)) :: t
+  @spec reject_nil(value :: any, on_nil :: any | (() -> any)) :: any
   def reject_nil(nil, on_nil) when is_function(on_nil), do: err(on_nil.())
   def reject_nil(nil, on_nil), do: err(on_nil)
   def reject_nil({:ok, _} = response, _), do: response
