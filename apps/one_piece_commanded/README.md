@@ -1,7 +1,6 @@
 # OnePiece.Commanded
 
-Extend `Commanded` package. A swiss army knife for applications following Domain-Driven Design (DDD), Event Sourcing (
-ES), and Command and Query Responsibility Segregation (CQRS).
+Extend `Commanded` package. A swiss army knife for applications following Domain-Driven Design (DDD), Event Sourcing (ES), and Command and Query Responsibility Segregation (CQRS).
 
 ## Documentation
 
