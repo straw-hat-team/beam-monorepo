@@ -9,7 +9,7 @@ jobs:
     name: Publish to Hex.pm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@master
         with:
           hex-api-key: ${{ secrets.HEX_API_KEY }}
