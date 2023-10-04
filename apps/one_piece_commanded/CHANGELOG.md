@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.19.1 - 2023-10-04
+
+- Fixed `new/1` typespec of `OnePiece.Commanded.ValueObject`.
+
 ## v0.19.0 - 2023-06-15
 
 `OnePiece.Commanded.ValueObject` implements `Ecto.Type`, it means that `cast/2`, `dump/2`, and `load/2` are
