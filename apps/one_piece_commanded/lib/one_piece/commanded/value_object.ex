@@ -46,7 +46,7 @@ defmodule OnePiece.Commanded.ValueObject do
       @doc """
       Creates a `t:t/0`.
       """
-      @spec new(attrs :: map()) :: {:ok, %__MODULE__{}}
+      @spec new(attrs :: map()) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
       def new(attrs) do
         ValueObject.__new__(__MODULE__, attrs)
       end
