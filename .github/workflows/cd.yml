@@ -10,7 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: 1password/load-secrets-action@v1
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          HEX_API_KEY: "${{ secrets.SECRETS_VAULT }}/HEX_API_KEY"
       - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@master
         with:
-          hex-api-key: ${{ secrets.HEX_API_KEY }}
+          hex-api-key: ${{ env.HEX_API_KEY }}
           ref-name: ${{ github.ref_name }}
