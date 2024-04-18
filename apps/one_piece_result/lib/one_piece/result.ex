@@ -45,17 +45,17 @@ defmodule OnePiece.Result do
 
       iex> 42
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.is_ok?()
+      ...> |> OnePiece.Result.ok?()
       true
 
       iex> "oops"
       ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.is_ok?()
+      ...> |> OnePiece.Result.ok?()
       false
   """
-  @spec is_ok?(value :: t) :: boolean
-  def is_ok?({:ok, _}), do: true
-  def is_ok?({:error, _}), do: false
+  @spec ok?(value :: t) :: boolean
+  def ok?({:ok, _}), do: true
+  def ok?({:error, _}), do: false
 
   @doc """
   Returns true if the result is `t:ok/0` and the value inside of it matches a predicate.
@@ -63,35 +63,35 @@ defmodule OnePiece.Result do
       iex> is_meaning_of_life = fn x -> x == 42 end
       ...> 42
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.is_ok_and?(is_meaning_of_life)
+      ...> |> OnePiece.Result.ok_and?(is_meaning_of_life)
       true
 
       iex> is_meaning_of_life = fn x -> x == 42 end
       ...> "oops"
       ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.is_ok_and?(is_meaning_of_life)
+      ...> |> OnePiece.Result.ok_and?(is_meaning_of_life)
       false
   """
-  @spec is_ok_and?(value :: t, predicate :: (any -> boolean)) :: boolean
-  def is_ok_and?({:error, _}, _func), do: false
-  def is_ok_and?({:ok, val}, func), do: func.(val) == true
+  @spec ok_and?(value :: t, predicate :: (any -> boolean)) :: boolean
+  def ok_and?({:error, _}, _func), do: false
+  def ok_and?({:ok, val}, func), do: func.(val) == true
 
   @doc """
   Returns true if the argument is an `t:err/0`.
 
       iex> 42
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.is_err?()
+      ...> |> OnePiece.Result.err?()
       false
 
       iex> "oops"
       ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.is_err?()
+      ...> |> OnePiece.Result.err?()
       true
   """
-  @spec is_err?(value :: t) :: boolean
-  def is_err?({:ok, _}), do: false
-  def is_err?({:error, _}), do: true
+  @spec err?(value :: t) :: boolean
+  def err?({:ok, _}), do: false
+  def err?({:error, _}), do: true
 
   @doc """
   Returns true if the result is `t:err/0` and the value inside of it matches a predicate.
@@ -99,18 +99,18 @@ defmodule OnePiece.Result do
       iex> is_not_found = fn err -> err == :not_found end
       ...> 42
       ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.is_err_and?(is_not_found)
+      ...> |> OnePiece.Result.err_and?(is_not_found)
       false
 
       iex> is_not_found = fn err -> err == :not_found end
       ...> :not_found
       ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.is_err_and?(is_not_found)
+      ...> |> OnePiece.Result.err_and?(is_not_found)
       true
   """
-  @spec is_err_and?(value :: t, predicate :: (any -> boolean)) :: boolean
-  def is_err_and?({:ok, _}, _func), do: false
-  def is_err_and?({:error, val}, func), do: func.(val) == true
+  @spec err_and?(value :: t, predicate :: (any -> boolean)) :: boolean
+  def err_and?({:ok, _}, _func), do: false
+  def err_and?({:error, val}, func), do: func.(val) == true
 
   @doc """
   Is valid if and only if an `t:ok/0` is supplied.
@@ -604,7 +604,7 @@ defmodule OnePiece.Result do
       ...> OnePiece.Result.reject_nil(nil, new_error)
       {:error, "ooops"}
   """
-  @spec reject_nil(value :: any, on_nil :: any | (() -> any)) :: t
+  @spec reject_nil(value :: any, on_nil :: any | (-> any)) :: t
   def reject_nil(nil, on_nil) when is_function(on_nil), do: err(on_nil.())
   def reject_nil(nil, on_nil), do: err(on_nil)
   def reject_nil({:ok, _} = response, _), do: response

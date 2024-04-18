@@ -154,10 +154,10 @@ defmodule OnePiece.Commanded.TypeProvider do
   defp find_mapping_by_name(mod, name) do
     mod
     |> Module.get_attribute(:type_mapping)
-    |> Enum.find(&is_mapping?(&1, name))
+    |> Enum.find(&mapping?(&1, name))
   end
 
-  defp is_mapping?({_, current_name, _struct_mod}, name) do
+  defp mapping?({_, current_name, _struct_mod}, name) do
     current_name == name
   end
 
