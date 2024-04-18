@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v1.0.0 - 2024-04-18
+
+### Breaking changes
+
+Fixed all the Credo warnings about using `is_*` predicates outside of guards.
+
+- `OnePiece.Result.is_ok?/1` becomes `OnePiece.Result.ok?/1`
+- `OnePiece.Result.is_ok_and?/1` becomes `OnePiece.Result.ok_and?/1`
+- `OnePiece.Result.is_err?/1` becomes `OnePiece.Result.err?/1`
+- `OnePiece.Result.is_err_and?/1` becomes `OnePiece.Result.err_and?/1`
+
 ## v0.4.0 - 2023-04-26
 
 - Added `OnePiece.Result.unwrap/1`.
