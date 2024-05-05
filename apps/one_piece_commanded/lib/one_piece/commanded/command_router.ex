@@ -103,7 +103,7 @@ defmodule OnePiece.Commanded.CommandRouter do
         use OnePiece.Commanded.CommandHandler
         use OnePiece.Commanded.Command,
           aggregate_identifier: :uuid,
-          stream_prefix: "bank-account-"
+          identity_prefix: "bank-account-"
 
         alias BankAccount.{
           BankAccountOpened,
@@ -149,7 +149,7 @@ defmodule OnePiece.Commanded.CommandRouter do
       |> Keyword.put(:aggregate, aggregate_module)
       |> Keyword.put(:to, command_module)
       |> Keyword.put(:identity, Kernel.apply(command_module, :aggregate_identifier, []))
-      |> Keyword.put(:identity_prefix, Kernel.apply(command_module, :stream_prefix, []))
+      |> Keyword.put(:identity_prefix, Kernel.apply(command_module, :identity_prefix, []))
       |> Keyword.put_new(:lifespan, OnePiece.Commanded.Aggregate.StatelessLifespan)
 
     quote do
@@ -164,7 +164,7 @@ defmodule OnePiece.Commanded.CommandRouter do
       defmodule BankAccount do
         use OnePiece.Commanded.Aggregate
           identifier: :uuid,
-          stream_prefix: "bank-account-"
+          identity_prefix: "bank-account-"
 
         embedded_schema do
           # ...
@@ -183,7 +183,7 @@ defmodule OnePiece.Commanded.CommandRouter do
 
     opts = [
       by: Kernel.apply(aggregate_module, :identifier, []),
-      prefix: Kernel.apply(aggregate_module, :stream_prefix, [])
+      prefix: Kernel.apply(aggregate_module, :identity_prefix, [])
     ]
 
     quote do

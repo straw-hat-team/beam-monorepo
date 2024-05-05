@@ -31,7 +31,7 @@ defmodule OnePiece.Commanded.Aggregate do
   ### Options
 
   - `:identifier` - The aggregate identifier key.
-  - `:stream_prefix` (optional) - The prefix to be used for the identity.
+  - `:identity_prefix` (optional) - The prefix to be used for the identity.
 
   ## Using
 
@@ -57,11 +57,11 @@ defmodule OnePiece.Commanded.Aggregate do
   @spec __using__(
           opts ::
             OnePiece.Commanded.Entity.using_opts()
-            | [stream_prefix: String.t() | nil]
+            | [identity_prefix: String.t() | nil]
         ) :: any()
   defmacro __using__(opts \\ []) do
-    {opts, entity_opts} = Keyword.split(opts, [:stream_prefix])
-    stream_prefix = Keyword.get(opts, :stream_prefix)
+    {opts, entity_opts} = Keyword.split(opts, [:identity_prefix])
+    identity_prefix = Keyword.get(opts, :identity_prefix)
 
     quote do
       use OnePiece.Commanded.Entity, unquote(entity_opts)
@@ -69,11 +69,11 @@ defmodule OnePiece.Commanded.Aggregate do
       @before_compile OnePiece.Commanded.Aggregate
 
       @doc """
-      Returns `#{inspect(unquote(stream_prefix))}` as the identity prefix.
+      Returns `#{inspect(unquote(identity_prefix))}` as the identity prefix.
       """
-      @spec stream_prefix :: String.t() | nil
-      def stream_prefix do
-        unquote(stream_prefix)
+      @spec identity_prefix :: String.t() | nil
+      def identity_prefix do
+        unquote(identity_prefix)
       end
     end
   end

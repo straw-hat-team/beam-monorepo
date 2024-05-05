@@ -19,7 +19,7 @@ defmodule TestSupport.CommandRouterExample.OpenBankAccount do
 
   use OnePiece.Commanded.Command,
     aggregate_identifier: :uuid,
-    stream_prefix: "bank-account-"
+    identity_prefix: "bank-account-"
 
   alias TestSupport.CommandRouterExample.{
     BankAccountOpened,
