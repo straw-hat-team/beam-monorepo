@@ -2,7 +2,7 @@ defmodule TestSupport.CommandRouterExample.BankAccount do
   @moduledoc false
   use OnePiece.Commanded.Aggregate,
     identifier: :uuid,
-    stream_prefix: "bank-account2-"
+    identity_prefix: "bank-account2-"
 
   alias TestSupport.CommandRouterExample.{BankAccountOpened, BankAccountClosed}
 
