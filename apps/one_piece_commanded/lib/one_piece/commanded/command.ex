@@ -19,6 +19,11 @@ defmodule OnePiece.Commanded.Command do
   @doc """
   Converts the module into an `t:t/0`.
 
+  ### Options
+
+  - `:aggregate_identifier` - The aggregate identifier key.
+  - `:stream_prefix` (optional) - The prefix to be used for the identity.
+
   ## Using
 
   - `OnePiece.Commanded.ValueObject`
@@ -53,11 +58,13 @@ defmodule OnePiece.Commanded.Command do
         end
       end
   """
-  @spec __using__(opts :: [aggregate_identifier: aggregate_identifier_opt()]) :: any()
+  @spec __using__(opts :: [aggregate_identifier: aggregate_identifier_opt(), stream_prefix: String.t() | nil]) :: any()
   defmacro __using__(opts \\ []) do
     unless Keyword.has_key?(opts, :aggregate_identifier) do
       raise ArgumentError, "missing :aggregate_identifier key"
     end
+
+    stream_prefix = Keyword.get(opts, :stream_prefix)
 
     {aggregate_identifier, aggregate_identifier_type} =
       opts
@@ -80,6 +87,14 @@ defmodule OnePiece.Commanded.Command do
       @spec aggregate_identifier :: aggregate_identifier_key()
       def aggregate_identifier do
         unquote(aggregate_identifier)
+      end
+
+      @doc """
+      Returns `#{inspect(unquote(stream_prefix))}` as the identity prefix.
+      """
+      @spec stream_prefix :: String.t() | nil
+      def stream_prefix do
+        unquote(stream_prefix)
       end
     end
   end

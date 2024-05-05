@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added `OnePiece.Commanded.CommandRouter` module.
+
 ## v0.19.1 - 2023-10-04
 
 - Fixed `new/1` typespec of `OnePiece.Commanded.ValueObject`.
@@ -9,24 +11,24 @@
 ## v0.19.0 - 2023-06-15
 
 `OnePiece.Commanded.ValueObject` implements `Ecto.Type`, it means that `cast/2`, `dump/2`, and `load/2` are
-added to every module that uses `OnePiece.Commanded.ValueObject`. This will allow you to use 
+added to every module that uses `OnePiece.Commanded.ValueObject`. This will allow you to use
 `OnePiece.Commanded.ValueObject` as a field in your `Ecto.Schema` and as custom type in your
 `OnePiece.Commanded.Aggregate`, `OnePiece.Commanded.Command`, and `OnePiece.Commanded.Event`.
 
-Added support for custom types for `OnePiece.Commanded.Aggregate`, `OnePiece.Commanded.Command`, and 
-`OnePiece.Commanded.Event`. This will allow you to have Custom aggregate identity. Read more about at 
+Added support for custom types for `OnePiece.Commanded.Aggregate`, `OnePiece.Commanded.Command`, and
+`OnePiece.Commanded.Event`. This will allow you to have Custom aggregate identity. Read more about at
 https://hexdocs.pm/commanded/commands.html#define-aggregate-identity under "Custom aggregate identity".
 
 ```elixir
 defmodule AccountNumber do
   use OnePiece.Commanded.ValueObject
-  
+
   embedded_schema do
     field :account_number, :string
     field :branch, :string
   end
-  
-  # You must implement `String.Chars` protocol in order to work when dispatching the Command. 
+
+  # You must implement `String.Chars` protocol in order to work when dispatching the Command.
   defimpl String.Chars do
     def to_string(%AccountNumber{branch: branch, account_number: account_number}) do
       branch <> ":" <> account_number
@@ -45,7 +47,7 @@ end
 
 defmodule DepositAccountOpened do
   use OnePiece.Commanded.Event,
-    aggregate_identifier: {:account_number, AccountNumber} 
+    aggregate_identifier: {:account_number, AccountNumber}
 
   embedded_schema do
     # ...
@@ -54,7 +56,7 @@ end
 
 defmodule OpenDepositAccount do
   use OnePiece.Commanded.Command,
-    aggregate_identifier: {:account_number, AccountNumber} 
+    aggregate_identifier: {:account_number, AccountNumber}
 
   embedded_schema do
     # ...
@@ -73,7 +75,7 @@ end
 ## v0.16.0 - 2023-04-11
 
 - Added `OnePiece.Commanded.EventStore.JsonbSerializer` module.
- 
+
 ## v0.15.2 - 2023-03-14
 
 - Fix casting already cast structs in `OnePiece.Commanded.ValueObject`.
