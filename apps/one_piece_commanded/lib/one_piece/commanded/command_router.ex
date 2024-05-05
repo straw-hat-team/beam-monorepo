@@ -78,6 +78,10 @@ defmodule OnePiece.Commanded.CommandRouter do
   That is one reason why when you are doing testing you speak in terms of "given previous events" and not
   "given previous state".
 
+  The "Aggregate", lets remove that word from our vocabulary, the "Stream" acts as a consistency boundary enforcing the
+  linearization and concurrency tolerance thru Optimistic Concurrency Control (OCC). That is all! It is about agreeing
+  on acting upon the same facts/events, and how its affects the future.
+
   Being said, be pragmatic.
 
   ### FAQ
