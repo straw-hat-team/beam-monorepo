@@ -3,7 +3,9 @@ defmodule OnePiece.Commanded.CommandRouterTest do
 
   alias TestSupport.CommandRouterExample.{
     CommandRouter,
-    OpenBankAccount
+    OpenBankAccount,
+    CloseBankAccount,
+    BankAccount
   }
 
   @dispatch_opts [
@@ -14,6 +16,18 @@ defmodule OnePiece.Commanded.CommandRouterTest do
   setup do
     start_supervised!(TestSupport.DefaultApp)
     :ok
+  end
+
+  describe "identify_aggregate/1" do
+    test "identifies an aggregate" do
+      {:ok, result} =
+        %{uuid: "uuid-1"}
+        |> CloseBankAccount.new!()
+        |> CommandRouter.dispatch(@dispatch_opts)
+
+      assert result.aggregate_uuid == "bank-account2-uuid-1"
+      assert result.aggregate_state == %BankAccount{closed?: true, uuid: "uuid-1"}
+    end
   end
 
   describe "dispatch_transaction/2" do

@@ -156,4 +156,38 @@ defmodule OnePiece.Commanded.CommandRouter do
       Commanded.Commands.Router.dispatch(unquote(command_module), unquote(opts))
     end
   end
+
+  @doc """
+  Identify a given aggregate.
+
+  ## Example
+      defmodule BankAccount do
+        use OnePiece.Commanded.Aggregate
+          identifier: :uuid,
+          stream_prefix: "bank-account-"
+
+        embedded_schema do
+          # ...
+        end
+      end
+
+      defmodule Router do
+        use OnePiece.Commanded.CommandRouter
+        identify_aggregate OpenBankAccount
+      end
+  """
+  defmacro identify_aggregate(aggregate_module) do
+    aggregate_module = Macro.expand(aggregate_module, __CALLER__)
+
+    Code.ensure_compiled!(aggregate_module)
+
+    opts = [
+      by: Kernel.apply(aggregate_module, :identifier, []),
+      prefix: Kernel.apply(aggregate_module, :stream_prefix, [])
+    ]
+
+    quote do
+      Commanded.Commands.Router.identify(unquote(aggregate_module), unquote(opts))
+    end
+  end
 end

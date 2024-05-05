@@ -20,6 +20,8 @@ defmodule OnePiece.Commanded.Entity do
   """
   @type identifier_opt :: atom() | {key_name :: atom(), type :: atom()} | {key_name :: atom(), type :: module()}
 
+  @type using_opts :: [identifier: identifier_opt()]
+
   @doc """
   Converts the module into an `t:t/0`.
 
@@ -57,7 +59,7 @@ defmodule OnePiece.Commanded.Entity do
         end
       end
   """
-  @spec __using__(opts :: [identifier: identifier_opt()]) :: any()
+  @spec __using__(opts :: using_opts()) :: any()
   defmacro __using__(opts \\ []) do
     unless Keyword.has_key?(opts, :identifier) do
       raise ArgumentError, "missing :identifier key"
