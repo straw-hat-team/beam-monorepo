@@ -28,6 +28,11 @@ defmodule OnePiece.Commanded.Aggregate do
 
   It adds an `apply/2` callback to the module as a fallback, return the aggregate as it is.
 
+  ### Options
+
+  - `:identifier` - The aggregate identifier key.
+  - `:stream_prefix` (optional) - The prefix to be used for the identity.
+
   ## Using
 
   - `OnePiece.Commanded.Entity`
@@ -49,12 +54,27 @@ defmodule OnePiece.Commanded.Aggregate do
         end
       end
   """
-  @spec __using__(opts :: []) :: any()
+  @spec __using__(
+          opts ::
+            OnePiece.Commanded.Entity.using_opts()
+            | [stream_prefix: String.t() | nil]
+        ) :: any()
   defmacro __using__(opts \\ []) do
+    {opts, entity_opts} = Keyword.split(opts, [:stream_prefix])
+    stream_prefix = Keyword.get(opts, :stream_prefix)
+
     quote do
-      use OnePiece.Commanded.Entity, unquote(opts)
+      use OnePiece.Commanded.Entity, unquote(entity_opts)
       @behaviour OnePiece.Commanded.Aggregate
       @before_compile OnePiece.Commanded.Aggregate
+
+      @doc """
+      Returns `#{inspect(unquote(stream_prefix))}` as the identity prefix.
+      """
+      @spec stream_prefix :: String.t() | nil
+      def stream_prefix do
+        unquote(stream_prefix)
+      end
     end
   end
 
