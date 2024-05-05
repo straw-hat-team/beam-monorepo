@@ -132,6 +132,18 @@ defmodule TestSupport do
     end
   end
 
+  defmodule DefaultApp do
+    @moduledoc false
+    use Commanded.Application,
+      otp_app: :one_piece_commanded,
+      event_store: [
+        adapter: Commanded.EventStore.Adapters.InMemory,
+        serializer: Commanded.Serialization.JsonSerializer
+      ],
+      pubsub: :local,
+      registry: :local
+  end
+
   def errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
       Regex.replace(~r"%{(\w+)}", message, fn _, key ->
