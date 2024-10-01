@@ -7,12 +7,12 @@ defmodule OnePiece.Commanded.ValueObjectTest do
     end
 
     test "validates a key enforce" do
-      {:error, changeset} = TestSupport.MessageTwo.new(%{})
+      assert {:error, changeset} = TestSupport.MessageTwo.new(%{})
       assert %{title: ["can't be blank"]} = TestSupport.errors_on(changeset)
     end
 
     test "validates a key enforce for embed fields" do
-      {:error, changeset} = TestSupport.MessageThree.new(%{})
+      assert {:error, changeset} = TestSupport.MessageThree.new(%{})
       assert %{target: ["can't be blank"]} = TestSupport.errors_on(changeset)
     end
 
@@ -27,7 +27,7 @@ defmodule OnePiece.Commanded.ValueObjectTest do
     end
 
     test "validates casting embed fields with a wrong value" do
-      {:error, changeset} = TestSupport.MessageThree.new(%{target: "a wrong value"})
+      assert {:error, changeset} = TestSupport.MessageThree.new(%{target: "a wrong value"})
       assert %{target: ["is invalid"]} = TestSupport.errors_on(changeset)
     end
   end
