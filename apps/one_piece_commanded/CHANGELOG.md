@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.21.0 - 2024-11-02
+
+- Added `OnePiece.Commanded.Enum` module.
+
+## v0.20.0 - 2024-05-05
+
 - Added `OnePiece.Commanded.CommandRouter` module.
 
 ## v0.19.1 - 2023-10-04
@@ -109,7 +115,7 @@ end
 
 ## v0.11.1 - 2022-07-21
 
-- Fix register type with a struct with enforce keys in  `OnePiece.Commanded.TypeProvider` module.
+- Fix register type with a struct with enforce keys in `OnePiece.Commanded.TypeProvider` module.
 
 ## v0.11.0 - 2022-07-1
 
