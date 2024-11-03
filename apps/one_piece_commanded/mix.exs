@@ -112,7 +112,8 @@ defmodule OnePiece.Commanded.MixProject do
           OnePiece.Commanded.Entity,
           OnePiece.Commanded.Aggregate,
           OnePiece.Commanded.Command,
-          OnePiece.Commanded.Event
+          OnePiece.Commanded.Event,
+          OnePiece.Commanded.Enum
         ],
         "Test Support": [~r/TestSupport/]
       ],

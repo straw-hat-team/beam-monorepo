@@ -1,8 +1,38 @@
 defmodule OnePiece.Commanded.Enum do
   @moduledoc """
-  Enum  module with added macros to define a type and check supported values.
+  Defines an Enum type module.
   """
 
+  @doc """
+  Converts the module into a struct with an `:value` enum field.
+
+  ## Using
+
+  - `Ecto.Schema`
+  - `Ecto.Type`
+
+  ## Derives
+
+  - `Jason.Encoder`
+
+  ## Usage
+
+      defmodule BankAccountType do
+        use OnePiece.Commanded.Enum, values: [:business, :personal]
+      end
+
+      {:ok, type} = BankAccountType.new(:business)
+
+  You can use it in your `Ecto.Schema` like this:
+
+      defmodule BankAccount do
+        use Ecto.Schema
+
+        embedded_schema do
+          field :type, BankAccountType
+        end
+      end
+  """
   defmacro __using__(opts) do
     values = Keyword.fetch!(opts, :values)
     type_ast = Enum.reduce(values, &{:|, [], [&1, &2]})

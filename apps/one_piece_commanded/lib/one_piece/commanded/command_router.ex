@@ -6,7 +6,13 @@ defmodule OnePiece.Commanded.CommandRouter do
   """
 
   @doc """
-  It calls `Commanded.Commands.Router.__using__/1` and imports extra macros.
+  An extension of `Commanded.Commands.Router` that imports extra macros.
+
+  ## Usage
+
+      defmodule Router do
+        use OnePiece.Commanded.CommandRouter
+      end
   """
   defmacro __using__(opts) do
     quote do
