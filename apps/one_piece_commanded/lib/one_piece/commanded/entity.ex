@@ -25,6 +25,14 @@ defmodule OnePiece.Commanded.Entity do
   @doc """
   Converts the module into an `t:t/0`.
 
+  ## Identifier
+
+  The `identifier` is used to identify the entity. It uses the `@primary_key` attribute to define the column and type.
+
+  > #### Schema Field Registration {: .info}
+  > `identifier` is automatically registered as a field in the `embedded_schema`.
+  > Do not define the field in the `embedded_schema` yourself again.
+
   ## Using
 
   - `OnePiece.Commanded.ValueObject`

@@ -33,6 +33,14 @@ defmodule OnePiece.Commanded.Aggregate do
   - `:identifier` - The aggregate identifier key.
   - `:identity_prefix` (optional) - The prefix to be used for the identity.
 
+  ## Identifier
+
+  The `identifier` is used to identify the aggregate. It uses the `@primary_key` attribute to define the column and type.
+
+  > #### Schema Field Registration {: .info}
+  > `identifier` is automatically registered as a field in the `embedded_schema`.
+  > Do not define the field in the `embedded_schema` yourself again.
+
   ## Using
 
   - `OnePiece.Commanded.Entity`
