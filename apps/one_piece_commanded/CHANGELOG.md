@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.21.2 - 2024-11-26
+
+- Added support for transaction script command handler to `OnePiece.Commanded.TestSupport.CommandHandlerCase`.
+
 ## v0.21.1 - 2024-11-26
 
 - Fix casting structs in `OnePiece.Commanded.ValueObject`. Related to https://github.com/elixir-ecto/ecto/issues/4168
