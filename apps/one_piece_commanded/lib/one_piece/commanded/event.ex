@@ -19,6 +19,19 @@ defmodule OnePiece.Commanded.Event do
   @doc """
   Converts the module into an `t:t/0`.
 
+  ### Options
+
+  - `:aggregate_identifier` - The aggregate identifier key.
+
+  ## Aggregate Identifier
+
+  The `aggregate_identifier` is used to identify the aggregate that the event is associated with. It uses the
+  `@primary_key` attribute to define the column and type.
+
+  > #### Schema Field Registration {: .info}
+  > `aggregate_identifier` is automatically registered as a field in the `embedded_schema`.
+  > Do not define the field in the `embedded_schema` yourself again.
+
   ## Using
 
   - `OnePiece.Commanded.ValueObject`

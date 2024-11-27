@@ -24,6 +24,15 @@ defmodule OnePiece.Commanded.Command do
   - `:aggregate_identifier` - The aggregate identifier key.
   - `:identity_prefix` (optional) - The prefix to be used for the identity.
 
+  ## Aggregate Identifier
+
+  The `aggregate_identifier` is used to identify the aggregate that the command is associated with. It uses the
+  `@primary_key` attribute to define the column and type.
+
+  > #### Schema Field Registration {: .info}
+  > `aggregate_identifier` is automatically registered as a field in the `embedded_schema`.
+  > Do not define the field in the `embedded_schema` yourself again.
+
   ## Using
 
   - `OnePiece.Commanded.ValueObject`
