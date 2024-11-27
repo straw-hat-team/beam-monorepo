@@ -2,15 +2,21 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
   @moduledoc ~S"""
   This module helps with test cases for testing aggregate states, and command handlers.
 
+  ## Options
+
+  - `aggregate`: The aggregate module to use in the command handler case. If not provided, then you must provide a
+    `handler` option.
+  - `handler`: The command handler module to use in the command handler case. If the `aggregate` option is not provided,
+    then the `Handler.Aggregate` module will be used as the aggregate module. Read more about transaction script
+    command handler at `OnePiece.Commanded.CommandRouter.register_transaction_script/2`.
+
   ## Usage
 
   After import the test support file, you should be able to have the module in your test files.
 
       defmodule MyAggregateTest do
         use OnePiece.Commanded.TestSupport.CommandHandlerCase,
-          aggregate: MyAggregate,
-          # You can also pass `handler` if you are using Command Handler modules
-          # handler: MyCommandHandler,
+          handler: MyCommandHandler,
           async: true
 
         describe "my aggregate" do
@@ -48,8 +54,25 @@ defmodule OnePiece.Commanded.TestSupport.CommandHandlerCase do
 
   using opts do
     quote do
-      @aggregate Keyword.fetch!(unquote(opts), :aggregate)
-      @handler Keyword.get(unquote(opts), :handler, nil)
+      opts = unquote(opts)
+
+      if opts[:aggregate] == nil && opts[:handler] == nil do
+        raise "OnePiece.Commanded.TestSupport.CommandHandlerCase: you must provide at least `aggregate` or `handler`"
+      end
+
+      aggregate =
+        Keyword.get_lazy(opts, :aggregate, fn ->
+          if opts[:handler] do
+            Module.concat([opts[:handler], "Aggregate"])
+          else
+            raise "OnePiece.Commanded.TestSupport.CommandHandlerCase: `handler` is required when `aggregate` is not provided"
+          end
+        end)
+
+      handler = Keyword.get(opts, :handler, nil)
+
+      @aggregate aggregate
+      @handler handler
 
       defp assert_events(initial_events, command, expected_events) do
         CommandHandlerCase.assert_events(
