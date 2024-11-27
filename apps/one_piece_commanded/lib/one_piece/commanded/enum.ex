@@ -143,6 +143,11 @@ defmodule OnePiece.Commanded.Enum do
         {:ok, value}
       end
 
+      @impl Ecto.Type
+      def cast(%{value: value}) do
+        cast(value)
+      end
+
       unquote_splicing(cast_as_function_ast)
 
       @impl Ecto.Type

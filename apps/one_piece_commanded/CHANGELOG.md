@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.21.3 - 2024-11-27
+
+- Added support for casting maps in `OnePiece.Commanded.Enum`.
+
 ## v0.21.2 - 2024-11-26
 
 - Added support for transaction script command handler to `OnePiece.Commanded.TestSupport.CommandHandlerCase`.

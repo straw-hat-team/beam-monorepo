@@ -63,6 +63,10 @@ defmodule OnePiece.Commanded.EnumTest do
   end
 
   describe "cast/1" do
+    test "casts a map" do
+      assert BankAccountType.cast(%{value: :business}) == {:ok, %BankAccountType{value: :business}}
+    end
+
     test "casts atom values" do
       assert BankAccountType.cast(:business) == {:ok, %BankAccountType{value: :business}}
       assert BankAccountType.cast(:personal) == {:ok, %BankAccountType{value: :personal}}
@@ -130,5 +134,20 @@ defmodule OnePiece.Commanded.EnumTest do
     test "encodes to the value" do
       assert Jason.encode!(%BankAccountType{value: :business}) == ~s("business")
     end
+  end
+
+  test "works with embedded schemas" do
+    expected_value = %TestSupport.CommandRouterExample.BankAccountOpened{
+      uuid: "123",
+      type: %TestSupport.CommandRouterExample.BankAccountOpened.BankAccountType{value: :business}
+    }
+
+    given_value =
+      TestSupport.CommandRouterExample.BankAccountOpened.new!(%{
+        uuid: "123",
+        type: TestSupport.CommandRouterExample.BankAccountType.new!(:business)
+      })
+
+    assert expected_value == given_value
   end
 end
