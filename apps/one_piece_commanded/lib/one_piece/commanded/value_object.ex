@@ -140,32 +140,26 @@ defmodule OnePiece.Commanded.ValueObject do
 
     changeset =
       message
-      |> Changeset.cast(attrs, fields -- embeds)
+      |> Changeset.cast(from_struct(attrs), fields -- embeds)
       |> Changeset.validate_required(struct_module.__enforced_keys__() -- embeds)
 
     Enum.reduce(
       embeds,
       changeset,
-      &cast_embed(&1, &2, struct_module, attrs)
+      &cast_embed(&1, &2, struct_module)
     )
   end
 
-  defp cast_embed(field, changeset, struct_module, attrs) do
-    case is_struct(attrs[field]) do
-      false ->
-        Changeset.cast_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
-
-      true ->
-        # credo:disable-for-next-line Credo.Check.Design.TagTODO
-        # TODO: Validate that the struct is of the correct type.
-        #   It may be the case that you passed a completely different struct as the value. We could `cast_embed`
-        #   always and fix the `Changeset.cast(attrs, fields -- embeds)` by converting the `attrs` into a map. But it
-        #   would be a bit more expensive since it will run the casting for a field that was already casted.
-        #   Checking the struct types MAY be enough but taking into consideration `embeds_many` could complicated
-        #   things. For now, we'll just assume that the user knows what they're doing.
-        Changeset.put_change(changeset, field, attrs[field])
-    end
+  defp cast_embed(field, changeset, struct_module) do
+    Changeset.cast_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
   end
+
+  defp from_struct(value) when is_struct(value) do
+    # https://github.com/elixir-ecto/ecto/issues/4168
+    Map.from_struct(value)
+  end
+
+  defp from_struct(value), do: value
 
   defp apply_changeset(struct_module, attrs) do
     struct(struct_module)

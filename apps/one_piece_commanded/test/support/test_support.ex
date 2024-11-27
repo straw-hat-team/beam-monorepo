@@ -43,6 +43,17 @@ defmodule TestSupport do
     end
   end
 
+  defmodule MessageFour do
+    @moduledoc false
+
+    use OnePiece.Commanded.ValueObject
+
+    @enforce_keys [:targets]
+    embedded_schema do
+      embeds_many(:targets, MessageThree)
+    end
+  end
+
   defmodule MyEntityOne do
     @moduledoc false
 

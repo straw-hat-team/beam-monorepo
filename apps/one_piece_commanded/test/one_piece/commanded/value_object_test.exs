@@ -21,9 +21,19 @@ defmodule OnePiece.Commanded.ValueObjectTest do
                TestSupport.MessageThree.new(%{target: %{title: "Hello, World!"}})
     end
 
-    test "bypass casting structs" do
+    test "casting structs" do
       assert {:ok, %TestSupport.MessageThree{target: %TestSupport.MessageOne{title: "Hello, World!"}}} =
                TestSupport.MessageThree.new(%{target: %TestSupport.MessageOne{title: "Hello, World!"}})
+
+      assert {:ok,
+              %TestSupport.MessageFour{
+                targets: [%TestSupport.MessageThree{target: %TestSupport.MessageOne{title: "Hello, World!"}}]
+              }} =
+               TestSupport.MessageFour.new(%{
+                 targets: [
+                   TestSupport.MessageThree.new!(%{target: TestSupport.MessageOne.new!(%{title: "Hello, World!"})})
+                 ]
+               })
     end
 
     test "validates casting embed fields with a wrong value" do
