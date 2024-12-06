@@ -32,7 +32,7 @@ defmodule OnePiece.Commanded.ValueObject do
   """
   @spec __using__(opts :: []) :: any()
   defmacro __using__(_opts \\ []) do
-    quote do
+    quote generated: true do
       alias OnePiece.Commanded.ValueObject
 
       use Ecto.Schema

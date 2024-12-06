@@ -78,7 +78,7 @@ defmodule OnePiece.Commanded.Entity do
       |> Keyword.fetch!(:identifier)
       |> OnePiece.Commanded.Helpers.get_primary_key()
 
-    quote do
+    quote generated: true do
       use OnePiece.Commanded.ValueObject
 
       @typedoc """

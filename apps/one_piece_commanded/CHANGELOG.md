@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.21.4 - 2024-12-06
+
+- Added `generated: true` to `quote`.
+
 ## v0.21.3 - 2024-11-27
 
 - Added support for casting maps in `OnePiece.Commanded.Enum`.

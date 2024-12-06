@@ -71,7 +71,7 @@ defmodule OnePiece.Commanded.Aggregate do
     {opts, entity_opts} = Keyword.split(opts, [:identity_prefix])
     identity_prefix = Keyword.get(opts, :identity_prefix)
 
-    quote do
+    quote generated: true do
       use OnePiece.Commanded.Entity, unquote(entity_opts)
       @behaviour OnePiece.Commanded.Aggregate
       @before_compile OnePiece.Commanded.Aggregate

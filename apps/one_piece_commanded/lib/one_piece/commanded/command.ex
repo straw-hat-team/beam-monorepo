@@ -81,7 +81,7 @@ defmodule OnePiece.Commanded.Command do
       |> Keyword.fetch!(:aggregate_identifier)
       |> OnePiece.Commanded.Helpers.get_primary_key()
 
-    quote do
+    quote generated: true do
       use OnePiece.Commanded.ValueObject
 
       @typedoc """
