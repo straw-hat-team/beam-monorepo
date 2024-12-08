@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.22.0 - 2024-12-08
+
+- Added `OnePiece.Commanded.EventStore.ProtobufJsonbSerializer` module.
+
 ## v0.21.4 - 2024-12-06
 
 - Added `generated: true` to `quote`.
