@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.23.0 - 2025-01-13
+
+- Added `OnePiece.Commanded.ProtobufMapper` protocol.
+- Extended `OnePiece.Commanded.EventStore.ProtobufJsonbSerializer` to use `OnePiece.Commanded.ProtobufMapper`.
+
 ## v0.22.0 - 2024-12-08
 
 - Added `OnePiece.Commanded.EventStore.ProtobufJsonbSerializer` module.

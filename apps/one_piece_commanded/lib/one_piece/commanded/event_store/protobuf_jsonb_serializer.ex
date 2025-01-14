@@ -10,9 +10,15 @@ if Code.ensure_loaded?(Protobuf) do
         config :my_app, MyApp.EventStore,
             serializer: OnePiece.Commanded.EventStore.ProtobufJsonbSerializer,
             types: EventStore.PostgresTypes
+
+
+    ## Aggregate Snapshots
+
+    To serialize aggregate snapshots, you need to implement the `OnePiece.Commanded.ProtobufMapper` protocol.
     """
 
     alias Commanded.EventStore.TypeProvider
+    alias OnePiece.Commanded.ProtobufMapper
 
     @encode_opts [use_proto_names: false, use_enum_numbers: false, emit_unpopulated: true]
 
@@ -20,6 +26,8 @@ if Code.ensure_loaded?(Protobuf) do
     Convert given `Protobuf` struct to a map.
     """
     def serialize(term) when is_struct(term) do
+      term = ProtobufMapper.to_proto_message(term)
+
       case Protobuf.JSON.to_encodable(term, @encode_opts) do
         {:ok, encodable} -> encodable
         {:error, error} -> raise error
@@ -47,9 +55,11 @@ if Code.ensure_loaded?(Protobuf) do
       end
     end
 
-    defp run_casting(%module_name{} = _event, term) do
-      case Protobuf.JSON.from_decoded(term, module_name) do
-        {:ok, decoded} -> decoded
+    defp run_casting(message, term) do
+      message_module = ProtobufMapper.proto_module(message)
+
+      case Protobuf.JSON.from_decoded(term, message_module) do
+        {:ok, decoded} -> ProtobufMapper.from_proto_message(message, decoded)
         {:error, error} -> raise error
       end
     end
