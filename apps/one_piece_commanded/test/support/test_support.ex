@@ -1,6 +1,23 @@
 defmodule TestSupport do
   @moduledoc false
 
+  defmodule MyValueOject do
+    @moduledoc false
+    use OnePiece.Commanded.ValueObject
+
+    @enforce_keys [:title, :amount]
+    embedded_schema do
+      field :title, :string
+      field :amount, :integer
+    end
+
+    def changeset(message, attrs) do
+      message
+      |> ValueObject.changeset(attrs)
+      |> Changeset.validate_number(:amount, greater_than: 0)
+    end
+  end
+
   defmodule AccountNumber do
     @moduledoc false
     use OnePiece.Commanded.ValueObject

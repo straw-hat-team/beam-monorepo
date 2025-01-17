@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.24.0 - 2025-01-17
+
+- Added `OnePiece.Commanded.ValueObject.changeset/2` function.
+
 ## v0.23.0 - 2025-01-13
 
 - Added `OnePiece.Commanded.ProtobufMapper` protocol.
