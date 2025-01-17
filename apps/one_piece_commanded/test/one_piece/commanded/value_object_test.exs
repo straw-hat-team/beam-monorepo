@@ -96,4 +96,11 @@ defmodule OnePiece.Commanded.ValueObjectTest do
       assert :error = TestSupport.MessageOne.dump(1)
     end
   end
+
+  describe "changeset/2" do
+    test "validates the struct" do
+      assert {:error, changeset} = TestSupport.MyValueOject.new(%{amount: 0})
+      assert %{amount: ["must be greater than 0"]} = TestSupport.errors_on(changeset)
+    end
+  end
 end

@@ -34,6 +34,7 @@ defmodule OnePiece.Commanded.ValueObject do
   defmacro __using__(_opts \\ []) do
     quote generated: true do
       alias OnePiece.Commanded.ValueObject
+      alias Ecto.Changeset
 
       use Ecto.Schema
       use Ecto.Type
@@ -64,7 +65,7 @@ defmodule OnePiece.Commanded.ValueObject do
       """
       @spec changeset(message :: %__MODULE__{}, attrs :: map()) :: Ecto.Changeset.t()
       def changeset(message, attrs) do
-        ValueObject.__changeset__(message, attrs)
+        ValueObject.changeset(message, attrs)
       end
 
       def type, do: :map
@@ -134,7 +135,34 @@ defmodule OnePiece.Commanded.ValueObject do
     |> Changeset.apply_action!(:new)
   end
 
-  def __changeset__(%struct_module{} = message, attrs) do
+  @doc """
+  Returns an `t:Ecto.Changeset.t/0` for a given value object struct.
+
+  It reads the enforced keys from the struct and validates the required fields.
+  Also, it casts the embeds. It is useful when you override the `changeset/2`
+  function in your value object.
+
+  ## Examples
+
+  ```elixir
+  defmodule MyValueObject do
+    use OnePiece.Commanded.ValueObject
+
+    @enforce_keys [:title, :amount]
+    embedded_schema do
+      field :title, :string
+      field :amount, :integer
+    end
+
+    def changeset(message, attrs) do
+      message
+      |> ValueObject.changeset(attrs)
+      |> Changeset.validate_number(:amount, greater_than: 0)
+    end
+  end
+  ```
+  """
+  def changeset(%struct_module{} = message, attrs) do
     embeds = struct_module.__schema__(:embeds)
     fields = struct_module.__schema__(:fields)
 
