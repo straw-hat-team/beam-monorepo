@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.25.0 - 2025-01-31
+
+- Added `OnePiece.Commanded.ValueObject.validate/2` function to `OnePiece.Commanded.ValueObject`.
+
 ## v0.24.0 - 2025-01-17
 
 - Added `OnePiece.Commanded.ValueObject.changeset/2` function.

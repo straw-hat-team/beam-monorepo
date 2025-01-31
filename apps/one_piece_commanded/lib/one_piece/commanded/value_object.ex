@@ -61,11 +61,49 @@ defmodule OnePiece.Commanded.ValueObject do
       end
 
       @doc """
+      Used to extend the `t:Ecto.Changeset.t/0` from `changeset/2` without
+      overriding it.
+
+      > #### Example
+
+      ```elixir
+      defmodule MyValueObject do
+        use OnePiece.Commanded.ValueObject
+
+        embedded_schema do
+          field :amount, :integer
+        end
+
+        def validate(changeset, attrs) do
+          changeset
+          |> Changeset.validate_number(:amount, greater_than: 0)
+        end
+      end
+      ```
+      """
+      @spec validate(Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
+      def validate(%Ecto.Changeset{} = changeset, attrs) do
+        changeset
+      end
+
+      @doc """
       Returns an `t:Ecto.Changeset.t/0` for a given `t:t/0` value object.
+
+      > #### Overriding Changeset {: .warning}
+      >
+      > Be careful when overriding `changeset/2` because the default
+      > implementation takes care of `cast`, `validate_required` the
+      > `@enforced_keys` and nested embeds. You may want to call
+      > `OnePiece.Commanded.ValueObject.changeset/2` to have such features.
+      >
+      > If you only need to extend the changeset, you can use the
+      > `validate/2` function instead.
       """
       @spec changeset(message :: %__MODULE__{}, attrs :: map()) :: Ecto.Changeset.t()
       def changeset(message, attrs) do
-        ValueObject.changeset(message, attrs)
+        message
+        |> ValueObject.changeset(attrs)
+        |> validate(attrs)
       end
 
       def type, do: :map
@@ -87,7 +125,7 @@ defmodule OnePiece.Commanded.ValueObject do
       def dump(value) when is_struct(value, __MODULE__), do: {:ok, Map.from_struct(value)}
       def dump(_), do: :error
 
-      defoverridable new: 1, new!: 1, changeset: 2
+      defoverridable new: 1, new!: 1, changeset: 2, validate: 2
     end
   end
 
@@ -138,9 +176,9 @@ defmodule OnePiece.Commanded.ValueObject do
   @doc """
   Returns an `t:Ecto.Changeset.t/0` for a given value object struct.
 
-  It reads the enforced keys from the struct and validates the required fields.
-  Also, it casts the embeds. It is useful when you override the `changeset/2`
-  function in your value object.
+  It reads the `@enforced_keys` from the struct and validates the required
+  fields. Also, it casts the embeds. It is useful when you override the
+  `changeset/2` function in your value object.
 
   ## Examples
 
