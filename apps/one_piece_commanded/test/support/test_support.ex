@@ -1,6 +1,21 @@
 defmodule TestSupport do
   @moduledoc false
 
+  defmodule TransferableMoney do
+    @moduledoc false
+    use OnePiece.Commanded.ValueObject
+
+    embedded_schema do
+      field :amount, :integer
+      field :currency, Ecto.Enum, values: [:USD]
+    end
+
+    def validate(changeset, _attrs) do
+      changeset
+      |> Changeset.validate_number(:amount, greater_than: 0)
+    end
+  end
+
   defmodule MyValueOject do
     @moduledoc false
     use OnePiece.Commanded.ValueObject

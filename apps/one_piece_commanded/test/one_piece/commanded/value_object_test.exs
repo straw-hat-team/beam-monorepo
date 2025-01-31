@@ -2,6 +2,14 @@ defmodule OnePiece.Commanded.ValueObjectTest do
   use ExUnit.Case, async: true
 
   describe "new/1" do
+    test "overriding validate/2" do
+      assert {:ok, %TestSupport.TransferableMoney{amount: 1, currency: :USD}} =
+               TestSupport.TransferableMoney.new(%{amount: 1, currency: :USD})
+
+      assert {:error, changeset} = TestSupport.TransferableMoney.new(%{amount: 0, currency: :USD})
+      assert %{amount: ["must be greater than 0"]} = TestSupport.errors_on(changeset)
+    end
+
     test "creates a struct" do
       assert {:ok, %TestSupport.MessageOne{title: nil}} = TestSupport.MessageOne.new(%{})
     end
