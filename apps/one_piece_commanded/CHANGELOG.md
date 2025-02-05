@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.25.1 - 2025-02-04
+
+- Fix order of `Code.ensure_compiled!/1` in `OnePiece.Commanded.CommandRouter` ensure that the aggregate is compiled
+  before the command.
+
 ## v0.25.0 - 2025-01-31
 
 - Added `OnePiece.Commanded.ValueObject.validate/2` function to `OnePiece.Commanded.ValueObject`.

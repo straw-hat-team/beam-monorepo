@@ -150,8 +150,8 @@ defmodule OnePiece.Commanded.CommandRouter do
       |> Keyword.replace_lazy(:aggregate, &Macro.expand(&1, __CALLER__))
       |> Keyword.get(:aggregate, Module.concat([command_module, "Aggregate"]))
 
-    Code.ensure_compiled!(command_module)
     Code.ensure_compiled!(aggregate_module)
+    Code.ensure_compiled!(command_module)
 
     opts =
       opts
@@ -183,7 +183,7 @@ defmodule OnePiece.Commanded.CommandRouter do
 
       defmodule Router do
         use OnePiece.Commanded.CommandRouter
-        identify_aggregate OpenBankAccount
+        identify_aggregate BankAccount
       end
   """
   defmacro identify_aggregate(aggregate_module) do
