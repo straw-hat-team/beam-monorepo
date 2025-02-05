@@ -19,16 +19,48 @@ defmodule OnePiece.Commanded.ValueObject do
 
   ## Usage
 
+  ```elixir
+  defmodule MyValueObject do
+    use OnePiece.Commanded.ValueObject
+
+    embedded_schema do
+      field :title, :string
+      # ...
+    end
+  end
+  ```
+
+  ## Overridable
+
+  - `validate/2` to add custom validation to the existing `changeset/2` without overriding the whole `changeset/2`
+    function.
+
+      ```elixir
       defmodule MyValueObject do
         use OnePiece.Commanded.ValueObject
 
         embedded_schema do
-          field :title, :string
-          # ...
+          field :amount, :integer
+        end
+
+        def validate(changeset, attrs) do
+          changeset
+          |> Changeset.validate_number(:amount, greater_than: 0)
         end
       end
+      ```
 
-      {:ok, my_value} = MyValueObject.new(%{title: "Hello, World!"})
+  - `changeset/2` returns an `t:Ecto.Changeset.t/0` for a given value object struct.
+
+      > #### Overriding Changeset {: .warning}
+      >
+      > Be careful when overriding `changeset/2` because the default
+      > implementation takes care of `cast`, `validate_required` the
+      > `@enforced_keys` and nested embeds. You may want to call
+      > `OnePiece.Commanded.ValueObject.changeset/2` to have such features.
+      >
+      > If you only need to extend the changeset, you can override the
+      > `validate/2` function instead.
   """
   @spec __using__(opts :: []) :: any()
   defmacro __using__(_opts \\ []) do
@@ -60,45 +92,13 @@ defmodule OnePiece.Commanded.ValueObject do
         ValueObject.__new__!(__MODULE__, attrs)
       end
 
-      @doc """
-      Used to extend the `t:Ecto.Changeset.t/0` from `changeset/2` without
-      overriding it.
-
-      > #### Example
-
-      ```elixir
-      defmodule MyValueObject do
-        use OnePiece.Commanded.ValueObject
-
-        embedded_schema do
-          field :amount, :integer
-        end
-
-        def validate(changeset, attrs) do
-          changeset
-          |> Changeset.validate_number(:amount, greater_than: 0)
-        end
-      end
-      ```
-      """
+      @doc false
       @spec validate(Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
       def validate(%Ecto.Changeset{} = changeset, attrs) do
         changeset
       end
 
-      @doc """
-      Returns an `t:Ecto.Changeset.t/0` for a given `t:t/0` value object.
-
-      > #### Overriding Changeset {: .warning}
-      >
-      > Be careful when overriding `changeset/2` because the default
-      > implementation takes care of `cast`, `validate_required` the
-      > `@enforced_keys` and nested embeds. You may want to call
-      > `OnePiece.Commanded.ValueObject.changeset/2` to have such features.
-      >
-      > If you only need to extend the changeset, you can use the
-      > `validate/2` function instead.
-      """
+      @doc false
       @spec changeset(message :: %__MODULE__{}, attrs :: map()) :: Ecto.Changeset.t()
       def changeset(message, attrs) do
         message
