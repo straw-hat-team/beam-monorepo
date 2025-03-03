@@ -7,7 +7,7 @@ on:
 jobs:
   publish:
     name: Publish to Hex.pm
-    runs-on: ubuntu22
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: 1password/load-secrets-action@v2
