@@ -125,7 +125,14 @@ defmodule OnePiece.Commanded.ValueObject do
       def dump(value) when is_struct(value, __MODULE__), do: {:ok, Map.from_struct(value)}
       def dump(_), do: :error
 
-      defoverridable new: 1, new!: 1, changeset: 2, validate: 2
+      defoverridable new: 1,
+                     new!: 1,
+                     changeset: 2,
+                     validate: 2,
+                     type: 0,
+                     cast: 1,
+                     load: 1,
+                     dump: 1
     end
   end
 

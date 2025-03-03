@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.25.2 - 2025-03-03
+
+- Add `type/0`, `cast/1`, `load/1`, `dump/1` overridable to value objects.
+
 ## v0.25.1 - 2025-02-04
 
 - Fix order of `Code.ensure_compiled!/1` in `OnePiece.Commanded.CommandRouter` ensure that the aggregate is compiled
