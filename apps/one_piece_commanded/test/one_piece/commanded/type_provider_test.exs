@@ -1,6 +1,7 @@
 defmodule OnePiece.Commanded.TypeProviderTest do
   use ExUnit.Case
   alias OnePiece.Commanded.TypeProvider
+  alias OnePiece.Commanded.TypeProvider.UnregisteredMappingError
 
   defmodule SomethingWithEnforceKeysHappened do
     @enforce_keys [:aggregate_id]
@@ -107,10 +108,7 @@ defmodule OnePiece.Commanded.TypeProviderTest do
   end
 
   test "given a type provider when calling to_string without a registered mapping then raises an error" do
-    message =
-      "%OnePiece.Commanded.TypeProviderTest.LedgerClosed{id: nil} is not registered in the OnePiece.Commanded.TypeProviderTest.LedgerTypeProvider type provider"
-
-    assert_raise(ArgumentError, message, fn ->
+    assert_raise(UnregisteredMappingError, fn ->
       LedgerTypeProvider.to_string(%LedgerClosed{})
     end)
   end
@@ -120,12 +118,18 @@ defmodule OnePiece.Commanded.TypeProviderTest do
   end
 
   test "given a type provider when calling to_struct without a registered mapping then raises an error" do
-    message =
-      ~s("ledger_closed" is not registered in the OnePiece.Commanded.TypeProviderTest.LedgerTypeProvider type provider)
-
-    assert_raise(ArgumentError, message, fn ->
+    assert_raise(UnregisteredMappingError, fn ->
       LedgerTypeProvider.to_struct("ledger_closed")
     end)
+  end
+
+  test "given a type provider when calling fetch_struct_module with a registered mapping then returns the mapped struct" do
+    assert {:ok, AccountCreated} = AccountTypeProvider.fetch_struct_module("account_created")
+  end
+
+  test "given a type provider when calling fetch_struct_module without a registered mapping then raises an error" do
+    assert {:error, %UnregisteredMappingError{}} =
+             AccountTypeProvider.fetch_struct_module("ledger_closed")
   end
 
   test "given a type provider composed by other type providers when calling to_struct with a registered mapping then returns the mapped struct" do
