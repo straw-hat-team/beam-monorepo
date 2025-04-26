@@ -5,6 +5,7 @@ defmodule OnePiece.Commanded.TypeProvider do
 
   alias OnePiece.Commanded.TypeProvider
   alias OnePiece.Commanded.Helpers
+  alias OnePiece.Commanded.TypeProvider.UnregisteredMappingError
 
   defmacro __using__(opts \\ []) do
     quote bind_quoted: [opts: opts] do
@@ -15,6 +16,10 @@ defmodule OnePiece.Commanded.TypeProvider do
       @before_compile TypeProvider
 
       Module.register_attribute(__MODULE__, :type_mapping, accumulate: true)
+
+      def fetch_struct_module(name) do
+        TypeProvider.fetch_struct_module(__MODULE__, name)
+      end
     end
   end
 
@@ -75,6 +80,16 @@ defmodule OnePiece.Commanded.TypeProvider do
     end
   end
 
+  @doc false
+  @spec fetch_struct_module(module(), String.t()) :: {:ok, atom()} | {:error, term()}
+  def fetch_struct_module(mod, name) do
+    %struct_module{} = mod.to_struct(name)
+    {:ok, struct_module}
+  rescue
+    error in UnregisteredMappingError ->
+      {:error, error}
+  end
+
   def __add_to_string_funcs__() do
     quote unquote: false do
       @spec to_string(struct()) :: String.t() | no_return()
@@ -85,8 +100,9 @@ defmodule OnePiece.Commanded.TypeProvider do
       end
 
       def to_string(struct) do
-        raise ArgumentError,
-              "#{inspect(struct)} is not registered in the #{inspect(__MODULE__)} type provider"
+        raise UnregisteredMappingError,
+          mapping: struct,
+          type_provider: __MODULE__
       end
     end
   end
@@ -101,8 +117,9 @@ defmodule OnePiece.Commanded.TypeProvider do
       end
 
       def to_struct(name) do
-        raise ArgumentError,
-              "#{inspect(name)} is not registered in the #{inspect(__MODULE__)} type provider"
+        raise UnregisteredMappingError,
+          mapping: name,
+          type_provider: __MODULE__
       end
     end
   end

@@ -2,7 +2,7 @@ defmodule OnePiece.Commanded.MixProject do
   use Mix.Project
 
   @app :one_piece_commanded
-  @version "0.25.2"
+  @version "0.26.0"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
@@ -68,6 +68,7 @@ defmodule OnePiece.Commanded.MixProject do
     [
       "coveralls.html": :test,
       "coveralls.json": :test,
+      "coveralls.github": :test,
       coveralls: :test
     ]
   end
