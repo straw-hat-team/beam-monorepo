@@ -92,14 +92,16 @@ defmodule Trogon.ErrorTest do
         use Trogon.Error,
           domain: "com.test",
           reason: "NOT_FOUND_ERROR",
-          message: :not_found
+          message: :not_found,
+          metadata: %{resource: "user"}
       end
 
       cancelled_error = CancelledError.exception()
       assert cancelled_error.message == "the operation was cancelled"
 
-      not_found_error = NotFoundError.exception()
+      not_found_error = NotFoundError.exception([metadata: %{resource_id: "user:123"}])
       assert not_found_error.message == "resource not found"
+      assert not_found_error.info.metadata == %{resource: "user", resource_id: "user:123"}
     end
 
     test "uses string messages directly at compile time" do

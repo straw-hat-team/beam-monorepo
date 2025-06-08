@@ -15,6 +15,11 @@ defmodule Trogon.Error do
                       required: true,
                       doc: "The error message, either an atom that maps to a standard message or a custom string"
                     ],
+                    metadata: [
+                      type: :map,
+                      default: %{},
+                      doc: "Default metadata to be merged with runtime metadata."
+                    ],
                     code: [
                       type:
                         {:in,
@@ -182,14 +187,17 @@ defmodule Trogon.Error do
   #{NimbleOptions.docs(@options_schema)}
   """
   defmacro __using__(opts) do
-    compiled_opts =
-      opts
-      |> NimbleOptions.validate!(@options_schema)
-      |> Keyword.put_new(:code, :unknown)
-      |> Keyword.put_new(:visibility, :internal)
-      |> Keyword.update!(:message, &to_msg/1)
+    quote bind_quoted: [opts: opts] do
+      alias Trogon.Error
 
-    quote do
+      compiled_opts =
+        opts
+        |> Error.validate_options!()
+        |> Keyword.put_new(:code, :unknown)
+        |> Keyword.put_new(:visibility, :internal)
+        |> Keyword.update!(:message, &Error.to_msg/1)
+        |> Keyword.update!(:metadata, &Macro.escape/1)
+
       defexception [
         :specversion,
         :code,
@@ -223,7 +231,7 @@ defmodule Trogon.Error do
       @impl Exception
       @spec exception(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
       def exception(opts \\ []) do
-        Trogon.Error.__exception__(__MODULE__, unquote(compiled_opts), opts)
+        Error.__exception__(__MODULE__, unquote(compiled_opts), opts)
       end
 
       @doc """
@@ -231,12 +239,12 @@ defmodule Trogon.Error do
       """
       @spec new!(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
       def new!(opts \\ []) do
-        Trogon.Error.__exception__(__MODULE__, unquote(compiled_opts), opts)
+        Error.__exception__(__MODULE__, unquote(compiled_opts), opts)
       end
 
       @impl Exception
       def message(%__MODULE__{} = error) do
-        Trogon.Error.__message__(error)
+        Error.__message__(error)
       end
     end
   end
@@ -275,8 +283,8 @@ defmodule Trogon.Error do
     message = Keyword.get(opts, :message, Keyword.fetch!(compile_opts, :message))
     visibility = Keyword.get(opts, :visibility, Keyword.fetch!(compile_opts, :visibility))
     help = Keyword.get(opts, :help, Keyword.get(compile_opts, :help))
+    metadata = merge_map(Keyword.fetch!(compile_opts, :metadata), Keyword.get(opts, :metadata))
 
-    metadata = Keyword.get(opts, :metadata, %{})
     causes = Keyword.get(opts, :causes, [])
     subject = Keyword.get(opts, :subject)
     debug_info = Keyword.get(opts, :debug_info)
@@ -306,21 +314,30 @@ defmodule Trogon.Error do
     })
   end
 
-  defp to_msg(msg) when is_binary(msg), do: msg
-  defp to_msg(:cancelled), do: "the operation was cancelled"
-  defp to_msg(:unknown), do: "unknown error"
-  defp to_msg(:invalid_argument), do: "invalid argument provided"
-  defp to_msg(:deadline_exceeded), do: "deadline exceeded"
-  defp to_msg(:not_found), do: "resource not found"
-  defp to_msg(:already_exists), do: "resource already exists"
-  defp to_msg(:permission_denied), do: "permission denied"
-  defp to_msg(:unauthenticated), do: "unauthenticated"
-  defp to_msg(:resource_exhausted), do: "resource exhausted"
-  defp to_msg(:failed_precondition), do: "failed precondition"
-  defp to_msg(:aborted), do: "operation aborted"
-  defp to_msg(:out_of_range), do: "out of range"
-  defp to_msg(:unimplemented), do: "not implemented"
-  defp to_msg(:internal), do: "internal error"
-  defp to_msg(:unavailable), do: "service unavailable"
-  defp to_msg(:data_loss), do: "data loss or corruption"
+  @spec validate_options!(keyword()) :: keyword()
+  def validate_options!(opts) do
+    NimbleOptions.validate!(opts, @options_schema)
+  end
+
+  @spec to_msg(atom() | String.t()) :: String.t()
+  def to_msg(msg) when is_binary(msg), do: msg
+  def to_msg(:cancelled), do: "the operation was cancelled"
+  def to_msg(:unknown), do: "unknown error"
+  def to_msg(:invalid_argument), do: "invalid argument provided"
+  def to_msg(:deadline_exceeded), do: "deadline exceeded"
+  def to_msg(:not_found), do: "resource not found"
+  def to_msg(:already_exists), do: "resource already exists"
+  def to_msg(:permission_denied), do: "permission denied"
+  def to_msg(:unauthenticated), do: "unauthenticated"
+  def to_msg(:resource_exhausted), do: "resource exhausted"
+  def to_msg(:failed_precondition), do: "failed precondition"
+  def to_msg(:aborted), do: "operation aborted"
+  def to_msg(:out_of_range), do: "out of range"
+  def to_msg(:unimplemented), do: "not implemented"
+  def to_msg(:internal), do: "internal error"
+  def to_msg(:unavailable), do: "service unavailable"
+  def to_msg(:data_loss), do: "data loss or corruption"
+
+  defp merge_map(map1, nil), do: map1
+  defp merge_map(map1, map2), do: Map.merge(map1, map2)
 end
