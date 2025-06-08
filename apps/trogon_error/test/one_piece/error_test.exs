@@ -46,7 +46,7 @@ defmodule Trogon.ErrorTest do
       assert error.info.metadata == %{}
       assert error.causes == []
       assert error.visibility == :internal
-      assert is_nil(error.source)
+      assert is_nil(error.subject)
       assert is_nil(error.indeterministic_info)
     end
 
@@ -120,18 +120,18 @@ defmodule Trogon.ErrorTest do
       error =
         InvalidCurrencyError.exception(
           code: :invalid_argument,
-          source: %{subject: "/data/currency"},
+          subject: "/data/currency",
           metadata: %{valid_currencies: ["USD", "EUR"]}
         )
 
-      assert error.source == %{subject: "/data/currency"}
+      assert error.subject == "/data/currency"
       assert error.info.metadata == %{valid_currencies: ["USD", "EUR"]}
     end
 
     test "wraps multiple validation errors" do
       currency_error =
         InvalidCurrencyError.exception(
-          source: %{subject: "/data/currency"},
+          subject: "/data/currency",
           metadata: %{valid_currencies: ["USD"]}
         )
 
@@ -142,17 +142,17 @@ defmodule Trogon.ErrorTest do
         )
 
       assert length(validation_error.causes) == 1
-      assert hd(validation_error.causes).source.subject == "/data/currency"
+      assert hd(validation_error.causes).subject == "/data/currency"
     end
 
     test "validation errors creates error with subject" do
       error =
         ValidationError.exception(
-          source: %{subject: "/data/currency"},
+          subject: "/data/currency",
           metadata: %{valid_currencies: ["USD", "EUR"]}
         )
 
-      assert error.source == %{subject: "/data/currency"}
+      assert error.subject == "/data/currency"
       assert error.info.domain == "com.test.app"
       assert error.info.reason == "VALIDATION_FAILED"
       assert error.info.metadata == %{valid_currencies: ["USD", "EUR"]}
@@ -188,7 +188,7 @@ defmodule Trogon.ErrorTest do
             ]
           },
           localized_message: %{locale: "fr-CA", message: "Service non disponible"},
-          retry_info: %{retry_delay: Duration.new!(second: 60)},
+          retry_info: %{retry_offset: %{seconds: 60, nanos: 0}},
           debug_info: %{
             stack_entries: ["line 1", "line 2"],
             metadata: %{"request_id" => "abc123"}
@@ -197,7 +197,7 @@ defmodule Trogon.ErrorTest do
 
       assert error.help.links == [%{description: "Status Page", url: "https://status.example.com"}]
       assert error.localized_message == %{locale: "fr-CA", message: "Service non disponible"}
-      assert error.retry_info.retry_delay == Duration.new!(second: 60)
+      assert error.retry_info.retry_offset == %{seconds: 60, nanos: 0}
       assert error.debug_info.metadata == %{"request_id" => "abc123"}
     end
   end
@@ -242,7 +242,7 @@ defmodule Trogon.ErrorTest do
       try do
         raise TestError,
           metadata: %{user_id: "123"},
-          source: %{subject: "/users/123"}
+          subject: "/users/123"
       rescue
         error in TestError ->
           # compile-time default
@@ -250,7 +250,7 @@ defmodule Trogon.ErrorTest do
           # compile-time default
           assert error.message == "unknown error"
           assert error.info.metadata == %{user_id: "123"}
-          assert error.source == %{subject: "/users/123"}
+          assert error.subject == "/users/123"
           assert error.info.domain == "com.test.app"
           assert error.info.reason == "TEST_ERROR"
       end
@@ -259,7 +259,7 @@ defmodule Trogon.ErrorTest do
     test "raises validation error with source" do
       try do
         raise InvalidCurrencyError,
-          source: %{subject: "/data/currency"},
+          subject: "/data/currency",
           metadata: %{valid_currencies: ["USD", "EUR"]}
       rescue
         error in InvalidCurrencyError ->
@@ -267,7 +267,7 @@ defmodule Trogon.ErrorTest do
           assert error.code == :unknown
           # from :invalid_argument atom
           assert error.message == "invalid argument provided"
-          assert error.source == %{subject: "/data/currency"}
+          assert error.subject == "/data/currency"
           assert error.info.metadata == %{valid_currencies: ["USD", "EUR"]}
           assert error.info.domain == "com.test.currency"
           assert error.info.reason == "INVALID_CURRENCY"
@@ -315,8 +315,8 @@ defmodule Trogon.ErrorTest do
       try do
         raise TestError,
           metadata: %{user_id: "123", context: "login"},
-          source: %{subject: "/auth/login"},
-          retry_info: %{retry_delay: Duration.new!(second: 30)},
+          subject: "/auth/login",
+          retry_info: %{retry_offset: %{seconds: 30, nanos: 0}},
           localized_message: %{locale: "en-US", message: "Login failed"}
       rescue
         error in TestError ->
@@ -327,8 +327,8 @@ defmodule Trogon.ErrorTest do
           # compile-time default
           assert error.visibility == :internal
           assert error.info.metadata == %{user_id: "123", context: "login"}
-          assert error.source == %{subject: "/auth/login"}
-          assert error.retry_info.retry_delay == Duration.new!(second: 30)
+          assert error.subject == "/auth/login"
+          assert error.retry_info.retry_offset == %{seconds: 30, nanos: 0}
           assert error.localized_message == %{locale: "en-US", message: "Login failed"}
           assert error.specversion == 1
       end

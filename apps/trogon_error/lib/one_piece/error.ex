@@ -40,7 +40,7 @@ defmodule Trogon.Error do
                       doc: "The standard error code"
                     ],
                     visibility: [
-                      type: {:in, [:internal, :public]},
+                      type: {:in, [:internal, :private, :public]},
                       default: :internal,
                       doc: "Whether the error should be visible to end users or kept internal"
                     ],
@@ -101,17 +101,17 @@ defmodule Trogon.Error do
           | :unavailable
           | :data_loss
 
-  @type visibility :: :internal | :public
+  @type visibility :: :internal | :private | :public
 
   @type error_info :: %{
           domain: String.t(),
           reason: String.t(),
-          metadata: map()
+          metadata: %{String.t() => String.t()}
         }
 
-  @type source :: %{
-          optional(:subject) => String.t()
-        }
+  @type subject :: String.t()
+
+  @type source_id :: String.t()
 
   @type indeterministic_info :: %{
           id: String.t(),
@@ -129,7 +129,7 @@ defmodule Trogon.Error do
 
   @type debug_info :: %{
           stack_entries: list(String.t()),
-          metadata: map()
+          metadata: %{String.t() => String.t()}
         }
 
   @type localized_message :: %{
@@ -137,9 +137,9 @@ defmodule Trogon.Error do
           message: String.t()
         }
 
-  @type retry_info :: %{
-          retry_delay: Duration.t()
-        }
+  @type duration :: %{seconds: integer(), nanos: integer()}
+
+  @type retry_info :: %{retry_offset: duration()} | %{retry_time: DateTime.t()}
 
   @type t(struct) :: %{
           __struct__: struct,
@@ -150,12 +150,13 @@ defmodule Trogon.Error do
           info: error_info(),
           causes: list(t(module())),
           visibility: visibility(),
-          source: source() | nil,
+          subject: subject() | nil,
           indeterministic_info: indeterministic_info() | nil,
           help: help() | nil,
           debug_info: debug_info() | nil,
           localized_message: localized_message() | nil,
-          retry_info: retry_info() | nil
+          retry_info: retry_info() | nil,
+          source_id: source_id() | nil
         }
 
   @type error_opts :: [
@@ -163,13 +164,14 @@ defmodule Trogon.Error do
           message: String.t(),
           metadata: map(),
           causes: list(t(module())),
-          source: source(),
+          subject: subject(),
           debug_info: debug_info(),
           localized_message: localized_message(),
           retry_info: retry_info(),
           indeterministic_info: indeterministic_info(),
           help: help(),
-          visibility: visibility()
+          visibility: visibility(),
+          source_id: source_id()
         ]
 
   @spec_version 1
@@ -197,12 +199,13 @@ defmodule Trogon.Error do
         :info,
         :causes,
         :visibility,
-        :source,
+        :subject,
         :indeterministic_info,
         :help,
         :debug_info,
         :localized_message,
-        :retry_info
+        :retry_info,
+        :source_id
       ]
 
       @doc """
@@ -254,7 +257,8 @@ defmodule Trogon.Error do
       info: #{inspect(error.info, pretty: true, printable_limit: :infinity)}
       debug_info: #{inspect(error.debug_info, pretty: true, printable_limit: :infinity)}
       retry_info: #{inspect(error.retry_info, pretty: true, printable_limit: :infinity)}
-      source: #{inspect(error.source, pretty: true, printable_limit: :infinity)}
+      subject: #{inspect(error.subject, pretty: true, printable_limit: :infinity)}
+      source_id: #{inspect(error.source_id, pretty: true, printable_limit: :infinity)}
       indeterministic_info: #{inspect(error.indeterministic_info, pretty: true, printable_limit: :infinity)}
       #{help}
     """
@@ -276,11 +280,12 @@ defmodule Trogon.Error do
 
     metadata = Keyword.get(opts, :metadata, %{})
     causes = Keyword.get(opts, :causes, [])
-    source = Keyword.get(opts, :source)
+    subject = Keyword.get(opts, :subject)
     debug_info = Keyword.get(opts, :debug_info)
     localized_message = Keyword.get(opts, :localized_message)
     retry_info = Keyword.get(opts, :retry_info)
     indeterministic_info = Keyword.get(opts, :indeterministic_info)
+    source_id = Keyword.get(opts, :source_id)
 
     struct(struct_module, %{
       specversion: @spec_version,
@@ -293,12 +298,13 @@ defmodule Trogon.Error do
       },
       causes: causes,
       visibility: visibility,
-      source: source,
+      subject: subject,
       indeterministic_info: indeterministic_info,
       help: help,
       debug_info: debug_info,
       localized_message: localized_message,
-      retry_info: retry_info
+      retry_info: retry_info,
+      source_id: source_id
     })
   end
 
