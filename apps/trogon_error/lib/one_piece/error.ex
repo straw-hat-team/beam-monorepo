@@ -137,9 +137,7 @@ defmodule Trogon.Error do
           message: String.t()
         }
 
-  @type duration :: %{seconds: integer(), nanos: integer()}
-
-  @type retry_info :: %{retry_offset: duration()} | %{retry_time: DateTime.t()}
+  @type retry_info :: %{retry_offset: Duration.t()} | %{retry_time: DateTime.t()}
 
   @type t(struct) :: %{
           __struct__: struct,
