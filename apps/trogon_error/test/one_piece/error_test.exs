@@ -46,8 +46,9 @@ defmodule Trogon.ErrorTest do
       assert error.info.metadata == %{}
       assert error.causes == []
       assert error.visibility == :internal
-      assert is_nil(error.subject)
-      assert is_nil(error.indeterministic_info)
+      refute error.subject
+      refute error.id
+      refute error.time
     end
 
     test "creates error with custom values" do

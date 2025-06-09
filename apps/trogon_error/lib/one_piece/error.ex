@@ -118,10 +118,8 @@ defmodule Trogon.Error do
 
   @type source_id :: String.t()
 
-  @type indeterministic_info :: %{
-          id: String.t(),
-          time: DateTime.t()
-        }
+  @type id :: String.t()
+  @type time :: DateTime.t()
 
   @type help_link :: %{
           description: String.t(),
@@ -154,7 +152,8 @@ defmodule Trogon.Error do
           causes: list(t(module())),
           visibility: visibility(),
           subject: subject() | nil,
-          indeterministic_info: indeterministic_info() | nil,
+          id: id() | nil,
+          time: time() | nil,
           help: help() | nil,
           debug_info: debug_info() | nil,
           localized_message: localized_message() | nil,
@@ -171,7 +170,8 @@ defmodule Trogon.Error do
           debug_info: debug_info(),
           localized_message: localized_message(),
           retry_info: retry_info(),
-          indeterministic_info: indeterministic_info(),
+          id: id(),
+          time: time(),
           help: help(),
           visibility: visibility(),
           source_id: source_id()
@@ -206,7 +206,8 @@ defmodule Trogon.Error do
         :causes,
         :visibility,
         :subject,
-        :indeterministic_info,
+        :id,
+        :time,
         :help,
         :debug_info,
         :localized_message,
@@ -258,14 +259,16 @@ defmodule Trogon.Error do
 
     message = """
     #{error.message}
-      visibility: #{inspect(error.visibility)}
-      code: #{inspect(error.code)}
-      info: #{inspect(error.info, pretty: true, printable_limit: :infinity)}
-      debug_info: #{inspect(error.debug_info, pretty: true, printable_limit: :infinity)}
-      retry_info: #{inspect(error.retry_info, pretty: true, printable_limit: :infinity)}
-      subject: #{inspect(error.subject, pretty: true, printable_limit: :infinity)}
-      source_id: #{inspect(error.source_id, pretty: true, printable_limit: :infinity)}
-      indeterministic_info: #{inspect(error.indeterministic_info, pretty: true, printable_limit: :infinity)}
+      id: #{error.id}
+      time: #{error.time}
+      visibility: #{error.visibility}
+      code: #{error.code}
+      info: #{inspect(error.info, pretty: true)}
+      debug_info: #{inspect(error.debug_info, pretty: true)}
+      retry_info: #{inspect(error.retry_info, pretty: true)}
+      subject: #{error.subject}
+      source_id: #{error.source_id}
+
       #{help}
     """
 
@@ -290,7 +293,8 @@ defmodule Trogon.Error do
     debug_info = Keyword.get(opts, :debug_info)
     localized_message = Keyword.get(opts, :localized_message)
     retry_info = Keyword.get(opts, :retry_info)
-    indeterministic_info = Keyword.get(opts, :indeterministic_info)
+    id = Keyword.get(opts, :id)
+    time = Keyword.get(opts, :time)
     source_id = Keyword.get(opts, :source_id)
 
     struct(struct_module, %{
@@ -305,7 +309,8 @@ defmodule Trogon.Error do
       causes: causes,
       visibility: visibility,
       subject: subject,
-      indeterministic_info: indeterministic_info,
+      id: id,
+      time: time,
       help: help,
       debug_info: debug_info,
       localized_message: localized_message,
