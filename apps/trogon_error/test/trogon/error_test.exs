@@ -1,11 +1,11 @@
 defmodule Trogon.ErrorTest do
-  alias TestSupport.Errors
+  alias Trogon.Error.TestSupport
 
   use ExUnit.Case, async: true
   doctest Trogon.Error
 
   test "creates error with default values" do
-    error = Errors.TestError.new!()
+    error = TestSupport.TestError.new!()
     assert error.__exception__ == true
     assert error.specversion == 1
     assert error.code == :unknown
@@ -21,7 +21,7 @@ defmodule Trogon.ErrorTest do
   end
 
   test "creates error with custom values" do
-    error = Errors.TestError.new!(metadata: %{user_id: "123"})
+    error = TestSupport.TestError.new!(metadata: %{user_id: "123"})
     assert error.code == :unknown
     assert error.metadata == %{user_id: "123"}
     assert error.visibility == :internal
@@ -29,8 +29,8 @@ defmodule Trogon.ErrorTest do
 
   test "both exception/1 and new!/1 work identically" do
     opts = [metadata: %{key: "value"}]
-    error1 = Errors.TestError.exception(opts)
-    error2 = Errors.TestError.new!(opts)
+    error1 = TestSupport.TestError.exception(opts)
+    error2 = TestSupport.TestError.new!(opts)
     assert error1 == error2
     assert error1.code == :unknown
     assert error1.message == "unknown error"
@@ -38,21 +38,21 @@ defmodule Trogon.ErrorTest do
   end
 
   test "converts atom messages to strings at compile time" do
-    cancelled_error = Errors.CancelledError.new!()
+    cancelled_error = TestSupport.CancelledError.new!()
     assert cancelled_error.message == "the operation was cancelled"
-    not_found_error = Errors.NotFoundError.new!(metadata: %{resource_id: "user:123"})
+    not_found_error = TestSupport.NotFoundError.new!(metadata: %{resource_id: "user:123"})
     assert not_found_error.message == "resource not found"
     assert not_found_error.metadata == %{resource: "user", resource_id: "user:123"}
   end
 
   test "uses string messages directly at compile time" do
-    error = Errors.CustomMessageError.new!()
+    error = TestSupport.CustomMessageError.new!()
     assert error.message == "This is a custom string message"
   end
 
   test "creates validation error with subject" do
     error =
-      Errors.ValidationError.new!(
+      TestSupport.ValidationError.new!(
         subject: "/data/currency",
         metadata: %{valid_currencies: ["USD", "EUR"]}
       )
@@ -65,15 +65,15 @@ defmodule Trogon.ErrorTest do
 
   test "wraps causes in a validation error" do
     currency_error =
-      Errors.InvalidCurrencyError.new!(
+      TestSupport.InvalidCurrencyError.new!(
         subject: "/data/currency",
         metadata: %{valid_currencies: ["USD"]}
       )
 
-    test_error = Errors.TestError.new!()
+    test_error = TestSupport.TestError.new!()
 
     validation_error =
-      Errors.ValidationError.new!(
+      TestSupport.ValidationError.new!(
         code: :invalid_argument,
         causes: [currency_error, test_error]
       )
@@ -85,8 +85,8 @@ defmodule Trogon.ErrorTest do
   end
 
   test "wraps an error as a cause" do
-    original_error = Errors.TestError.new!(code: :not_found)
-    wrapped_error = Errors.PreconditionError.new!(causes: [original_error])
+    original_error = TestSupport.TestError.new!(code: :not_found)
+    wrapped_error = TestSupport.PreconditionError.new!(causes: [original_error])
     assert wrapped_error.code == :failed_precondition
     assert wrapped_error.message == "failed precondition"
     assert length(wrapped_error.causes) == 1
@@ -97,7 +97,7 @@ defmodule Trogon.ErrorTest do
     time = DateTime.utc_now()
 
     error =
-      Errors.TestError.new!(
+      TestSupport.TestError.new!(
         id: "err-123",
         time: time,
         source_id: "instance-abc",
@@ -118,14 +118,14 @@ defmodule Trogon.ErrorTest do
   end
 
   test "uses compile-time defaults" do
-    error = Errors.CompileTimeError.new!()
+    error = TestSupport.CompileTimeError.new!()
     assert error.code == :not_found
     assert error.message == "This is a compile-time message"
     assert error.visibility == :internal
   end
 
   test "uses compile-time help option" do
-    error = Errors.HelpfulError.new!()
+    error = TestSupport.HelpfulError.new!()
 
     assert error.help == %{
              links: [
@@ -135,24 +135,24 @@ defmodule Trogon.ErrorTest do
   end
 
   test "raises error with default values" do
-    assert_raise Errors.TestError, fn ->
-      raise Errors.TestError
+    assert_raise TestSupport.TestError, fn ->
+      raise TestSupport.TestError
     end
   end
 
   test "raises error with metadata" do
-    assert_raise Errors.TestError, fn ->
-      raise Errors.TestError, metadata: %{request_id: "abc123"}
+    assert_raise TestSupport.TestError, fn ->
+      raise TestSupport.TestError, metadata: %{request_id: "abc123"}
     end
   end
 
   test "raises error with runtime options" do
     try do
-      raise Errors.TestError,
+      raise TestSupport.TestError,
         metadata: %{user_id: "123"},
         subject: "/users/123"
     rescue
-      error in Errors.TestError ->
+      error in TestSupport.TestError ->
         assert error.code == :unknown
         assert error.message == "unknown error"
         assert error.metadata == %{user_id: "123"}
@@ -164,11 +164,11 @@ defmodule Trogon.ErrorTest do
 
   test "raises validation error with subject" do
     try do
-      raise Errors.InvalidCurrencyError,
+      raise TestSupport.InvalidCurrencyError,
         subject: "/data/currency",
         metadata: %{valid_currencies: ["USD", "EUR"]}
     rescue
-      error in Errors.InvalidCurrencyError ->
+      error in TestSupport.InvalidCurrencyError ->
         assert error.code == :unknown
         assert error.message == "invalid argument provided"
         assert error.subject == "/data/currency"
@@ -179,14 +179,14 @@ defmodule Trogon.ErrorTest do
   end
 
   test "raises error with causes" do
-    original_error = Errors.TestError.new!(metadata: %{user_id: "123"})
+    original_error = TestSupport.TestError.new!(metadata: %{user_id: "123"})
 
     try do
-      raise Errors.ValidationError,
+      raise TestSupport.ValidationError,
         causes: [original_error],
         metadata: %{validation_context: "user_creation"}
     rescue
-      error in Errors.ValidationError ->
+      error in TestSupport.ValidationError ->
         assert error.code == :unknown
         assert error.message == "invalid argument provided"
         assert error.metadata == %{validation_context: "user_creation"}
@@ -196,8 +196,8 @@ defmodule Trogon.ErrorTest do
   end
 
   test "raises error with debug info" do
-    assert_raise Errors.TestError, fn ->
-      raise Errors.TestError,
+    assert_raise TestSupport.TestError, fn ->
+      raise TestSupport.TestError,
         debug_info: %{
           stack_entries: ["line 1", "line 2"],
           metadata: %{"request_id" => "abc123"}
@@ -206,22 +206,22 @@ defmodule Trogon.ErrorTest do
   end
 
   test "can re-raise caught exception" do
-    original_error = Errors.TestError.new!()
+    original_error = TestSupport.TestError.new!()
 
-    assert_raise Errors.TestError, fn ->
+    assert_raise TestSupport.TestError, fn ->
       raise original_error
     end
   end
 
   test "preserves runtime error properties when raising" do
     try do
-      raise Errors.TestError,
+      raise TestSupport.TestError,
         metadata: %{user_id: "123", context: "login"},
         subject: "/auth/login",
         retry_info: %{retry_offset: Duration.new!(second: 30)},
         localized_message: %{locale: "en-US", message: "Login failed"}
     rescue
-      error in Errors.TestError ->
+      error in TestSupport.TestError ->
         assert error.code == :unknown
         assert error.message == "unknown error"
         assert error.visibility == :internal
@@ -318,14 +318,14 @@ defmodule Trogon.ErrorTest do
       assert Trogon.Error.to_code_int(:unavailable) == 14
       assert Trogon.Error.to_code_int(:data_loss) == 15
       assert Trogon.Error.to_code_int(:unauthenticated) == 16
-      error = Errors.CompileTimeError.new!()
+      error = TestSupport.CompileTimeError.new!()
       assert Trogon.Error.to_code_int(error) == 5
     end
   end
 
   describe "message/1" do
     test "formats the error message" do
-      error = Errors.HelpfulError.new!(source_id: "")
+      error = TestSupport.HelpfulError.new!(source_id: "")
 
       assert Exception.message(error) == """
              helpful error
@@ -336,7 +336,7 @@ defmodule Trogon.ErrorTest do
              - API Docs: https://example.com/docs\
              """
 
-      error = Errors.TestError.new!(metadata: %{user_id: "123"})
+      error = TestSupport.TestError.new!(metadata: %{user_id: "123"})
 
       assert Exception.message(error) == """
              unknown error
@@ -346,6 +346,15 @@ defmodule Trogon.ErrorTest do
                code: :unknown
                metadata: %{user_id: "123"}\
              """
+    end
+  end
+
+  describe "is_trogon_error?/1" do
+    test "returns true for Trogon errors" do
+      error = TestSupport.TestError.new!()
+      assert TestSupport.trogon_error?(error)
+      refute TestSupport.trogon_error?(%{})
+      refute TestSupport.trogon_error?(:something_went_wrong)
     end
   end
 end

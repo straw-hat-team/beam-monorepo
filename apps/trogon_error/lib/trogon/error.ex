@@ -195,8 +195,10 @@ defmodule Trogon.Error do
         |> then(&Keyword.put_new(&1, :message, &1[:code]))
         |> Keyword.update!(:message, &Error.to_msg/1)
 
+      @derive {Inspect, except: [:__trogon_error__]}
       @enforce_keys [:specversion, :code, :message, :domain, :reason, :metadata]
       defexception [
+        :__trogon_error__,
         :specversion,
         :code,
         :message,
@@ -239,7 +241,7 @@ defmodule Trogon.Error do
       Creates a new error instance with the given options.
       """
       @spec new!(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
-      def new!(opts \\ []) do
+      def new!(opts \\ []) when is_list(opts) do
         Error.__exception__(__MODULE__, unquote(compiled_opts), opts)
       end
 
@@ -307,6 +309,7 @@ defmodule Trogon.Error do
     source_id = Keyword.get(opts, :source_id)
 
     struct(struct_module, %{
+      __trogon_error__: true,
       specversion: @spec_version,
       code: code,
       message: message,
@@ -338,7 +341,7 @@ defmodule Trogon.Error do
 
       iex> Trogon.Error.to_code_int(:cancelled)
       1
-      iex> err = TestSupport.Errors.InvalidCurrencyError.new!()
+      iex> err = TestSupport.InvalidCurrencyError.new!()
       ...> Trogon.Error.to_code_int(err)
       2
   """
@@ -382,4 +385,11 @@ defmodule Trogon.Error do
 
   defp merge_map(map1, nil), do: map1
   defp merge_map(map1, map2), do: Map.merge(map1, map2)
+
+  @doc """
+  Checks if a term is a Trogon error.
+  """
+  defguard is_trogon_error?(term)
+           when is_map(term) and is_map_key(term, :__trogon_error__) and
+                  :erlang.map_get(:__trogon_error__, term) == true
 end
