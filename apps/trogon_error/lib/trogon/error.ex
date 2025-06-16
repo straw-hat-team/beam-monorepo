@@ -161,19 +161,15 @@ defmodule Trogon.Error do
         }
 
   @type error_opts :: [
-          code: code(),
-          message: String.t(),
-          metadata: map(),
-          causes: list(t(module())),
-          subject: subject(),
-          debug_info: debug_info(),
-          localized_message: localized_message(),
-          retry_info: retry_info(),
-          id: id(),
-          time: time(),
-          help: help(),
-          visibility: visibility(),
-          source_id: source_id()
+          metadata: map() | nil,
+          causes: list(t(module())) | nil,
+          subject: subject() | nil,
+          debug_info: debug_info() | nil,
+          localized_message: localized_message() | nil,
+          retry_info: retry_info() | nil,
+          id: id() | nil,
+          time: time() | nil,
+          source_id: source_id() | nil
         ]
 
   @spec_version 1
