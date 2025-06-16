@@ -1,4 +1,6 @@
-defmodule TestSupport.Errors do
+defmodule Trogon.Error.TestSupport do
+  import Trogon.Error, only: [is_trogon_error?: 1]
+
   defmodule TestError do
     use Trogon.Error,
       domain: "com.test.app",
@@ -69,4 +71,7 @@ defmodule TestSupport.Errors do
         ]
       }
   end
+
+  def trogon_error?(error) when is_trogon_error?(error), do: true
+  def trogon_error?(_), do: false
 end
