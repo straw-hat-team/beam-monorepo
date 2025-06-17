@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "changelog-sections": [
+    {
+      "type": "feat",
+      "section": "Features",
+      "hidden": false
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes",
+      "hidden": false
+    }
+  ],
+  "packages": {
+    "apps/one_piece_commanded": {
+      "component": "one_piece_commanded"
+    },
+    "apps/one_piece_graceful_shutdown": {
+      "component": "one_piece_graceful_shutdown"
+    },
+    "apps/one_piece_result": {
+      "component": "one_piece_result"
+    },
+    "apps/trogon_error": {
+      "component": "trogon_error"
+    }
+  },
+  "plugins": [
+    {
+      "type": "sentence-case"
+    }
+  ],
+  "tag-separator": "@",
+  "include-v-in-tag": true,
+  "include-component-in-tag": true,
+  "release-type": "elixir",
+  "draft": false,
+  "draft-pull-request": false,
+  "prerelease": false,
+  "pull-request-header": "An automated release has been created for you.",
+  "separate-pull-requests": true
+}
