@@ -1,6 +1,6 @@
-defmodule OnePiece.Result.ExpectedError do
+defmodule Trogon.Result.ExpectedError do
   @moduledoc """
-  Error raised when trying to `OnePiece.Result.expect_ok!/2` or `OnePiece.Result.expect_err!/2`.
+  Error raised when trying to `Trogon.Result.expect_ok!/2` or `Trogon.Result.expect_err!/2`.
   """
 
   @type t :: %__MODULE__{}

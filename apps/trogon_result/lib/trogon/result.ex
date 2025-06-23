@@ -1,11 +1,11 @@
-defmodule OnePiece.Result do
+defmodule Trogon.Result do
   @moduledoc """
   Handles `t:t/0` responses. Inspired by Rust `std::result::Result` package.
   """
 
-  alias OnePiece.Result.ErrUnwrapError
-  alias OnePiece.Result.OkUnwrapError
-  alias OnePiece.Result.ExpectedError
+  alias Trogon.Result.ErrUnwrapError
+  alias Trogon.Result.OkUnwrapError
+  alias Trogon.Result.ExpectedError
 
   @typedoc """
   An Ok result.
@@ -25,7 +25,7 @@ defmodule OnePiece.Result do
   @doc """
   Wraps a value into an `t:ok/0` result.
 
-      iex> OnePiece.Result.ok(42)
+      iex> Trogon.Result.ok(42)
       {:ok, 42}
   """
   @spec ok(value :: any) :: ok
@@ -34,7 +34,7 @@ defmodule OnePiece.Result do
   @doc """
   Wraps a value into an `t:err/0` result.
 
-      iex> OnePiece.Result.err("oops")
+      iex> Trogon.Result.err("oops")
       {:error, "oops"}
   """
   @spec err(reason :: any) :: err
@@ -44,13 +44,13 @@ defmodule OnePiece.Result do
   Returns true if the argument is a `t:ok/0`.
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.ok?()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.ok?()
       true
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.ok?()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.ok?()
       false
   """
   @spec ok?(value :: t) :: boolean
@@ -62,14 +62,14 @@ defmodule OnePiece.Result do
 
       iex> is_meaning_of_life = fn x -> x == 42 end
       ...> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.ok_and?(is_meaning_of_life)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.ok_and?(is_meaning_of_life)
       true
 
       iex> is_meaning_of_life = fn x -> x == 42 end
       ...> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.ok_and?(is_meaning_of_life)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.ok_and?(is_meaning_of_life)
       false
   """
   @spec ok_and?(value :: t, predicate :: (any -> boolean)) :: boolean
@@ -80,13 +80,13 @@ defmodule OnePiece.Result do
   Returns true if the argument is an `t:err/0`.
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.err?()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.err?()
       false
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.err?()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.err?()
       true
   """
   @spec err?(value :: t) :: boolean
@@ -98,14 +98,14 @@ defmodule OnePiece.Result do
 
       iex> is_not_found = fn err -> err == :not_found end
       ...> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.err_and?(is_not_found)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.err_and?(is_not_found)
       false
 
       iex> is_not_found = fn err -> err == :not_found end
       ...> :not_found
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.err_and?(is_not_found)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.err_and?(is_not_found)
       true
   """
   @spec err_and?(value :: t, predicate :: (any -> boolean)) :: boolean
@@ -116,20 +116,20 @@ defmodule OnePiece.Result do
   Is valid if and only if an `t:ok/0` is supplied.
 
       iex> check = fn
-      ...>   val when OnePiece.Result.is_ok_result(val) -> true
+      ...>   val when Trogon.Result.is_ok_result(val) -> true
       ...>   _ -> false
       ...> end
       ...> 42
-      ...> |> OnePiece.Result.ok()
+      ...> |> Trogon.Result.ok()
       ...> |> check.()
       true
 
       iex> check = fn
-      ...>   val when OnePiece.Result.is_ok_result(val) -> true
+      ...>   val when Trogon.Result.is_ok_result(val) -> true
       ...>   _ -> false
       ...> end
       ...> "oops"
-      ...> |> OnePiece.Result.err()
+      ...> |> Trogon.Result.err()
       ...> |> check.()
       false
   """
@@ -140,20 +140,20 @@ defmodule OnePiece.Result do
   Is valid if and only if an `t:err/0` is supplied.
 
       iex> check = fn
-      ...>   val when OnePiece.Result.is_err_result(val) -> true
+      ...>   val when Trogon.Result.is_err_result(val) -> true
       ...>   _ -> false
       ...> end
       ...> 42
-      ...> |> OnePiece.Result.ok()
+      ...> |> Trogon.Result.ok()
       ...> |> check.()
       false
 
       iex> check = fn
-      ...>   val when OnePiece.Result.is_err_result(val) -> true
+      ...>   val when Trogon.Result.is_err_result(val) -> true
       ...>   _ -> false
       ...> end
       ...> "oops"
-      ...> |> OnePiece.Result.err()
+      ...> |> Trogon.Result.err()
       ...> |> check.()
       true
   """
@@ -164,18 +164,18 @@ defmodule OnePiece.Result do
   Returns true if the `t:ok/0` result contains the given value.
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.contains_ok?(42)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.contains_ok?(42)
       true
 
       iex> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.contains_ok?(42)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.contains_ok?(42)
       false
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.contains_ok?(42)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.contains_ok?(42)
       false
   """
   @spec contains_ok?(result :: t, value :: any) :: boolean
@@ -187,18 +187,18 @@ defmodule OnePiece.Result do
   Returns true if the `t:err/0` result contains the given value.
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.contains_err?("oops")
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.contains_err?("oops")
       true
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.contains_err?("nop")
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.contains_err?("nop")
       false
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.contains_err?("ops")
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.contains_err?("ops")
       false
   """
   @spec contains_err?(result :: t, value :: any) :: boolean
@@ -211,24 +211,24 @@ defmodule OnePiece.Result do
   returning value in a `t:ok/0`, propagating the `t:err/0` result as it is.
 
   > #### Avoid Wrapping {: .info}
-  > If you want to avoid the wrap then use `OnePiece.Result.when_ok/2` instead.
+  > If you want to avoid the wrap then use `Trogon.Result.when_ok/2` instead.
 
       iex> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.map_ok(42)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok(42)
       {:ok, 42}
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.map_ok(42)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_ok(42)
       {:error, "oops"}
 
   You can also pass a function to achieve lazy evaluation:
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.map_ok(meaning_of_life)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok(meaning_of_life)
       {:ok, 42}
   """
   @spec map_ok(result :: t, on_ok :: (any -> any) | any) :: t
@@ -242,14 +242,14 @@ defmodule OnePiece.Result do
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, 84)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, 84)
       42
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, 84)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, 84)
       84
 
   > #### Lazy Evaluation {: .info}
@@ -258,15 +258,15 @@ defmodule OnePiece.Result do
       iex> meaning_of_life = fn x -> x * 2 end
       ...> went_wrong = fn reason -> "something went wrong because #{reason}" end
       ...> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, went_wrong)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, went_wrong)
       42
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> went_wrong = fn reason -> "something went wrong because #{reason}" end
       ...> "a sleepy bear"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.map_ok_or(meaning_of_life, went_wrong)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, went_wrong)
       "something went wrong because a sleepy bear"
   """
   @spec map_ok_or(result :: t, on_ok :: (any -> any), on_error :: any | (any -> any)) :: any
@@ -278,21 +278,21 @@ defmodule OnePiece.Result do
   Applies a function or returns the value when a `t:ok/0` is given, or propagates the error.
 
       iex> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.when_ok(42)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.when_ok(42)
       42
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.when_ok(42)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.when_ok(42)
       {:error, "oops"}
 
   You can also pass a function to achieve lazy evaluation:
 
       iex> meaning_of_life = fn x -> x * 2 end
       ...> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.when_ok(meaning_of_life)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.when_ok(meaning_of_life)
       42
   """
   @spec when_ok(result :: t, on_ok :: (any -> any) | any) :: err() | any
@@ -307,23 +307,23 @@ defmodule OnePiece.Result do
   returns the `t:err/0`. Otherwise, when passing two `t:err/0` result, it returns the earliest `t:err/0`.
 
       iex> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.and_ok(OnePiece.Result.ok(42))
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.ok(42))
       {:ok, 42}
 
       iex> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.and_ok(OnePiece.Result.err("something went wrong"))
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.err("something went wrong"))
       {:error, "something went wrong"}
 
       iex> "something went wrong"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.and_ok(OnePiece.Result.ok(42))
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.ok(42))
       {:error, "something went wrong"}
 
       iex> "something went wrong"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.and_ok(OnePiece.Result.err("late error"))
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.err("late error"))
       {:error, "something went wrong"}
   """
   @spec and_ok(first_result :: t, second_result :: t) :: t
@@ -336,13 +336,13 @@ defmodule OnePiece.Result do
   Returns the contained `t:ok/0` value or a provided default.
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.unwrap_ok(21)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.unwrap_ok(21)
       42
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.unwrap_ok(21)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.unwrap_ok(21)
       21
 
   > #### Lazy Evaluation {: .info}
@@ -350,14 +350,14 @@ defmodule OnePiece.Result do
 
       iex> say_hello_world = fn _x -> "hello, world!" end
       ...> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.unwrap_ok(say_hello_world)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.unwrap_ok(say_hello_world)
       42
 
       iex> say_hello_world = fn _x -> "hello, world!" end
       ...> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.unwrap_ok(say_hello_world)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.unwrap_ok(say_hello_world)
       "hello, world!"
   """
   @spec unwrap_ok(result :: t, on_error :: any | (any -> any)) :: any
@@ -370,19 +370,19 @@ defmodule OnePiece.Result do
 
       iex> try do
       ...>   42
-      ...>   |> OnePiece.Result.ok()
-      ...>   |> OnePiece.Result.unwrap_ok!()
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.unwrap_ok!()
       ...> rescue
-      ...>   OnePiece.Result.OkUnwrapError -> "was a unwrap failure"
+      ...>   Trogon.Result.OkUnwrapError -> "was a unwrap failure"
       ...> end
       42
 
       iex> try do
       ...>   "oops"
-      ...>   |> OnePiece.Result.err()
-      ...>   |> OnePiece.Result.unwrap_ok!()
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.unwrap_ok!()
       ...> rescue
-      ...>   OnePiece.Result.OkUnwrapError -> "was a unwrap failure"
+      ...>   Trogon.Result.OkUnwrapError -> "was a unwrap failure"
       ...> end
       "was a unwrap failure"
   """
@@ -395,8 +395,8 @@ defmodule OnePiece.Result do
 
       iex> try do
       ...>   21
-      ...>   |> OnePiece.Result.err()
-      ...>   |> OnePiece.Result.expect_ok!("expected 42")
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.expect_ok!("expected 42")
       ...> rescue
       ...>   e -> e.message
       ...> end
@@ -404,8 +404,8 @@ defmodule OnePiece.Result do
 
       iex> try do
       ...>   42
-      ...>   |> OnePiece.Result.ok()
-      ...>   |> OnePiece.Result.expect_ok!("expected 42")
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.expect_ok!("expected 42")
       ...> rescue
       ...>   _ -> "was a unwrap failure"
       ...> end
@@ -420,8 +420,8 @@ defmodule OnePiece.Result do
 
       iex> success_log = fn x -> "Success #{x}" end
       ...> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.tap_ok(success_log)
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.tap_ok(success_log)
       {:ok, 42}
   """
   @spec tap_ok(result :: t, func :: (any -> any)) :: t
@@ -432,24 +432,24 @@ defmodule OnePiece.Result do
   returning value in a `t:err/0`, propagating the `t:ok/0` result as it is.
 
   > #### Avoid Wrapping {: .info}
-  > If you want to avoid the wrap then use `OnePiece.Result.when_err/2` instead.
+  > If you want to avoid the wrap then use `Trogon.Result.when_err/2` instead.
 
         iex> 21
-        ...> |> OnePiece.Result.err()
-        ...> |> OnePiece.Result.map_err("must be 42")
+        ...> |> Trogon.Result.err()
+        ...> |> Trogon.Result.map_err("must be 42")
         {:error, "must be 42"}
 
         iex> 42
-        ...> |> OnePiece.Result.ok()
-        ...> |> OnePiece.Result.map_err("must be 42")
+        ...> |> Trogon.Result.ok()
+        ...> |> Trogon.Result.map_err("must be 42")
         {:ok, 42}
 
   You can also pass a function to achieve lazy evaluation:
 
       iex> meaning_of_life = fn x -> "must be 42 instead of #{x}" end
       ...> 21
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.map_err(meaning_of_life)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_err(meaning_of_life)
       {:error, "must be 42 instead of 21"}
   """
   @spec map_err(result :: t, on_error :: (any -> any) | any) :: t
@@ -461,21 +461,21 @@ defmodule OnePiece.Result do
   Applies a function or returns the value if the result is `t:err/0`, otherwise returns the `t:ok/0` value.
 
       iex> "something wrong happened"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.when_err("ooops")
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.when_err("ooops")
       "ooops"
 
       iex> 2
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.when_err("ooops")
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.when_err("ooops")
       {:ok, 2}
 
   You can also pass a function to achieve lazy evaluation:
 
       iex> failure = fn _error -> "lazy ooops" end
       ...> "something wrong happened"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.when_err(failure)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.when_err(failure)
       "lazy ooops"
   """
   @spec when_err(result :: t, on_err :: (any -> t) | any) :: ok() | any
@@ -490,23 +490,23 @@ defmodule OnePiece.Result do
   then returns the second `t:err/0`.
 
       iex> 21
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.and_err(OnePiece.Result.ok(42))
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_err(Trogon.Result.ok(42))
       {:ok, 21}
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.and_err(OnePiece.Result.err("something went wrong"))
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_err(Trogon.Result.err("something went wrong"))
       {:ok, 42}
 
       iex> "something went wrong"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.and_err(OnePiece.Result.ok(42))
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_err(Trogon.Result.ok(42))
       {:ok, 42}
 
       iex> "something went wrong"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.and_err(OnePiece.Result.err("late error"))
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_err(Trogon.Result.err("late error"))
       {:error, "late error"}
   """
   @spec and_err(first_result :: t, second_result :: t) :: t
@@ -520,19 +520,19 @@ defmodule OnePiece.Result do
 
       iex> try do
       ...>   "oops"
-      ...>   |> OnePiece.Result.err()
-      ...>   |> OnePiece.Result.unwrap_err!()
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.unwrap_err!()
       ...> rescue
-      ...>   OnePiece.Result.ErrUnwrapError -> "was a unwrap failure"
+      ...>   Trogon.Result.ErrUnwrapError -> "was a unwrap failure"
       ...> end
       "oops"
 
       iex> try do
       ...>   42
-      ...>   |> OnePiece.Result.ok()
-      ...>   |> OnePiece.Result.unwrap_err!()
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.unwrap_err!()
       ...> rescue
-      ...>   OnePiece.Result.ErrUnwrapError -> "was a unwrap failure"
+      ...>   Trogon.Result.ErrUnwrapError -> "was a unwrap failure"
       ...> end
       "was a unwrap failure"
   """
@@ -545,8 +545,8 @@ defmodule OnePiece.Result do
 
       iex> try do
       ...>   42
-      ...>   |> OnePiece.Result.ok()
-      ...>   |> OnePiece.Result.expect_err!("expected a oops")
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.expect_err!("expected a oops")
       ...> rescue
       ...>   e -> e.message
       ...> end
@@ -554,8 +554,8 @@ defmodule OnePiece.Result do
 
       iex> try do
       ...>   "oops"
-      ...>   |> OnePiece.Result.err()
-      ...>   |> OnePiece.Result.expect_err!("expected a oops")
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.expect_err!("expected a oops")
       ...> rescue
       ...>   _ -> "was a unwrap failure"
       ...> end
@@ -570,8 +570,8 @@ defmodule OnePiece.Result do
 
       iex> failure_log = fn err -> "Failure because #{err}" end
       ...> "ooopsy"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.tap_err(failure_log)
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.tap_err(failure_log)
       {:error, "ooopsy"}
   """
   @spec tap_err(result :: t, func :: (any -> any)) :: t
@@ -581,27 +581,27 @@ defmodule OnePiece.Result do
   When `nil` is passed then calls the `on_nil` function and wrap the result into a `t:err/0`. When `t:t/0` is passed
   then returns it as it is. Otherwise, wraps the value into a `t:ok/0`.
 
-      iex> OnePiece.Result.reject_nil(nil, "ooopps")
+      iex> Trogon.Result.reject_nil(nil, "ooopps")
       {:error, "ooopps"}
 
-      iex> OnePiece.Result.reject_nil(42, "ooopps")
+      iex> Trogon.Result.reject_nil(42, "ooopps")
       {:ok, 42}
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.reject_nil("ooopps")
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.reject_nil("ooopps")
       {:ok, 42}
 
       iex> "my error"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.reject_nil("ooopps")
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.reject_nil("ooopps")
       {:error, "my error"}
 
   > #### Lazy Evaluation {: .info}
   > It is recommended to pass a function as the default value, which is lazily evaluated.
 
       iex> new_error = fn -> "ooops" end
-      ...> OnePiece.Result.reject_nil(nil, new_error)
+      ...> Trogon.Result.reject_nil(nil, new_error)
       {:error, "ooops"}
   """
   @spec reject_nil(value :: any, on_nil :: any | (-> any)) :: t
@@ -615,27 +615,27 @@ defmodule OnePiece.Result do
   Converts from a nested `t:t/0` to flatten `t:t/0`.
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.flatten()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.flatten()
       {:ok, 42}
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.flatten()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.flatten()
       {:error, {:ok, 42}}
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.flatten()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.flatten()
       {:error, "oops"}
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.flatten()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.flatten()
       {:error, {:error, "oops"}}
   """
   @spec flatten(result :: t) :: t
@@ -644,17 +644,17 @@ defmodule OnePiece.Result do
   @doc """
   Iterate over `t:t/0` list unwrapping the `t:ok/0` values. It fails at the first `t:err/0`.
 
-      iex> OnePiece.Result.collect([
-      ...>   OnePiece.Result.ok(21),
-      ...>   OnePiece.Result.ok(42),
-      ...>   OnePiece.Result.ok(84),
+      iex> Trogon.Result.collect([
+      ...>   Trogon.Result.ok(21),
+      ...>   Trogon.Result.ok(42),
+      ...>   Trogon.Result.ok(84),
       ...> ])
       {:ok, [21,42,84]}
 
-      iex> OnePiece.Result.collect([
-      ...>   OnePiece.Result.ok(21),
-      ...>   OnePiece.Result.err("oops"),
-      ...>   OnePiece.Result.ok(84),
+      iex> Trogon.Result.collect([
+      ...>   Trogon.Result.ok(21),
+      ...>   Trogon.Result.err("oops"),
+      ...>   Trogon.Result.ok(84),
       ...> ])
       {:error, "oops"}
   """
@@ -672,13 +672,13 @@ defmodule OnePiece.Result do
   Returns the contained `t:ok/0` value or `t:error/0` value from a `t:t/0`.
 
       iex> 42
-      ...> |> OnePiece.Result.ok()
-      ...> |> OnePiece.Result.unwrap()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.unwrap()
       42
 
       iex> "oops"
-      ...> |> OnePiece.Result.err()
-      ...> |> OnePiece.Result.unwrap()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.unwrap()
       "oops"
   """
   @spec unwrap(result :: t) :: any
