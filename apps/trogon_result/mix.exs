@@ -1,7 +1,7 @@
-defmodule OnePiece.Result.MixProject do
+defmodule Trogon.Result.MixProject do
   use Mix.Project
 
-  @app :one_piece_result
+  @app :trogon_result
   @version "1.0.0"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
@@ -12,7 +12,7 @@ defmodule OnePiece.Result.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      name: "OnePiece.Result",
+      name: "Trogon.Result",
       description: "Handles tuple responses",
       app: @app,
       version: @version,

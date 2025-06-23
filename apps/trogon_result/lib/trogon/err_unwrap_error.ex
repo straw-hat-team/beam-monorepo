@@ -1,6 +1,6 @@
-defmodule OnePiece.Result.ErrUnwrapError do
+defmodule Trogon.Result.ErrUnwrapError do
   @moduledoc """
-  Error raised when trying to unwrap an `t:OnePiece.Result.err/0` result.
+  Error raised when trying to unwrap an `t:Trogon.Result.err/0` result.
   """
 
   @type t :: %__MODULE__{}

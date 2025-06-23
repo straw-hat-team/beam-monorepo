@@ -1,10 +1,10 @@
-defmodule OnePiece.ResultTest do
+defmodule Trogon.ResultTest do
   use ExUnit.Case
 
   import ExUnit.CaptureLog
   require Logger
 
-  alias OnePiece.Result
+  alias Trogon.Result
 
   doctest Result
 

@@ -19,8 +19,8 @@
     "apps/one_piece_graceful_shutdown": {
       "component": "one_piece_graceful_shutdown"
     },
-    "apps/one_piece_result": {
-      "component": "one_piece_result"
+    "apps/trogon_result": {
+      "component": "trogon_result"
     },
     "apps/trogon_error": {
       "component": "trogon_error"
