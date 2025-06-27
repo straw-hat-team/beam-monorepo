@@ -13,8 +13,8 @@
     }
   ],
   "packages": {
-    "apps/one_piece_commanded": {
-      "component": "one_piece_commanded"
+    "apps/trogon_commanded": {
+      "component": "trogon_commanded"
     },
     "apps/one_piece_graceful_shutdown": {
       "component": "one_piece_graceful_shutdown"
