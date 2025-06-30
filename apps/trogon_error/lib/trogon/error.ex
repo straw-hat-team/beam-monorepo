@@ -311,12 +311,7 @@ defmodule Trogon.Error do
     visibility = Keyword.fetch!(compile_opts, :visibility)
     help = Keyword.get(compile_opts, :help)
     compile_metadata = Keyword.fetch!(compile_opts, :metadata)
-
-    runtime_metadata =
-      opts
-      |> Keyword.get(:metadata, Metadata.new())
-      |> to_metadata()
-
+    runtime_metadata = Keyword.get(opts, :metadata, Metadata.new())
     metadata = Metadata.merge(compile_metadata, runtime_metadata)
 
     causes = Keyword.get(opts, :causes, [])
@@ -348,9 +343,6 @@ defmodule Trogon.Error do
       source_id: source_id
     })
   end
-
-  defp to_metadata(%Metadata{} = metadata), do: metadata
-  defp to_metadata(metadata) when is_map(metadata), do: Metadata.new(metadata)
 
   @doc """
   Validates compile-time options using NimbleOptions.
