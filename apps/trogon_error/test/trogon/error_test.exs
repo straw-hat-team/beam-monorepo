@@ -1,5 +1,6 @@
 defmodule Trogon.ErrorTest do
   alias Trogon.Error.TestSupport
+  alias Trogon.Error.{Metadata, MetadataValue}
 
   use ExUnit.Case, async: true
   doctest Trogon.Error
@@ -12,7 +13,7 @@ defmodule Trogon.ErrorTest do
     assert error.message == "unknown error"
     assert error.domain == "com.test.app"
     assert error.reason == "TEST_ERROR"
-    assert error.metadata == %{}
+    assert error.metadata == %Trogon.Error.Metadata{entries: %{}}
     assert error.causes == []
     assert error.visibility == :internal
     refute error.subject
@@ -21,28 +22,35 @@ defmodule Trogon.ErrorTest do
   end
 
   test "creates error with custom values" do
-    error = TestSupport.TestError.new!(metadata: %{user_id: "123"})
+    error = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123"}))
     assert error.code == :unknown
-    assert error.metadata == %{user_id: "123"}
+    assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :internal}}}
     assert error.visibility == :internal
   end
 
   test "both exception/1 and new!/1 work identically" do
-    opts = [metadata: %{key: "value"}]
+    opts = [metadata: Metadata.new(%{key: "value"})]
     error1 = TestSupport.TestError.exception(opts)
     error2 = TestSupport.TestError.new!(opts)
     assert error1 == error2
     assert error1.code == :unknown
     assert error1.message == "unknown error"
-    assert error1.metadata == %{key: "value"}
+    assert error1.metadata == %Metadata{entries: %{"key" => %MetadataValue{value: "value", visibility: :internal}}}
   end
 
   test "converts atom messages to strings at compile time" do
     cancelled_error = TestSupport.CancelledError.new!()
     assert cancelled_error.message == "the operation was cancelled"
-    not_found_error = TestSupport.NotFoundError.new!(metadata: %{resource_id: "user:123"})
+    not_found_error = TestSupport.NotFoundError.new!(metadata: Metadata.new(%{resource_id: "user:123"}))
     assert not_found_error.message == "resource not found"
-    assert not_found_error.metadata == %{resource: "user", resource_id: "user:123"}
+
+    assert not_found_error.metadata ==
+             %Metadata{
+               entries: %{
+                 "resource" => %MetadataValue{value: "user", visibility: :internal},
+                 "resource_id" => %MetadataValue{value: "user:123", visibility: :internal}
+               }
+             }
   end
 
   test "uses string messages directly at compile time" do
@@ -54,20 +62,26 @@ defmodule Trogon.ErrorTest do
     error =
       TestSupport.ValidationError.new!(
         subject: "/data/currency",
-        metadata: %{valid_currencies: ["USD", "EUR"]}
+        metadata: Metadata.new(%{valid_currencies: "[\"USD\", \"EUR\"]"})
       )
 
     assert error.subject == "/data/currency"
     assert error.domain == "com.test.app"
     assert error.reason == "VALIDATION_FAILED"
-    assert error.metadata == %{valid_currencies: ["USD", "EUR"]}
+
+    assert error.metadata ==
+             %Metadata{
+               entries: %{
+                 "valid_currencies" => %MetadataValue{value: "[\"USD\", \"EUR\"]", visibility: :internal}
+               }
+             }
   end
 
   test "wraps causes in a validation error" do
     currency_error =
       TestSupport.InvalidCurrencyError.new!(
         subject: "/data/currency",
-        metadata: %{valid_currencies: ["USD"]}
+        metadata: Metadata.new(%{valid_currencies: "[\"USD\"]"})
       )
 
     test_error = TestSupport.TestError.new!()
@@ -105,7 +119,7 @@ defmodule Trogon.ErrorTest do
         retry_info: %{retry_offset: Duration.new!(second: 60)},
         debug_info: %{
           stack_entries: ["line 1", "line 2"],
-          metadata: %{"request_id" => "abc123"}
+          detail: "Request processing failed at validation step"
         }
       )
 
@@ -114,7 +128,7 @@ defmodule Trogon.ErrorTest do
     assert error.source_id == "instance-abc"
     assert error.localized_message == %{locale: "fr-CA", message: "Service non disponible"}
     assert error.retry_info.retry_offset == Duration.new!(second: 60)
-    assert error.debug_info.metadata == %{"request_id" => "abc123"}
+    assert error.debug_info.detail == "Request processing failed at validation step"
   end
 
   test "uses compile-time defaults" do
@@ -142,20 +156,20 @@ defmodule Trogon.ErrorTest do
 
   test "raises error with metadata" do
     assert_raise TestSupport.TestError, fn ->
-      raise TestSupport.TestError, metadata: %{request_id: "abc123"}
+      raise TestSupport.TestError, metadata: Metadata.new(%{request_id: "abc123"})
     end
   end
 
   test "raises error with runtime options" do
     try do
       raise TestSupport.TestError,
-        metadata: %{user_id: "123"},
+        metadata: Metadata.new(%{user_id: "123"}),
         subject: "/users/123"
     rescue
       error in TestSupport.TestError ->
         assert error.code == :unknown
         assert error.message == "unknown error"
-        assert error.metadata == %{user_id: "123"}
+        assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :internal}}}
         assert error.subject == "/users/123"
         assert error.domain == "com.test.app"
         assert error.reason == "TEST_ERROR"
@@ -166,30 +180,44 @@ defmodule Trogon.ErrorTest do
     try do
       raise TestSupport.InvalidCurrencyError,
         subject: "/data/currency",
-        metadata: %{valid_currencies: ["USD", "EUR"]}
+        metadata: Metadata.new(%{valid_currencies: ~s(["USD", "EUR"])})
     rescue
       error in TestSupport.InvalidCurrencyError ->
         assert error.code == :unknown
         assert error.message == "invalid argument provided"
         assert error.subject == "/data/currency"
-        assert error.metadata == %{valid_currencies: ["USD", "EUR"]}
+
+        assert error.metadata ==
+                 %Metadata{
+                   entries: %{
+                     "valid_currencies" => %MetadataValue{value: ~s(["USD", "EUR"]), visibility: :internal}
+                   }
+                 }
+
         assert error.domain == "com.test.currency"
         assert error.reason == "INVALID_CURRENCY"
     end
   end
 
   test "raises error with causes" do
-    original_error = TestSupport.TestError.new!(metadata: %{user_id: "123"})
+    original_error = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123"}))
 
     try do
       raise TestSupport.ValidationError,
         causes: [original_error],
-        metadata: %{validation_context: "user_creation"}
+        metadata: Metadata.new(%{validation_context: "user_creation"})
     rescue
       error in TestSupport.ValidationError ->
         assert error.code == :unknown
         assert error.message == "invalid argument provided"
-        assert error.metadata == %{validation_context: "user_creation"}
+
+        assert error.metadata ==
+                 %Metadata{
+                   entries: %{
+                     "validation_context" => %MetadataValue{value: "user_creation", visibility: :internal}
+                   }
+                 }
+
         assert length(error.causes) == 1
         assert hd(error.causes) == original_error
     end
@@ -200,7 +228,7 @@ defmodule Trogon.ErrorTest do
       raise TestSupport.TestError,
         debug_info: %{
           stack_entries: ["line 1", "line 2"],
-          metadata: %{"request_id" => "abc123"}
+          detail: "Request processing failed at validation step"
         }
     end
   end
@@ -216,7 +244,7 @@ defmodule Trogon.ErrorTest do
   test "preserves runtime error properties when raising" do
     try do
       raise TestSupport.TestError,
-        metadata: %{user_id: "123", context: "login"},
+        metadata: Metadata.new(%{user_id: "123", context: "login"}),
         subject: "/auth/login",
         retry_info: %{retry_offset: Duration.new!(second: 30)},
         localized_message: %{locale: "en-US", message: "Login failed"}
@@ -225,7 +253,15 @@ defmodule Trogon.ErrorTest do
         assert error.code == :unknown
         assert error.message == "unknown error"
         assert error.visibility == :internal
-        assert error.metadata == %{user_id: "123", context: "login"}
+
+        assert error.metadata ==
+                 %Metadata{
+                   entries: %{
+                     "user_id" => %MetadataValue{value: "123", visibility: :internal},
+                     "context" => %MetadataValue{value: "login", visibility: :internal}
+                   }
+                 }
+
         assert error.subject == "/auth/login"
         assert error.retry_info.retry_offset == Duration.new!(second: 30)
         assert error.localized_message == %{locale: "en-US", message: "Login failed"}
@@ -276,6 +312,99 @@ defmodule Trogon.ErrorTest do
           message: 123
       end
     end
+  end
+
+  test "validates metadata type" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for :metadata option/, fn ->
+      defmodule InvalidMetadataError do
+        use Trogon.Error,
+          domain: "com.test",
+          reason: "INVALID_METADATA",
+          message: "Invalid metadata",
+          metadata: "not a map"
+      end
+    end
+  end
+
+  test "validates metadata key types" do
+    assert_raise NimbleOptions.ValidationError,
+                 ~r/invalid map in :metadata option.*expected string, got: :atom_key/,
+                 fn ->
+                   defmodule InvalidMetadataKeyError do
+                     use Trogon.Error,
+                       domain: "com.test",
+                       reason: "INVALID_METADATA_KEY",
+                       message: "Invalid metadata key",
+                       metadata: %{atom_key: "value"}
+                   end
+                 end
+  end
+
+  test "validates metadata value types" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for map key "key": expected.*got: 123/, fn ->
+      defmodule InvalidMetadataValueError do
+        use Trogon.Error,
+          domain: "com.test",
+          reason: "INVALID_METADATA_VALUE",
+          message: "Invalid metadata value",
+          metadata: %{"key" => 123}
+      end
+    end
+  end
+
+  test "validates tuple format visibility values" do
+    assert_raise NimbleOptions.ValidationError,
+                 ~r/expected one of \[:internal, :private, :public\], got: :invalid_visibility/,
+                 fn ->
+                   defmodule InvalidTupleVisibilityError do
+                     use Trogon.Error,
+                       domain: "com.test",
+                       reason: "INVALID_TUPLE_VISIBILITY",
+                       message: "Invalid tuple visibility",
+                       metadata: %{"key" => {"value", :invalid_visibility}}
+                   end
+                 end
+  end
+
+  test "accepts valid metadata with simple values" do
+    error = TestSupport.NotFoundError.new!()
+    assert error.metadata["resource"].visibility == :internal
+    assert error.metadata["resource"].value == "user"
+
+    error_with_runtime = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123", action: "login"}))
+    assert error_with_runtime.metadata["user_id"].visibility == :internal
+    assert error_with_runtime.metadata["action"].visibility == :internal
+    assert error_with_runtime.metadata["user_id"].value == "123"
+    assert error_with_runtime.metadata["action"].value == "login"
+  end
+
+  test "supports tuple format for specifying visibility" do
+    error =
+      TestSupport.TestError.new!(
+        metadata:
+          Metadata.new(%{
+            "resource" => "user",
+            "api_key" => {"secret-key-123", :private},
+            "user_id" => {"user-123", :public}
+          })
+      )
+
+    assert error.metadata["resource"].visibility == :internal
+    assert error.metadata["resource"].value == "user"
+
+    assert error.metadata["api_key"].visibility == :private
+    assert error.metadata["api_key"].value == "secret-key-123"
+
+    assert error.metadata["user_id"].visibility == :public
+    assert error.metadata["user_id"].value == "user-123"
+  end
+
+  test "accepts valid compile-time metadata with tuple format" do
+    error = TestSupport.ValidTupleMetadataError.new!()
+    assert error.metadata["simple"].visibility == :internal
+    assert error.metadata["simple"].value == "value"
+    assert error.metadata["with_visibility"].visibility == :private
+    assert error.metadata["with_visibility"].value == "secret"
   end
 
   describe "to_msg/1" do
@@ -336,7 +465,7 @@ defmodule Trogon.ErrorTest do
              - API Docs: https://example.com/docs\
              """
 
-      error = TestSupport.TestError.new!(metadata: %{user_id: "123"})
+      error = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123"}))
 
       assert Exception.message(error) == """
              unknown error
@@ -344,7 +473,8 @@ defmodule Trogon.ErrorTest do
                domain: com.test.app
                reason: TEST_ERROR
                code: :unknown
-               metadata: %{user_id: "123"}\
+               metadata:
+                 - user_id: 123 visibility=internal\
              """
     end
   end

@@ -1,4 +1,7 @@
 defmodule Trogon.Error do
+  alias Trogon.Error.Metadata
+  import Trogon.Error.Metadata, only: [is_empty_metadata: 1]
+
   @options_schema NimbleOptions.new!(
                     domain: [
                       type: :string,
@@ -16,9 +19,11 @@ defmodule Trogon.Error do
                       doc: "The error message, either an atom that maps to a standard message or a custom string"
                     ],
                     metadata: [
-                      type: :map,
+                      type:
+                        {:map, :string, {:or, [:string, {:tuple, [:string, {:in, [:internal, :private, :public]}]}]}},
                       default: %{},
-                      doc: "Default metadata to be merged with runtime metadata."
+                      doc:
+                        "Default metadata to be merged with runtime metadata. Values will be automatically converted to MetadataValue structs."
                     ],
                     code: [
                       type:
@@ -82,7 +87,7 @@ defmodule Trogon.Error do
   ## Creating Errors
 
       MyApp.NotFoundError.new!(
-        metadata: %{resource: "user"}
+        metadata: Trogon.Error.Metadata.new(%{resource: "user"})
       )
   """
 
@@ -107,6 +112,8 @@ defmodule Trogon.Error do
 
   @type visibility :: :internal | :private | :public
 
+  @type metadata :: Metadata.t()
+
   @type subject :: String.t()
 
   @type source_id :: String.t()
@@ -125,7 +132,7 @@ defmodule Trogon.Error do
 
   @type debug_info :: %{
           stack_entries: list(String.t()),
-          metadata: %{String.t() => String.t()}
+          detail: String.t()
         }
 
   @type localized_message :: %{
@@ -147,7 +154,7 @@ defmodule Trogon.Error do
           message: String.t(),
           domain: String.t(),
           reason: String.t(),
-          metadata: %{String.t() => String.t()},
+          metadata: metadata(),
           causes: list(t(module())),
           visibility: visibility(),
           subject: subject() | nil,
@@ -161,15 +168,15 @@ defmodule Trogon.Error do
         }
 
   @type error_opts :: [
-          metadata: map() | nil,
-          causes: list(t(module())) | nil,
-          subject: subject() | nil,
-          debug_info: debug_info() | nil,
-          localized_message: localized_message() | nil,
-          retry_info: retry_info() | nil,
-          id: id() | nil,
-          time: time() | nil,
-          source_id: source_id() | nil
+          {:metadata, metadata()}
+          | {:causes, list(t(module()))}
+          | {:subject, subject() | nil}
+          | {:debug_info, debug_info() | nil}
+          | {:localized_message, localized_message() | nil}
+          | {:retry_info, retry_info() | nil}
+          | {:id, id() | nil}
+          | {:time, time() | nil}
+          | {:source_id, source_id() | nil}
         ]
 
   @spec_version 1
@@ -191,7 +198,7 @@ defmodule Trogon.Error do
         [code: :unknown, visibility: :internal, help: nil]
         |> Keyword.merge(opts)
         |> Keyword.update!(:help, &Macro.escape/1)
-        |> Keyword.update!(:metadata, &Macro.escape/1)
+        |> Keyword.update!(:metadata, &Error._compile_metadata(&1))
         |> then(&Keyword.put_new(&1, :message, &1[:code]))
         |> Keyword.update!(:message, &Error.to_msg/1)
 
@@ -226,7 +233,7 @@ defmodule Trogon.Error do
       > Example:
       >
       > ```elixir
-      > raise MyApp.NotFoundError, metadata: %{resource: "user"}
+      > raise MyApp.NotFoundError, metadata: Trogon.Error.Metadata.new(%{resource: "user"})
       > ```
       >
       > Otherwise, use `new!/1` to create an error instance.
@@ -234,7 +241,7 @@ defmodule Trogon.Error do
       @impl Exception
       @spec exception(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
       def exception(opts \\ []) do
-        Error.__exception__(__MODULE__, unquote(compiled_opts), opts)
+        Error._exception(__MODULE__, unquote(compiled_opts), opts)
       end
 
       @doc """
@@ -242,18 +249,17 @@ defmodule Trogon.Error do
       """
       @spec new!(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
       def new!(opts \\ []) when is_list(opts) do
-        Error.__exception__(__MODULE__, unquote(compiled_opts), opts)
+        Error._exception(__MODULE__, unquote(compiled_opts), opts)
       end
 
       @impl Exception
       def message(%__MODULE__{} = error) do
-        Error.__message__(error)
+        Error._message(error)
       end
     end
   end
 
-  @spec __message__(t(module())) :: String.t()
-  def __message__(error) do
+  def _message(error) do
     help =
       (error.help || %{})
       |> Map.get(:links, [])
@@ -277,27 +283,41 @@ defmodule Trogon.Error do
     String.trim_trailing(error.message) <> info_msg
   end
 
-  defp put_key_msg_line(msg, key, value)
   defp put_key_msg_line(msg, _key, nil), do: msg
   defp put_key_msg_line(msg, _key, ""), do: msg
   defp put_key_msg_line(msg, _key, map) when is_map(map) and map_size(map) == 0, do: msg
+  defp put_key_msg_line(msg, _key, metadata) when is_empty_metadata(metadata), do: msg
+  defp put_key_msg_line(msg, key, %Metadata{} = metadata), do: "#{msg}\n#{key}:\n#{pretty_print(metadata)}"
   defp put_key_msg_line(msg, key, value), do: "#{msg}\n#{key}: #{pretty_print(value)}"
 
   defp put_help_msg_line(msg, ""), do: msg
   defp put_help_msg_line(msg, help), do: "#{msg}\n#{help}"
 
   defp pretty_print(term) when is_binary(term), do: term
+
+  defp pretty_print(%Metadata{entries: entries}) do
+    Enum.map_join(entries, "\n", fn {key, value} ->
+      "    - #{key}: #{value.value} visibility=#{value.visibility}"
+    end)
+  end
+
   defp pretty_print(term), do: inspect(term, pretty: true)
 
-  @spec __exception__(module(), keyword(), error_opts()) :: t(module())
-  def __exception__(struct_module, compile_opts, opts \\ []) do
+  def _exception(struct_module, compile_opts, opts \\ []) do
     domain = Keyword.fetch!(compile_opts, :domain)
     reason = Keyword.fetch!(compile_opts, :reason)
     code = Keyword.fetch!(compile_opts, :code)
     message = Keyword.fetch!(compile_opts, :message)
     visibility = Keyword.fetch!(compile_opts, :visibility)
     help = Keyword.get(compile_opts, :help)
-    metadata = merge_map(Keyword.fetch!(compile_opts, :metadata), Keyword.get(opts, :metadata))
+    compile_metadata = Keyword.fetch!(compile_opts, :metadata)
+
+    runtime_metadata =
+      opts
+      |> Keyword.get(:metadata, Metadata.new())
+      |> to_metadata()
+
+    metadata = Metadata.merge(compile_metadata, runtime_metadata)
 
     causes = Keyword.get(opts, :causes, [])
     subject = Keyword.get(opts, :subject)
@@ -329,10 +349,28 @@ defmodule Trogon.Error do
     })
   end
 
+  defp to_metadata(%Metadata{} = metadata), do: metadata
+  defp to_metadata(metadata) when is_map(metadata), do: Metadata.new(metadata)
+
+  @doc """
+  Validates compile-time options using NimbleOptions.
+
+  ## Examples
+
+      iex> opts = [domain: "com.test", reason: "TEST"]
+      iex> validated = Trogon.Error.validate_options!(opts)
+      iex> validated[:domain]
+      "com.test"
+      iex> validated[:reason]
+      "TEST"
+
+  """
   @spec validate_options!(keyword()) :: keyword()
   def validate_options!(opts) do
     NimbleOptions.validate!(opts, @options_schema)
   end
+
+  defdelegate metadata, to: Metadata, as: :new
 
   @doc """
   Converts an atom to an integer code.
@@ -383,13 +421,28 @@ defmodule Trogon.Error do
   def to_msg(:unavailable), do: "service unavailable"
   def to_msg(:data_loss), do: "data loss or corruption"
 
-  defp merge_map(map1, nil), do: map1
-  defp merge_map(map1, map2), do: Map.merge(map1, map2)
-
   @doc """
   Checks if a term is a Trogon error.
+
+  ## Examples
+
+      iex> error = TestSupport.TestError.new!()
+      iex> require Trogon.Error
+      iex> Trogon.Error.is_trogon_error?(error)
+      true
+
+      iex> require Trogon.Error
+      iex> Trogon.Error.is_trogon_error?(%{})
+      false
+
   """
   defguard is_trogon_error?(term)
            when is_map(term) and is_map_key(term, :__trogon_error__) and
                   :erlang.map_get(:__trogon_error__, term) == true
+
+  def _compile_metadata(metadata) when is_map(metadata) do
+    metadata
+    |> Metadata.new()
+    |> Macro.escape()
+  end
 end
