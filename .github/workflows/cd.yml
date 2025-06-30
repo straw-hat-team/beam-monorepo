@@ -2,7 +2,9 @@ name: cd
 
 on:
   release:
-    types: [published]
+    types:
+      - released
+      - prereleased
 
 jobs:
   publish:
