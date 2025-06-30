@@ -38,7 +38,6 @@ defmodule Trogon.Error.MixProject do
   defp deps do
     [
       # Dependencies
-      {:jason, "~> 1.4"},
       {:nimble_options, "~> 1.0"},
 
       # Tools

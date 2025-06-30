@@ -50,7 +50,7 @@ defmodule Trogon.Error.TestSupport do
       domain: "com.test",
       reason: "NOT_FOUND_ERROR",
       message: :not_found,
-      metadata: %{resource: "user"}
+      metadata: %{"resource" => "user"}
   end
 
   defmodule CustomMessageError do
@@ -72,6 +72,28 @@ defmodule Trogon.Error.TestSupport do
       }
   end
 
+  defmodule ValidTupleMetadataError do
+    use Trogon.Error,
+      domain: "com.test",
+      reason: "VALID_TUPLE_METADATA",
+      message: "Valid tuple metadata",
+      metadata: %{
+        "simple" => "value",
+        "with_visibility" => {"secret", :private}
+      }
+  end
+
   def trogon_error?(error) when is_trogon_error?(error), do: true
   def trogon_error?(_), do: false
+
+  defmodule MetadataTestGuards do
+    @moduledoc """
+    Test module for demonstrating guard usage with Metadata.is_empty_metadata/1
+    """
+
+    import Trogon.Error.Metadata, only: [is_empty_metadata: 1]
+
+    def test_empty(metadata) when is_empty_metadata(metadata), do: :empty
+    def test_empty(_metadata), do: :not_empty
+  end
 end
