@@ -51,7 +51,7 @@ defmodule Trogon.Error.Metadata do
 
       iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123"})
       iex> Trogon.Error.Metadata.fetch(metadata, "user_id")
-      {:ok, %Trogon.Error.MetadataValue{value: "123", visibility: :internal}}
+      {:ok, %Trogon.Error.MetadataValue{value: "123", visibility: :INTERNAL}}
 
       iex> metadata = Trogon.Error.Metadata.new(%{})
       iex> Trogon.Error.Metadata.fetch(metadata, "missing")

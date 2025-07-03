@@ -452,6 +452,32 @@ defmodule Trogon.ErrorTest do
     end
   end
 
+  describe "to_http_status_code/1" do
+    test "converts code atom to HTTP status code" do
+      assert Trogon.Error.to_http_status_code(:CANCELLED) == 499
+      assert Trogon.Error.to_http_status_code(:UNKNOWN) == 500
+      assert Trogon.Error.to_http_status_code(:INVALID_ARGUMENT) == 400
+      assert Trogon.Error.to_http_status_code(:DEADLINE_EXCEEDED) == 504
+      assert Trogon.Error.to_http_status_code(:NOT_FOUND) == 404
+      assert Trogon.Error.to_http_status_code(:ALREADY_EXISTS) == 409
+      assert Trogon.Error.to_http_status_code(:PERMISSION_DENIED) == 403
+      assert Trogon.Error.to_http_status_code(:RESOURCE_EXHAUSTED) == 429
+      assert Trogon.Error.to_http_status_code(:FAILED_PRECONDITION) == 422
+      assert Trogon.Error.to_http_status_code(:ABORTED) == 409
+      assert Trogon.Error.to_http_status_code(:OUT_OF_RANGE) == 400
+      assert Trogon.Error.to_http_status_code(:UNIMPLEMENTED) == 501
+      assert Trogon.Error.to_http_status_code(:INTERNAL) == 500
+      assert Trogon.Error.to_http_status_code(:UNAVAILABLE) == 503
+      assert Trogon.Error.to_http_status_code(:DATA_LOSS) == 500
+      assert Trogon.Error.to_http_status_code(:UNAUTHENTICATED) == 401
+    end
+
+    test "converts error struct to HTTP status code" do
+      error = TestSupport.CompileTimeError.new!()
+      assert Trogon.Error.to_http_status_code(error) == 404
+    end
+  end
+
   describe "message/1" do
     test "formats the error message" do
       error = TestSupport.HelpfulError.new!(source_id: "")
@@ -474,7 +500,7 @@ defmodule Trogon.ErrorTest do
                reason: TEST_ERROR
                code: :UNKNOWN
                metadata:
-                 - user_id: 123 visibility=internal\
+                 - user_id: 123 visibility=INTERNAL\
              """
     end
   end

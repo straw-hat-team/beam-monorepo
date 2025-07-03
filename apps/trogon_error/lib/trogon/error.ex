@@ -20,7 +20,7 @@ defmodule Trogon.Error do
                     ],
                     metadata: [
                       type:
-                        {:map, :string, {:or, [:string, {:tuple, [:string, {:in, [:internal, :private, :public]}]}]}},
+                        {:map, :string, {:or, [:string, {:tuple, [:string, {:in, [:INTERNAL, :PRIVATE, :PUBLIC]}]}]}},
                       default: %{},
                       doc:
                         "Default metadata to be merged with runtime metadata. Values will be automatically converted to MetadataValue structs."
@@ -393,6 +393,36 @@ defmodule Trogon.Error do
   def to_code_int(:UNAVAILABLE), do: 14
   def to_code_int(:DATA_LOSS), do: 15
   def to_code_int(:UNAUTHENTICATED), do: 16
+
+  @doc """
+  Converts an error code to its corresponding HTTP status code.
+
+  ## Examples
+
+      iex> Trogon.Error.to_http_status_code(:CANCELLED)
+      499
+      iex> err = TestSupport.InvalidCurrencyError.new!()
+      ...> Trogon.Error.to_http_status_code(err)
+      500
+  """
+  @spec to_http_status_code(atom() | t(module())) :: non_neg_integer()
+  def to_http_status_code(%{code: code}), do: to_http_status_code(code)
+  def to_http_status_code(:CANCELLED), do: 499
+  def to_http_status_code(:UNKNOWN), do: 500
+  def to_http_status_code(:INVALID_ARGUMENT), do: 400
+  def to_http_status_code(:DEADLINE_EXCEEDED), do: 504
+  def to_http_status_code(:NOT_FOUND), do: 404
+  def to_http_status_code(:ALREADY_EXISTS), do: 409
+  def to_http_status_code(:PERMISSION_DENIED), do: 403
+  def to_http_status_code(:RESOURCE_EXHAUSTED), do: 429
+  def to_http_status_code(:FAILED_PRECONDITION), do: 422
+  def to_http_status_code(:ABORTED), do: 409
+  def to_http_status_code(:OUT_OF_RANGE), do: 400
+  def to_http_status_code(:UNIMPLEMENTED), do: 501
+  def to_http_status_code(:INTERNAL), do: 500
+  def to_http_status_code(:UNAVAILABLE), do: 503
+  def to_http_status_code(:DATA_LOSS), do: 500
+  def to_http_status_code(:UNAUTHENTICATED), do: 401
 
   @spec to_msg(atom() | String.t()) :: String.t()
   def to_msg(msg) when is_binary(msg), do: msg
