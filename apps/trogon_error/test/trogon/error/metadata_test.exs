@@ -17,17 +17,17 @@ defmodule Trogon.Error.MetadataTest do
     test "creates metadata with simple values" do
       metadata = Metadata.new(%{"key" => "value"})
       assert %Metadata{entries: entries} = metadata
-      assert entries["key"] == %MetadataValue{value: "value", visibility: :internal}
+      assert entries["key"] == %MetadataValue{value: "value", visibility: :INTERNAL}
     end
 
     test "creates metadata with tuple format" do
-      metadata = Metadata.new(%{"secret" => {"api-key", :private}})
+      metadata = Metadata.new(%{"secret" => {"api-key", :PRIVATE}})
       assert %Metadata{entries: entries} = metadata
-      assert entries["secret"] == %MetadataValue{value: "api-key", visibility: :private}
+      assert entries["secret"] == %MetadataValue{value: "api-key", visibility: :PRIVATE}
     end
 
     test "creates metadata with MetadataValue structs" do
-      value = MetadataValue.new("test", :public)
+      value = MetadataValue.new("test", :PUBLIC)
       metadata = Metadata.new(%{"existing" => value})
       assert %Metadata{entries: entries} = metadata
       assert entries["existing"] == value
@@ -36,23 +36,23 @@ defmodule Trogon.Error.MetadataTest do
     test "converts atom keys to strings" do
       metadata = Metadata.new(%{user_id: "123"})
       assert %Metadata{entries: entries} = metadata
-      assert entries["user_id"] == %MetadataValue{value: "123", visibility: :internal}
+      assert entries["user_id"] == %MetadataValue{value: "123", visibility: :INTERNAL}
     end
 
     test "handles mixed value types" do
       metadata =
         Metadata.new(%{
           "simple" => "value",
-          "tuple" => {"secret", :private},
-          "struct" => MetadataValue.new("existing", :public),
+          "tuple" => {"secret", :PRIVATE},
+          "struct" => MetadataValue.new("existing", :PUBLIC),
           atom_key: 42
         })
 
       assert %Metadata{entries: entries} = metadata
-      assert entries["simple"] == %MetadataValue{value: "value", visibility: :internal}
-      assert entries["tuple"] == %MetadataValue{value: "secret", visibility: :private}
-      assert entries["struct"] == %MetadataValue{value: "existing", visibility: :public}
-      assert entries["atom_key"] == %MetadataValue{value: "42", visibility: :internal}
+      assert entries["simple"] == %MetadataValue{value: "value", visibility: :INTERNAL}
+      assert entries["tuple"] == %MetadataValue{value: "secret", visibility: :PRIVATE}
+      assert entries["struct"] == %MetadataValue{value: "existing", visibility: :PUBLIC}
+      assert entries["atom_key"] == %MetadataValue{value: "42", visibility: :INTERNAL}
     end
   end
 
@@ -64,8 +64,8 @@ defmodule Trogon.Error.MetadataTest do
       merged = Metadata.merge(metadata1, metadata2)
 
       assert %Metadata{entries: entries} = merged
-      assert entries["key1"] == %MetadataValue{value: "value1", visibility: :internal}
-      assert entries["key2"] == %MetadataValue{value: "value2", visibility: :internal}
+      assert entries["key1"] == %MetadataValue{value: "value1", visibility: :INTERNAL}
+      assert entries["key2"] == %MetadataValue{value: "value2", visibility: :INTERNAL}
     end
 
     test "second metadata overwrites first on key conflicts" do
@@ -75,7 +75,7 @@ defmodule Trogon.Error.MetadataTest do
       merged = Metadata.merge(metadata1, metadata2)
 
       assert %Metadata{entries: entries} = merged
-      assert entries["key"] == %MetadataValue{value: "value2", visibility: :internal}
+      assert entries["key"] == %MetadataValue{value: "value2", visibility: :INTERNAL}
     end
   end
 
@@ -83,8 +83,8 @@ defmodule Trogon.Error.MetadataTest do
     setup do
       metadata =
         Metadata.new(%{
-          "public" => {"visible", :public},
-          "private" => {"hidden", :private},
+          "public" => {"visible", :PUBLIC},
+          "private" => {"hidden", :PRIVATE},
           "internal" => "default"
         })
 
@@ -93,32 +93,32 @@ defmodule Trogon.Error.MetadataTest do
 
     test "fetch/2 returns metadata values", %{metadata: metadata} do
       assert {:ok, value} = Metadata.fetch(metadata, "public")
-      assert value == %MetadataValue{value: "visible", visibility: :public}
+      assert value == %MetadataValue{value: "visible", visibility: :PUBLIC}
 
       assert :error = Metadata.fetch(metadata, "nonexistent")
     end
 
     test "supports bracket access", %{metadata: metadata} do
-      assert metadata["public"] == %MetadataValue{value: "visible", visibility: :public}
-      assert metadata["private"] == %MetadataValue{value: "hidden", visibility: :private}
-      assert metadata["internal"] == %MetadataValue{value: "default", visibility: :internal}
+      assert metadata["public"] == %MetadataValue{value: "visible", visibility: :PUBLIC}
+      assert metadata["private"] == %MetadataValue{value: "hidden", visibility: :PRIVATE}
+      assert metadata["internal"] == %MetadataValue{value: "default", visibility: :INTERNAL}
       assert metadata["nonexistent"] == nil
     end
 
     test "supports get_and_update/3", %{metadata: metadata} do
       {old_value, new_metadata} =
         Metadata.get_and_update(metadata, "public", fn value ->
-          {value, %{value | visibility: :internal}}
+          {value, %{value | visibility: :INTERNAL}}
         end)
 
-      assert old_value == %MetadataValue{value: "visible", visibility: :public}
-      assert new_metadata["public"] == %MetadataValue{value: "visible", visibility: :internal}
+      assert old_value == %MetadataValue{value: "visible", visibility: :PUBLIC}
+      assert new_metadata["public"] == %MetadataValue{value: "visible", visibility: :INTERNAL}
     end
 
     test "supports pop/2", %{metadata: metadata} do
       {popped_value, new_metadata} = Metadata.pop(metadata, "private")
 
-      assert popped_value == %MetadataValue{value: "hidden", visibility: :private}
+      assert popped_value == %MetadataValue{value: "hidden", visibility: :PRIVATE}
       assert new_metadata["private"] == nil
       assert map_size(new_metadata.entries) == 2
     end
@@ -142,7 +142,7 @@ defmodule Trogon.Error.MetadataTest do
 
       assert MetadataTestGuards.test_empty(Metadata.new(%{"key" => "value"})) == :not_empty
       assert MetadataTestGuards.test_empty(Metadata.new(%{"a" => "1", "b" => "2"})) == :not_empty
-      assert MetadataTestGuards.test_empty(Metadata.new(%{"secret" => {"value", :private}})) == :not_empty
+      assert MetadataTestGuards.test_empty(Metadata.new(%{"secret" => {"value", :PRIVATE}})) == :not_empty
     end
 
     test "can use imported guard directly" do

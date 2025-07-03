@@ -6,41 +6,41 @@ defmodule Trogon.Error.MetadataValueTest do
 
   describe "new/2" do
     test "creates a MetadataValue with string value" do
-      metadata = MetadataValue.new("secret", :private)
-      assert %MetadataValue{value: "secret", visibility: :private} = metadata
+      metadata = MetadataValue.new("secret", :PRIVATE)
+      assert %MetadataValue{value: "secret", visibility: :PRIVATE} = metadata
     end
 
     test "converts non-string values to strings" do
-      metadata = MetadataValue.new(123, :public)
-      assert %MetadataValue{value: "123", visibility: :public} = metadata
+      metadata = MetadataValue.new(123, :PUBLIC)
+      assert %MetadataValue{value: "123", visibility: :PUBLIC} = metadata
     end
 
     test "handles atom values" do
-      metadata = MetadataValue.new(:atom_value, :internal)
-      assert %MetadataValue{value: "atom_value", visibility: :internal} = metadata
+      metadata = MetadataValue.new(:atom_value, :INTERNAL)
+      assert %MetadataValue{value: "atom_value", visibility: :INTERNAL} = metadata
     end
 
     test "handles nil values" do
-      metadata = MetadataValue.new(nil, :public)
-      assert %MetadataValue{value: "", visibility: :public} = metadata
+      metadata = MetadataValue.new(nil, :PUBLIC)
+      assert %MetadataValue{value: "", visibility: :PUBLIC} = metadata
     end
 
     test "handles empty string values" do
-      metadata = MetadataValue.new("", :private)
-      assert %MetadataValue{value: "", visibility: :private} = metadata
+      metadata = MetadataValue.new("", :PRIVATE)
+      assert %MetadataValue{value: "", visibility: :PRIVATE} = metadata
     end
 
     test "handles boolean values" do
-      metadata_true = MetadataValue.new(true, :public)
-      metadata_false = MetadataValue.new(false, :internal)
+      metadata_true = MetadataValue.new(true, :PUBLIC)
+      metadata_false = MetadataValue.new(false, :INTERNAL)
 
-      assert %MetadataValue{value: "true", visibility: :public} = metadata_true
-      assert %MetadataValue{value: "false", visibility: :internal} = metadata_false
+      assert %MetadataValue{value: "true", visibility: :PUBLIC} = metadata_true
+      assert %MetadataValue{value: "false", visibility: :INTERNAL} = metadata_false
     end
 
     test "handles charlist values" do
-      metadata = MetadataValue.new(~c"charlist", :private)
-      assert %MetadataValue{value: "charlist", visibility: :private} = metadata
+      metadata = MetadataValue.new(~c"charlist", :PRIVATE)
+      assert %MetadataValue{value: "charlist", visibility: :PRIVATE} = metadata
     end
 
     test "raises error for invalid visibility" do
@@ -53,7 +53,7 @@ defmodule Trogon.Error.MetadataValueTest do
   describe "new/1" do
     test "uses default internal visibility" do
       metadata = MetadataValue.new("test")
-      assert %MetadataValue{value: "test", visibility: :internal} = metadata
+      assert %MetadataValue{value: "test", visibility: :INTERNAL} = metadata
     end
 
     test "handles various data types with default visibility" do
@@ -67,13 +67,13 @@ defmodule Trogon.Error.MetadataValueTest do
 
       for {input, expected_value} <- test_cases do
         metadata = MetadataValue.new(input)
-        assert %MetadataValue{value: ^expected_value, visibility: :internal} = metadata
+        assert %MetadataValue{value: ^expected_value, visibility: :INTERNAL} = metadata
       end
     end
 
     test "handles charlist data with default visibility" do
       metadata_charlist = MetadataValue.new(~c"charlist")
-      assert %MetadataValue{value: "charlist", visibility: :internal} = metadata_charlist
+      assert %MetadataValue{value: "charlist", visibility: :INTERNAL} = metadata_charlist
     end
   end
 end

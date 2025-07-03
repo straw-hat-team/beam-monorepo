@@ -5,51 +5,51 @@ defmodule Trogon.Error.TestSupport do
     use Trogon.Error,
       domain: "com.test.app",
       reason: "TEST_ERROR",
-      message: :unknown
+      message: :UNKNOWN
   end
 
   defmodule InvalidCurrencyError do
     use Trogon.Error,
       domain: "com.test.currency",
       reason: "INVALID_CURRENCY",
-      message: :invalid_argument
+      message: :INVALID_ARGUMENT
   end
 
   defmodule ValidationError do
     use Trogon.Error,
       domain: "com.test.app",
       reason: "VALIDATION_FAILED",
-      message: :invalid_argument
+      message: :INVALID_ARGUMENT
   end
 
   defmodule PreconditionError do
     use Trogon.Error,
       domain: "com.test.app",
       reason: "FAILED_PRECONDITION",
-      code: :failed_precondition
+      code: :FAILED_PRECONDITION
   end
 
   defmodule CompileTimeError do
     use Trogon.Error,
       domain: "com.test.compile",
       reason: "COMPILE_TIME_ERROR",
-      code: :not_found,
+      code: :NOT_FOUND,
       message: "This is a compile-time message",
-      visibility: :internal
+      visibility: :INTERNAL
   end
 
   defmodule CancelledError do
     use Trogon.Error,
       domain: "com.test",
       reason: "CANCELLED_ERROR",
-      message: :cancelled
+      message: :CANCELLED
   end
 
   defmodule NotFoundError do
     use Trogon.Error,
       domain: "com.test",
       reason: "NOT_FOUND_ERROR",
-      message: :not_found,
+      message: :NOT_FOUND,
       metadata: %{"resource" => "user"}
   end
 
@@ -79,7 +79,7 @@ defmodule Trogon.Error.TestSupport do
       message: "Valid tuple metadata",
       metadata: %{
         "simple" => "value",
-        "with_visibility" => {"secret", :private}
+        "with_visibility" => {"secret", :PRIVATE}
       }
   end
 
