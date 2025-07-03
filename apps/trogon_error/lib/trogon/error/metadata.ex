@@ -13,7 +13,7 @@ defmodule Trogon.Error.Metadata do
       iex> metadata["user_id"].value
       "123"
       iex> metadata["user_id"].visibility
-      :internal
+      :INTERNAL
 
   """
 
@@ -128,11 +128,11 @@ defmodule Trogon.Error.Metadata do
 
   ## Examples
 
-      iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123", "secret" => {"api-key", :private}})
+      iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123", "secret" => {"api-key", :PRIVATE}})
       iex> metadata["user_id"].visibility
-      :internal
+      :INTERNAL
       iex> metadata["secret"].visibility
-      :private
+      :PRIVATE
 
   """
   @spec new(%{term() => MetadataValue.t() | {term(), MetadataValue.visibility()} | term()}) :: t()

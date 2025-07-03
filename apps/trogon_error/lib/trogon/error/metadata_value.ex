@@ -7,24 +7,24 @@ defmodule Trogon.Error.MetadataValue do
 
   ## Visibility Levels
 
-  - `:internal` - Only visible to internal systems and developers (default)
-  - `:private` - Visible to authenticated users but not public
-  - `:public` - Visible to everyone including end users
+  - `:INTERNAL` - Only visible to internal systems and developers (default)
+  - `:PRIVATE` - Visible to authenticated users but not public
+  - `:PUBLIC` - Visible to everyone including end users
 
   ## Examples
 
-      iex> Trogon.Error.MetadataValue.new("secret data", :private)
-      %Trogon.Error.MetadataValue{value: "secret data", visibility: :private}
+      iex> Trogon.Error.MetadataValue.new("secret data", :PRIVATE)
+      %Trogon.Error.MetadataValue{value: "secret data", visibility: :PRIVATE}
 
       iex> Trogon.Error.MetadataValue.new(123)
-      %Trogon.Error.MetadataValue{value: "123", visibility: :internal}
+      %Trogon.Error.MetadataValue{value: "123", visibility: :INTERNAL}
 
   """
 
   @enforce_keys [:value, :visibility]
   defstruct [:value, :visibility]
 
-  @type visibility :: :internal | :private | :public
+  @type visibility :: :INTERNAL | :PRIVATE | :PUBLIC
 
   @type t :: %__MODULE__{
           value: String.t(),
@@ -38,14 +38,14 @@ defmodule Trogon.Error.MetadataValue do
 
   ## Examples
 
-      iex> Trogon.Error.MetadataValue.new("secret", :private)
-      %Trogon.Error.MetadataValue{value: "secret", visibility: :private}
+      iex> Trogon.Error.MetadataValue.new("secret", :PRIVATE)
+      %Trogon.Error.MetadataValue{value: "secret", visibility: :PRIVATE}
 
-      iex> Trogon.Error.MetadataValue.new(123, :public)
-      %Trogon.Error.MetadataValue{value: "123", visibility: :public}
+      iex> Trogon.Error.MetadataValue.new(123, :PUBLIC)
+      %Trogon.Error.MetadataValue{value: "123", visibility: :PUBLIC}
   """
   @spec new(term(), visibility()) :: t()
-  def new(value, visibility) when visibility in [:internal, :private, :public] do
+  def new(value, visibility) when visibility in [:INTERNAL, :PRIVATE, :PUBLIC] do
     %__MODULE__{value: to_string(value), visibility: visibility}
   end
 
@@ -55,10 +55,10 @@ defmodule Trogon.Error.MetadataValue do
   ## Examples
 
       iex> Trogon.Error.MetadataValue.new("secret")
-      %Trogon.Error.MetadataValue{value: "secret", visibility: :internal}
+      %Trogon.Error.MetadataValue{value: "secret", visibility: :INTERNAL}
   """
   @spec new(term()) :: t()
   def new(value) do
-    new(value, :internal)
+    new(value, :INTERNAL)
   end
 end

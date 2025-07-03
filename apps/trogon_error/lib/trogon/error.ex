@@ -29,29 +29,29 @@ defmodule Trogon.Error do
                       type:
                         {:in,
                          [
-                           :cancelled,
-                           :unknown,
-                           :invalid_argument,
-                           :deadline_exceeded,
-                           :not_found,
-                           :already_exists,
-                           :permission_denied,
-                           :unauthenticated,
-                           :resource_exhausted,
-                           :failed_precondition,
-                           :aborted,
-                           :out_of_range,
-                           :unimplemented,
-                           :internal,
-                           :unavailable,
-                           :data_loss
+                           :CANCELLED,
+                           :UNKNOWN,
+                           :INVALID_ARGUMENT,
+                           :DEADLINE_EXCEEDED,
+                           :NOT_FOUND,
+                           :ALREADY_EXISTS,
+                           :PERMISSION_DENIED,
+                           :RESOURCE_EXHAUSTED,
+                           :FAILED_PRECONDITION,
+                           :ABORTED,
+                           :OUT_OF_RANGE,
+                           :UNIMPLEMENTED,
+                           :INTERNAL,
+                           :UNAVAILABLE,
+                           :DATA_LOSS,
+                           :UNAUTHENTICATED
                          ]},
-                      default: :unknown,
+                      default: :UNKNOWN,
                       doc: "The standard error code"
                     ],
                     visibility: [
-                      type: {:in, [:internal, :private, :public]},
-                      default: :internal,
+                      type: {:in, [:INTERNAL, :PRIVATE, :PUBLIC]},
+                      default: :INTERNAL,
                       doc: "Whether the error should be visible to end users or kept internal"
                     ],
                     help: [
@@ -93,24 +93,24 @@ defmodule Trogon.Error do
 
   # Error codes as per the spec
   @type code ::
-          :cancelled
-          | :unknown
-          | :invalid_argument
-          | :deadline_exceeded
-          | :not_found
-          | :already_exists
-          | :permission_denied
-          | :unauthenticated
-          | :resource_exhausted
-          | :failed_precondition
-          | :aborted
-          | :out_of_range
-          | :unimplemented
-          | :internal
-          | :unavailable
-          | :data_loss
+          :CANCELLED
+          | :UNKNOWN
+          | :INVALID_ARGUMENT
+          | :DEADLINE_EXCEEDED
+          | :NOT_FOUND
+          | :ALREADY_EXISTS
+          | :PERMISSION_DENIED
+          | :RESOURCE_EXHAUSTED
+          | :FAILED_PRECONDITION
+          | :ABORTED
+          | :OUT_OF_RANGE
+          | :UNIMPLEMENTED
+          | :INTERNAL
+          | :UNAVAILABLE
+          | :DATA_LOSS
+          | :UNAUTHENTICATED
 
-  @type visibility :: :internal | :private | :public
+  @type visibility :: :INTERNAL | :PRIVATE | :PUBLIC
 
   @type metadata :: Metadata.t()
 
@@ -195,7 +195,7 @@ defmodule Trogon.Error do
       opts = Error.validate_options!(opts)
 
       compiled_opts =
-        [code: :unknown, visibility: :internal, help: nil]
+        [code: :UNKNOWN, visibility: :INTERNAL, help: nil]
         |> Keyword.merge(opts)
         |> Keyword.update!(:help, &Macro.escape/1)
         |> Keyword.update!(:metadata, &Error._compile_metadata(&1))
@@ -369,7 +369,7 @@ defmodule Trogon.Error do
 
   ## Examples
 
-      iex> Trogon.Error.to_code_int(:cancelled)
+      iex> Trogon.Error.to_code_int(:CANCELLED)
       1
       iex> err = TestSupport.InvalidCurrencyError.new!()
       ...> Trogon.Error.to_code_int(err)
@@ -377,41 +377,41 @@ defmodule Trogon.Error do
   """
   @spec to_code_int(atom() | t(module())) :: non_neg_integer()
   def to_code_int(%{code: code}), do: to_code_int(code)
-  def to_code_int(:cancelled), do: 1
-  def to_code_int(:unknown), do: 2
-  def to_code_int(:invalid_argument), do: 3
-  def to_code_int(:deadline_exceeded), do: 4
-  def to_code_int(:not_found), do: 5
-  def to_code_int(:already_exists), do: 6
-  def to_code_int(:permission_denied), do: 7
-  def to_code_int(:resource_exhausted), do: 8
-  def to_code_int(:failed_precondition), do: 9
-  def to_code_int(:aborted), do: 10
-  def to_code_int(:out_of_range), do: 11
-  def to_code_int(:unimplemented), do: 12
-  def to_code_int(:internal), do: 13
-  def to_code_int(:unavailable), do: 14
-  def to_code_int(:data_loss), do: 15
-  def to_code_int(:unauthenticated), do: 16
+  def to_code_int(:CANCELLED), do: 1
+  def to_code_int(:UNKNOWN), do: 2
+  def to_code_int(:INVALID_ARGUMENT), do: 3
+  def to_code_int(:DEADLINE_EXCEEDED), do: 4
+  def to_code_int(:NOT_FOUND), do: 5
+  def to_code_int(:ALREADY_EXISTS), do: 6
+  def to_code_int(:PERMISSION_DENIED), do: 7
+  def to_code_int(:RESOURCE_EXHAUSTED), do: 8
+  def to_code_int(:FAILED_PRECONDITION), do: 9
+  def to_code_int(:ABORTED), do: 10
+  def to_code_int(:OUT_OF_RANGE), do: 11
+  def to_code_int(:UNIMPLEMENTED), do: 12
+  def to_code_int(:INTERNAL), do: 13
+  def to_code_int(:UNAVAILABLE), do: 14
+  def to_code_int(:DATA_LOSS), do: 15
+  def to_code_int(:UNAUTHENTICATED), do: 16
 
   @spec to_msg(atom() | String.t()) :: String.t()
   def to_msg(msg) when is_binary(msg), do: msg
-  def to_msg(:cancelled), do: "the operation was cancelled"
-  def to_msg(:unknown), do: "unknown error"
-  def to_msg(:invalid_argument), do: "invalid argument provided"
-  def to_msg(:deadline_exceeded), do: "deadline exceeded"
-  def to_msg(:not_found), do: "resource not found"
-  def to_msg(:already_exists), do: "resource already exists"
-  def to_msg(:permission_denied), do: "permission denied"
-  def to_msg(:unauthenticated), do: "unauthenticated"
-  def to_msg(:resource_exhausted), do: "resource exhausted"
-  def to_msg(:failed_precondition), do: "failed precondition"
-  def to_msg(:aborted), do: "operation aborted"
-  def to_msg(:out_of_range), do: "out of range"
-  def to_msg(:unimplemented), do: "not implemented"
-  def to_msg(:internal), do: "internal error"
-  def to_msg(:unavailable), do: "service unavailable"
-  def to_msg(:data_loss), do: "data loss or corruption"
+  def to_msg(:CANCELLED), do: "the operation was cancelled"
+  def to_msg(:UNKNOWN), do: "unknown error"
+  def to_msg(:INVALID_ARGUMENT), do: "invalid argument provided"
+  def to_msg(:DEADLINE_EXCEEDED), do: "deadline exceeded"
+  def to_msg(:NOT_FOUND), do: "resource not found"
+  def to_msg(:ALREADY_EXISTS), do: "resource already exists"
+  def to_msg(:PERMISSION_DENIED), do: "permission denied"
+  def to_msg(:UNAUTHENTICATED), do: "unauthenticated"
+  def to_msg(:RESOURCE_EXHAUSTED), do: "resource exhausted"
+  def to_msg(:FAILED_PRECONDITION), do: "failed precondition"
+  def to_msg(:ABORTED), do: "operation aborted"
+  def to_msg(:OUT_OF_RANGE), do: "out of range"
+  def to_msg(:UNIMPLEMENTED), do: "not implemented"
+  def to_msg(:INTERNAL), do: "internal error"
+  def to_msg(:UNAVAILABLE), do: "service unavailable"
+  def to_msg(:DATA_LOSS), do: "data loss or corruption"
 
   @doc """
   Checks if a term is a Trogon error.

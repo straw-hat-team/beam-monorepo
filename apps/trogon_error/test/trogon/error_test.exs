@@ -9,13 +9,13 @@ defmodule Trogon.ErrorTest do
     error = TestSupport.TestError.new!()
     assert error.__exception__ == true
     assert error.specversion == 1
-    assert error.code == :unknown
+    assert error.code == :UNKNOWN
     assert error.message == "unknown error"
     assert error.domain == "com.test.app"
     assert error.reason == "TEST_ERROR"
     assert error.metadata == %Trogon.Error.Metadata{entries: %{}}
     assert error.causes == []
-    assert error.visibility == :internal
+    assert error.visibility == :INTERNAL
     refute error.subject
     refute error.id
     refute error.time
@@ -23,9 +23,9 @@ defmodule Trogon.ErrorTest do
 
   test "creates error with custom values" do
     error = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123"}))
-    assert error.code == :unknown
-    assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :internal}}}
-    assert error.visibility == :internal
+    assert error.code == :UNKNOWN
+    assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :INTERNAL}}}
+    assert error.visibility == :INTERNAL
   end
 
   test "both exception/1 and new!/1 work identically" do
@@ -33,9 +33,9 @@ defmodule Trogon.ErrorTest do
     error1 = TestSupport.TestError.exception(opts)
     error2 = TestSupport.TestError.new!(opts)
     assert error1 == error2
-    assert error1.code == :unknown
+    assert error1.code == :UNKNOWN
     assert error1.message == "unknown error"
-    assert error1.metadata == %Metadata{entries: %{"key" => %MetadataValue{value: "value", visibility: :internal}}}
+    assert error1.metadata == %Metadata{entries: %{"key" => %MetadataValue{value: "value", visibility: :INTERNAL}}}
   end
 
   test "converts atom messages to strings at compile time" do
@@ -47,8 +47,8 @@ defmodule Trogon.ErrorTest do
     assert not_found_error.metadata ==
              %Metadata{
                entries: %{
-                 "resource" => %MetadataValue{value: "user", visibility: :internal},
-                 "resource_id" => %MetadataValue{value: "user:123", visibility: :internal}
+                 "resource" => %MetadataValue{value: "user", visibility: :INTERNAL},
+                 "resource_id" => %MetadataValue{value: "user:123", visibility: :INTERNAL}
                }
              }
   end
@@ -72,7 +72,7 @@ defmodule Trogon.ErrorTest do
     assert error.metadata ==
              %Metadata{
                entries: %{
-                 "valid_currencies" => %MetadataValue{value: "[\"USD\", \"EUR\"]", visibility: :internal}
+                 "valid_currencies" => %MetadataValue{value: "[\"USD\", \"EUR\"]", visibility: :INTERNAL}
                }
              }
   end
@@ -88,7 +88,7 @@ defmodule Trogon.ErrorTest do
 
     validation_error =
       TestSupport.ValidationError.new!(
-        code: :invalid_argument,
+        code: :INVALID_ARGUMENT,
         causes: [currency_error, test_error]
       )
 
@@ -99,9 +99,9 @@ defmodule Trogon.ErrorTest do
   end
 
   test "wraps an error as a cause" do
-    original_error = TestSupport.TestError.new!(code: :not_found)
+    original_error = TestSupport.TestError.new!(code: :NOT_FOUND)
     wrapped_error = TestSupport.PreconditionError.new!(causes: [original_error])
-    assert wrapped_error.code == :failed_precondition
+    assert wrapped_error.code == :FAILED_PRECONDITION
     assert wrapped_error.message == "failed precondition"
     assert length(wrapped_error.causes) == 1
     assert hd(wrapped_error.causes) == original_error
@@ -133,9 +133,9 @@ defmodule Trogon.ErrorTest do
 
   test "uses compile-time defaults" do
     error = TestSupport.CompileTimeError.new!()
-    assert error.code == :not_found
+    assert error.code == :NOT_FOUND
     assert error.message == "This is a compile-time message"
-    assert error.visibility == :internal
+    assert error.visibility == :INTERNAL
   end
 
   test "uses compile-time help option" do
@@ -167,9 +167,9 @@ defmodule Trogon.ErrorTest do
         subject: "/users/123"
     rescue
       error in TestSupport.TestError ->
-        assert error.code == :unknown
+        assert error.code == :UNKNOWN
         assert error.message == "unknown error"
-        assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :internal}}}
+        assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :INTERNAL}}}
         assert error.subject == "/users/123"
         assert error.domain == "com.test.app"
         assert error.reason == "TEST_ERROR"
@@ -183,14 +183,14 @@ defmodule Trogon.ErrorTest do
         metadata: Metadata.new(%{valid_currencies: ~s(["USD", "EUR"])})
     rescue
       error in TestSupport.InvalidCurrencyError ->
-        assert error.code == :unknown
+        assert error.code == :UNKNOWN
         assert error.message == "invalid argument provided"
         assert error.subject == "/data/currency"
 
         assert error.metadata ==
                  %Metadata{
                    entries: %{
-                     "valid_currencies" => %MetadataValue{value: ~s(["USD", "EUR"]), visibility: :internal}
+                     "valid_currencies" => %MetadataValue{value: ~s(["USD", "EUR"]), visibility: :INTERNAL}
                    }
                  }
 
@@ -208,13 +208,13 @@ defmodule Trogon.ErrorTest do
         metadata: Metadata.new(%{validation_context: "user_creation"})
     rescue
       error in TestSupport.ValidationError ->
-        assert error.code == :unknown
+        assert error.code == :UNKNOWN
         assert error.message == "invalid argument provided"
 
         assert error.metadata ==
                  %Metadata{
                    entries: %{
-                     "validation_context" => %MetadataValue{value: "user_creation", visibility: :internal}
+                     "validation_context" => %MetadataValue{value: "user_creation", visibility: :INTERNAL}
                    }
                  }
 
@@ -250,15 +250,15 @@ defmodule Trogon.ErrorTest do
         localized_message: %{locale: "en-US", message: "Login failed"}
     rescue
       error in TestSupport.TestError ->
-        assert error.code == :unknown
+        assert error.code == :UNKNOWN
         assert error.message == "unknown error"
-        assert error.visibility == :internal
+        assert error.visibility == :INTERNAL
 
         assert error.metadata ==
                  %Metadata{
                    entries: %{
-                     "user_id" => %MetadataValue{value: "123", visibility: :internal},
-                     "context" => %MetadataValue{value: "login", visibility: :internal}
+                     "user_id" => %MetadataValue{value: "123", visibility: :INTERNAL},
+                     "context" => %MetadataValue{value: "login", visibility: :INTERNAL}
                    }
                  }
 
@@ -354,7 +354,7 @@ defmodule Trogon.ErrorTest do
 
   test "validates tuple format visibility values" do
     assert_raise NimbleOptions.ValidationError,
-                 ~r/expected one of \[:internal, :private, :public\], got: :invalid_visibility/,
+                 ~r/expected one of \[:INTERNAL, :PRIVATE, :PUBLIC\], got: :invalid_visibility/,
                  fn ->
                    defmodule InvalidTupleVisibilityError do
                      use Trogon.Error,
@@ -368,12 +368,12 @@ defmodule Trogon.ErrorTest do
 
   test "accepts valid metadata with simple values" do
     error = TestSupport.NotFoundError.new!()
-    assert error.metadata["resource"].visibility == :internal
+    assert error.metadata["resource"].visibility == :INTERNAL
     assert error.metadata["resource"].value == "user"
 
     error_with_runtime = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123", action: "login"}))
-    assert error_with_runtime.metadata["user_id"].visibility == :internal
-    assert error_with_runtime.metadata["action"].visibility == :internal
+    assert error_with_runtime.metadata["user_id"].visibility == :INTERNAL
+    assert error_with_runtime.metadata["action"].visibility == :INTERNAL
     assert error_with_runtime.metadata["user_id"].value == "123"
     assert error_with_runtime.metadata["action"].value == "login"
   end
@@ -384,69 +384,69 @@ defmodule Trogon.ErrorTest do
         metadata:
           Metadata.new(%{
             "resource" => "user",
-            "api_key" => {"secret-key-123", :private},
-            "user_id" => {"user-123", :public}
+            "api_key" => {"secret-key-123", :PRIVATE},
+            "user_id" => {"user-123", :PUBLIC}
           })
       )
 
-    assert error.metadata["resource"].visibility == :internal
+    assert error.metadata["resource"].visibility == :INTERNAL
     assert error.metadata["resource"].value == "user"
 
-    assert error.metadata["api_key"].visibility == :private
+    assert error.metadata["api_key"].visibility == :PRIVATE
     assert error.metadata["api_key"].value == "secret-key-123"
 
-    assert error.metadata["user_id"].visibility == :public
+    assert error.metadata["user_id"].visibility == :PUBLIC
     assert error.metadata["user_id"].value == "user-123"
   end
 
   test "accepts valid compile-time metadata with tuple format" do
     error = TestSupport.ValidTupleMetadataError.new!()
-    assert error.metadata["simple"].visibility == :internal
+    assert error.metadata["simple"].visibility == :INTERNAL
     assert error.metadata["simple"].value == "value"
-    assert error.metadata["with_visibility"].visibility == :private
+    assert error.metadata["with_visibility"].visibility == :PRIVATE
     assert error.metadata["with_visibility"].value == "secret"
   end
 
   describe "to_msg/1" do
     test "converts error atom or string to string" do
       assert Trogon.Error.to_msg("random message") == "random message"
-      assert Trogon.Error.to_msg(:cancelled) == "the operation was cancelled"
-      assert Trogon.Error.to_msg(:unknown) == "unknown error"
-      assert Trogon.Error.to_msg(:invalid_argument) == "invalid argument provided"
-      assert Trogon.Error.to_msg(:deadline_exceeded) == "deadline exceeded"
-      assert Trogon.Error.to_msg(:not_found) == "resource not found"
-      assert Trogon.Error.to_msg(:already_exists) == "resource already exists"
-      assert Trogon.Error.to_msg(:permission_denied) == "permission denied"
-      assert Trogon.Error.to_msg(:resource_exhausted) == "resource exhausted"
-      assert Trogon.Error.to_msg(:failed_precondition) == "failed precondition"
-      assert Trogon.Error.to_msg(:aborted) == "operation aborted"
-      assert Trogon.Error.to_msg(:out_of_range) == "out of range"
-      assert Trogon.Error.to_msg(:unimplemented) == "not implemented"
-      assert Trogon.Error.to_msg(:internal) == "internal error"
-      assert Trogon.Error.to_msg(:unavailable) == "service unavailable"
-      assert Trogon.Error.to_msg(:data_loss) == "data loss or corruption"
-      assert Trogon.Error.to_msg(:unauthenticated) == "unauthenticated"
+      assert Trogon.Error.to_msg(:CANCELLED) == "the operation was cancelled"
+      assert Trogon.Error.to_msg(:UNKNOWN) == "unknown error"
+      assert Trogon.Error.to_msg(:INVALID_ARGUMENT) == "invalid argument provided"
+      assert Trogon.Error.to_msg(:DEADLINE_EXCEEDED) == "deadline exceeded"
+      assert Trogon.Error.to_msg(:NOT_FOUND) == "resource not found"
+      assert Trogon.Error.to_msg(:ALREADY_EXISTS) == "resource already exists"
+      assert Trogon.Error.to_msg(:PERMISSION_DENIED) == "permission denied"
+      assert Trogon.Error.to_msg(:RESOURCE_EXHAUSTED) == "resource exhausted"
+      assert Trogon.Error.to_msg(:FAILED_PRECONDITION) == "failed precondition"
+      assert Trogon.Error.to_msg(:ABORTED) == "operation aborted"
+      assert Trogon.Error.to_msg(:OUT_OF_RANGE) == "out of range"
+      assert Trogon.Error.to_msg(:UNIMPLEMENTED) == "not implemented"
+      assert Trogon.Error.to_msg(:INTERNAL) == "internal error"
+      assert Trogon.Error.to_msg(:UNAVAILABLE) == "service unavailable"
+      assert Trogon.Error.to_msg(:DATA_LOSS) == "data loss or corruption"
+      assert Trogon.Error.to_msg(:UNAUTHENTICATED) == "unauthenticated"
     end
   end
 
   describe "to_code_int/1" do
     test "converts code atom or error struct to integer" do
-      assert Trogon.Error.to_code_int(:cancelled) == 1
-      assert Trogon.Error.to_code_int(:unknown) == 2
-      assert Trogon.Error.to_code_int(:invalid_argument) == 3
-      assert Trogon.Error.to_code_int(:deadline_exceeded) == 4
-      assert Trogon.Error.to_code_int(:not_found) == 5
-      assert Trogon.Error.to_code_int(:already_exists) == 6
-      assert Trogon.Error.to_code_int(:permission_denied) == 7
-      assert Trogon.Error.to_code_int(:resource_exhausted) == 8
-      assert Trogon.Error.to_code_int(:failed_precondition) == 9
-      assert Trogon.Error.to_code_int(:aborted) == 10
-      assert Trogon.Error.to_code_int(:out_of_range) == 11
-      assert Trogon.Error.to_code_int(:unimplemented) == 12
-      assert Trogon.Error.to_code_int(:internal) == 13
-      assert Trogon.Error.to_code_int(:unavailable) == 14
-      assert Trogon.Error.to_code_int(:data_loss) == 15
-      assert Trogon.Error.to_code_int(:unauthenticated) == 16
+      assert Trogon.Error.to_code_int(:CANCELLED) == 1
+      assert Trogon.Error.to_code_int(:UNKNOWN) == 2
+      assert Trogon.Error.to_code_int(:INVALID_ARGUMENT) == 3
+      assert Trogon.Error.to_code_int(:DEADLINE_EXCEEDED) == 4
+      assert Trogon.Error.to_code_int(:NOT_FOUND) == 5
+      assert Trogon.Error.to_code_int(:ALREADY_EXISTS) == 6
+      assert Trogon.Error.to_code_int(:PERMISSION_DENIED) == 7
+      assert Trogon.Error.to_code_int(:RESOURCE_EXHAUSTED) == 8
+      assert Trogon.Error.to_code_int(:FAILED_PRECONDITION) == 9
+      assert Trogon.Error.to_code_int(:ABORTED) == 10
+      assert Trogon.Error.to_code_int(:OUT_OF_RANGE) == 11
+      assert Trogon.Error.to_code_int(:UNIMPLEMENTED) == 12
+      assert Trogon.Error.to_code_int(:INTERNAL) == 13
+      assert Trogon.Error.to_code_int(:UNAVAILABLE) == 14
+      assert Trogon.Error.to_code_int(:DATA_LOSS) == 15
+      assert Trogon.Error.to_code_int(:UNAUTHENTICATED) == 16
       error = TestSupport.CompileTimeError.new!()
       assert Trogon.Error.to_code_int(error) == 5
     end
@@ -458,10 +458,10 @@ defmodule Trogon.ErrorTest do
 
       assert Exception.message(error) == """
              helpful error
-               visibility: :internal
+               visibility: :INTERNAL
                domain: com.test.help
                reason: HELPFUL_ERROR
-               code: :unknown
+               code: :UNKNOWN
              - API Docs: https://example.com/docs\
              """
 
@@ -469,10 +469,10 @@ defmodule Trogon.ErrorTest do
 
       assert Exception.message(error) == """
              unknown error
-               visibility: :internal
+               visibility: :INTERNAL
                domain: com.test.app
                reason: TEST_ERROR
-               code: :unknown
+               code: :UNKNOWN
                metadata:
                  - user_id: 123 visibility=internal\
              """
