@@ -8,7 +8,8 @@ defmodule BeamMonorepoUmbrella.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       test_coverage: test_coverage(),
-      preferred_cli_env: preferred_cli_env()
+      preferred_cli_env: preferred_cli_env(),
+      dialyzer: dialyzer()
     ]
   end
 
@@ -22,6 +23,12 @@ defmodule BeamMonorepoUmbrella.MixProject do
       "coveralls.json": :test,
       "coveralls.github": :test,
       coveralls: :test
+    ]
+  end
+
+  defp dialyzer do
+    [
+      plt_add_apps: [:mix]
     ]
   end
 
