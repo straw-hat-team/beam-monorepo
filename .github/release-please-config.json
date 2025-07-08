@@ -42,5 +42,6 @@
   "draft-pull-request": false,
   "prerelease": false,
   "pull-request-header": "An automated release has been created for you.",
-  "separate-pull-requests": true
+  "separate-pull-requests": true,
+  "signoff": "Straw Hat, LLC <opensource@straw-hat-llc.com>"
 }
