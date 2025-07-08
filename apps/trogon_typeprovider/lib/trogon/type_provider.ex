@@ -111,9 +111,11 @@ defmodule Trogon.TypeProvider do
   end
 
   def __register_type__(mod, original_type, struct_mod) do
+    ensure_compiled!(mod)
+
     type = type_with_prefix(mod, original_type)
 
-    unless defines_struct?(struct_mod) do
+    if not defines_struct?(struct_mod) do
       raise ArgumentError, """
       Invalid struct registration for type #{inspect(type)}
 
@@ -146,7 +148,9 @@ defmodule Trogon.TypeProvider do
   end
 
   def __import_type_provider__(mod, provider_mod) do
-    unless type_provider?(provider_mod) do
+    ensure_compiled!(mod)
+
+    if not type_provider?(provider_mod) do
       raise ArgumentError, """
       Invalid TypeProvider import in #{inspect(mod)}
 
@@ -207,10 +211,25 @@ defmodule Trogon.TypeProvider do
   end
 
   defp type_provider?(mod) do
-    Code.ensure_loaded?(mod) and function_exported?(mod, :__type_mapping__, 0)
+    function_exported?(mod, :__type_mapping__, 0)
   end
 
   defp defines_struct?(mod) do
-    Code.ensure_loaded?(mod) and function_exported?(mod, :__struct__, 0)
+    function_exported?(mod, :__struct__, 0)
+  end
+
+  defp ensure_compiled!(mod) do
+    case Code.ensure_compiled(mod) do
+      {:error, :nofile} ->
+        # Module was compiled inline (e.g., in tests), continue without ensuring compilation
+        # We need to find a workaround if somebody requires to fail in this case.
+        :ok
+
+      {:error, reason} ->
+        raise "could not load module #{inspect(mod)} due to reason #{inspect(reason)}"
+
+      {:module, _} ->
+        :ok
+    end
   end
 end
