@@ -215,7 +215,10 @@ defmodule Trogon.TypeProvider do
   end
 
   defp defines_struct?(mod) do
-    function_exported?(mod, :__struct__, 0)
+    :functions
+    |> mod.__info__()
+    |> Keyword.get(:__struct__)
+    |> Kernel.!=(nil)
   end
 
   defp ensure_compiled!(mod) do
