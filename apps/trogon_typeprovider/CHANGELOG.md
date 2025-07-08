@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.2.1...trogon_typeprovider@v0.2.2) (2025-07-08)
+
+
+### Bug Fixes
+
+* **trogon_typeprovider:** Improve struct detection for embedded schemas ([#222](https://github.com/straw-hat-team/beam-monorepo/issues/222)) ([96fc99f](https://github.com/straw-hat-team/beam-monorepo/commit/96fc99fc0608e7a318f7d4318df764de25408b0e))
+
 ## [0.2.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.2.0...trogon_typeprovider@v0.2.1) (2025-07-08)
 
 
