@@ -24,6 +24,9 @@
     },
     "apps/trogon_error": {
       "component": "trogon_error"
+    },
+    "apps/trogon_typeprovider": {
+      "component": "trogon_typeprovider"
     }
   },
   "plugins": [
