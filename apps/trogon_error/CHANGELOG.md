@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.4.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.4.0...trogon_error@v0.4.1) (2025-08-26)
+
+
+### Bug Fixes
+
+* **trogon_error:** Update FAILED_PRECONDITION HTTP status code to 400 ([e1d644e](https://github.com/straw-hat-team/beam-monorepo/commit/e1d644e98086e450169259b323afe9f364966f82))
+
 ## [0.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.3.1...trogon_error@v0.4.0) (2025-07-03)
 
 
