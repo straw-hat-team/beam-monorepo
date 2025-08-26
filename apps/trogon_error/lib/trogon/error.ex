@@ -415,7 +415,7 @@ defmodule Trogon.Error do
   def to_http_status_code(:ALREADY_EXISTS), do: 409
   def to_http_status_code(:PERMISSION_DENIED), do: 403
   def to_http_status_code(:RESOURCE_EXHAUSTED), do: 429
-  def to_http_status_code(:FAILED_PRECONDITION), do: 422
+  def to_http_status_code(:FAILED_PRECONDITION), do: 400
   def to_http_status_code(:ABORTED), do: 409
   def to_http_status_code(:OUT_OF_RANGE), do: 400
   def to_http_status_code(:UNIMPLEMENTED), do: 501

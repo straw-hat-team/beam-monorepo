@@ -462,7 +462,7 @@ defmodule Trogon.ErrorTest do
       assert Trogon.Error.to_http_status_code(:ALREADY_EXISTS) == 409
       assert Trogon.Error.to_http_status_code(:PERMISSION_DENIED) == 403
       assert Trogon.Error.to_http_status_code(:RESOURCE_EXHAUSTED) == 429
-      assert Trogon.Error.to_http_status_code(:FAILED_PRECONDITION) == 422
+      assert Trogon.Error.to_http_status_code(:FAILED_PRECONDITION) == 400
       assert Trogon.Error.to_http_status_code(:ABORTED) == 409
       assert Trogon.Error.to_http_status_code(:OUT_OF_RANGE) == 400
       assert Trogon.Error.to_http_status_code(:UNIMPLEMENTED) == 501
