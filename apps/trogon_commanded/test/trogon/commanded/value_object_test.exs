@@ -85,7 +85,7 @@ defmodule Trogon.Commanded.ValueObjectTest do
     end
 
     test "loads a struct" do
-      assert {:ok, message} = TestSupport.MessageOne.load(%{title: "Hello, World!"})
+      assert {:ok, message} = TestSupport.MessageOne.load(%TestSupport.MessageOne{title: "Hello, World!"})
       assert message.title == "Hello, World!"
     end
 
@@ -109,6 +109,154 @@ defmodule Trogon.Commanded.ValueObjectTest do
     test "validates the struct" do
       assert {:error, changeset} = TestSupport.MyValueOject.new(%{amount: 0})
       assert %{amount: ["must be greater than 0"]} = TestSupport.errors_on(changeset)
+    end
+  end
+
+  describe "polymorphic_embed support" do
+    test "creates a value object with polymorphic_embeds_one email content" do
+      attrs = %{
+        title: "Welcome Email",
+        content: %{
+          __type__: :email,
+          subject: "Welcome to our platform",
+          body: "Thank you for joining us!"
+        }
+      }
+
+      assert {:ok, notification} = TestSupport.NotificationWithPolymorphicEmbed.new(attrs)
+      assert notification.title == "Welcome Email"
+      assert notification.content.__struct__ == TestSupport.EmailContent
+      assert notification.content.subject == "Welcome to our platform"
+      assert notification.content.body == "Thank you for joining us!"
+    end
+
+    test "creates a value object with polymorphic_embeds_one sms content" do
+      attrs = %{
+        title: "SMS Notification",
+        content: %{
+          __type__: :sms,
+          message: "Your verification code is 123456",
+          phone: "+1234567890"
+        }
+      }
+
+      assert {:ok, notification} = TestSupport.NotificationWithPolymorphicEmbed.new(attrs)
+      assert notification.title == "SMS Notification"
+      assert notification.content.__struct__ == TestSupport.SmsContent
+      assert notification.content.message == "Your verification code is 123456"
+      assert notification.content.phone == "+1234567890"
+    end
+
+    test "validates required fields for polymorphic_embeds_one" do
+      attrs = %{
+        title: "Invalid Notification",
+        content: %{
+          __type__: :email,
+          subject: "Missing body"
+        }
+      }
+
+      assert {:error, changeset} = TestSupport.NotificationWithPolymorphicEmbed.new(attrs)
+      refute changeset.valid?
+      assert %{content: %{body: ["can't be blank"]}} = TestSupport.errors_on(changeset)
+    end
+
+    test "validates required polymorphic_embeds_one field" do
+      attrs = %{title: "Missing Content"}
+
+      assert {:error, changeset} = TestSupport.NotificationWithPolymorphicEmbed.new(attrs)
+      assert %{content: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "creates a value object with polymorphic_embeds_many" do
+      attrs = %{
+        title: "Multi-channel Message",
+        contents: [
+          %{
+            __type__: :email,
+            subject: "Email notification",
+            body: "This is an email"
+          },
+          %{
+            __type__: :sms,
+            message: "This is an SMS",
+            phone: "+1234567890"
+          }
+        ]
+      }
+
+      assert {:ok, message} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(attrs)
+      assert message.title == "Multi-channel Message"
+      assert length(message.contents) == 2
+
+      [email_content, sms_content] = message.contents
+      assert email_content.__struct__ == TestSupport.EmailContent
+      assert email_content.subject == "Email notification"
+      assert email_content.body == "This is an email"
+
+      assert sms_content.__struct__ == TestSupport.SmsContent
+      assert sms_content.message == "This is an SMS"
+      assert sms_content.phone == "+1234567890"
+    end
+
+    test "validates required fields for polymorphic_embeds_many" do
+      attrs = %{
+        title: "Invalid Multi-channel Message",
+        contents: [
+          %{
+            __type__: :email,
+            subject: "Valid email",
+            body: "This is valid"
+          },
+          %{
+            __type__: :sms,
+            message: "Missing phone number"
+          }
+        ]
+      }
+
+      assert {:error, changeset} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(attrs)
+      refute changeset.valid?
+      assert %{contents: [%{}, %{phone: ["can't be blank"]}]} = TestSupport.errors_on(changeset)
+    end
+
+    test "allows empty polymorphic_embeds_many when not required" do
+      attrs = %{title: "Missing Contents"}
+
+      assert {:ok, result} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(attrs)
+      assert result.title == "Missing Contents"
+      assert result.contents == []
+    end
+
+    test "handles unknown polymorphic type" do
+      attrs = %{
+        title: "Unknown Type",
+        content: %{
+          __type__: :unknown_type,
+          data: "some data"
+        }
+      }
+
+      assert_raise RuntimeError, ~r/could not infer polymorphic embed/, fn ->
+        TestSupport.NotificationWithPolymorphicEmbed.new(attrs)
+      end
+    end
+
+    test "casts polymorphic embed with map data" do
+      attrs = %{
+        title: "Map Content",
+        content: %{
+          __type__: :email,
+          subject: "Test Subject",
+          body: "Test Body"
+        }
+      }
+
+      assert {:ok, notification} = TestSupport.NotificationWithPolymorphicEmbed.new(attrs)
+      assert notification.title == "Map Content"
+      assert notification.content.__struct__ == TestSupport.EmailContent
+      assert notification.content.subject == "Test Subject"
+      assert notification.content.body == "Test Body"
     end
   end
 end

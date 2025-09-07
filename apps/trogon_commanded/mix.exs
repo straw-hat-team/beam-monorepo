@@ -41,6 +41,7 @@ defmodule Trogon.Commanded.MixProject do
       {:uniq, "~> 0.1"},
       {:jason, "~> 1.2"},
       {:ecto, "~> 3.6"},
+      {:polymorphic_embed, "~> 5.0"},
       {:protobuf, "~> 0.13", optional: true},
 
       # Tools

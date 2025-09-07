@@ -187,8 +187,69 @@ defmodule TestSupport do
       registry: :local
   end
 
+  defmodule EmailContent do
+    @moduledoc false
+    use Trogon.Commanded.ValueObject
+
+    @enforce_keys [:subject, :body]
+    embedded_schema do
+      field :type, :string, default: "email"
+      field :subject, :string
+      field :body, :string
+    end
+  end
+
+  defmodule SmsContent do
+    @moduledoc false
+    use Trogon.Commanded.ValueObject
+
+    @enforce_keys [:message, :phone]
+    embedded_schema do
+      field :type, :string, default: "sms"
+      field :message, :string
+      field :phone, :string
+    end
+  end
+
+  defmodule NotificationWithPolymorphicEmbed do
+    @moduledoc false
+    use Trogon.Commanded.ValueObject
+
+    @enforce_keys [:title, :content]
+    embedded_schema do
+      field :title, :string
+
+      polymorphic_embeds_one :content,
+        types: [
+          email: TestSupport.EmailContent,
+          sms: TestSupport.SmsContent
+        ],
+        on_type_not_found: :raise,
+        on_replace: :update
+    end
+  end
+
+  defmodule MessageWithMultiplePolymorphicEmbeds do
+    @moduledoc false
+    use Trogon.Commanded.ValueObject
+
+    @enforce_keys [:title, :contents]
+    embedded_schema do
+      field :title, :string
+
+      polymorphic_embeds_many :contents,
+        types: [
+          email: TestSupport.EmailContent,
+          sms: TestSupport.SmsContent
+        ],
+        on_type_not_found: :raise,
+        on_replace: :delete
+    end
+  end
+
   def errors_on(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+    # Use PolymorphicEmbed's traverse_errors for better polymorphic embed support
+    PolymorphicEmbed.traverse_errors(changeset, fn {message, opts} ->
       Regex.replace(~r"%{(\w+)}", message, fn _, key ->
         opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
       end)
