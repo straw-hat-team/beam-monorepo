@@ -4,7 +4,9 @@ locals_without_parens = [
   dispatch_transaction_script: 2,
   identify_aggregate: 1,
   register_transaction_script: 1,
-  register_transaction_script: 2
+  register_transaction_script: 2,
+  polymorphic_embeds_one: 2,
+  polymorphic_embeds_many: 2
 ]
 
 [

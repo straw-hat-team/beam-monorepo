@@ -70,6 +70,7 @@ defmodule Trogon.Commanded.ValueObject do
 
       use Ecto.Schema
       use Ecto.Type
+      import PolymorphicEmbed, only: [polymorphic_embeds_one: 2, polymorphic_embeds_many: 2]
 
       @derive Jason.Encoder
       @primary_key false
@@ -209,13 +210,29 @@ defmodule Trogon.Commanded.ValueObject do
   """
   def changeset(%struct_module{} = message, attrs) do
     embeds = struct_module.__schema__(:embeds)
+    polymorphic_embeds = get_polymorphic_embeds(struct_module)
     fields = struct_module.__schema__(:fields)
+    all_embeds = embeds ++ polymorphic_embeds
 
     changeset =
       message
-      |> Changeset.cast(from_struct(attrs), fields -- embeds)
-      |> Changeset.validate_required(struct_module.__enforced_keys__() -- embeds)
+      |> Changeset.cast(from_struct(attrs), fields -- all_embeds)
+      |> Changeset.validate_required(struct_module.__enforced_keys__() -- all_embeds)
 
+    changeset
+    |> cast_embeds(embeds, struct_module)
+    |> cast_polymorphic_embeds(polymorphic_embeds, struct_module)
+  end
+
+  defp cast_polymorphic_embeds(changeset, polymorphic_embeds, struct_module) do
+    Enum.reduce(
+      polymorphic_embeds,
+      changeset,
+      &cast_polymorphic_embed(&1, &2, struct_module)
+    )
+  end
+
+  defp cast_embeds(changeset, embeds, struct_module) do
     Enum.reduce(
       embeds,
       changeset,
@@ -227,7 +244,26 @@ defmodule Trogon.Commanded.ValueObject do
     Changeset.cast_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
   end
 
+  defp cast_polymorphic_embed(field, changeset, struct_module) do
+    PolymorphicEmbed.cast_polymorphic_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
+  end
+
+  defp get_polymorphic_embeds(struct_module) do
+    :fields
+    |> struct_module.__schema__()
+    |> Enum.filter(&polymorphic_embed_field?(&1, struct_module))
+  end
+
+  defp polymorphic_embed_field?(field, struct_module) do
+    case struct_module.__schema__(:type, field) do
+      {:parameterized, {PolymorphicEmbed, _config}} -> true
+      {:array, {:parameterized, {PolymorphicEmbed, _config}}} -> true
+      _ -> false
+    end
+  end
+
   defp from_struct(value) when is_struct(value) do
+    # IMPORTANT NOTE: This is a workaround for the issue described in the link below.
     # https://github.com/elixir-ecto/ecto/issues/4168
     Map.from_struct(value)
   end
