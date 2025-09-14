@@ -50,6 +50,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
   use ExUnit.CaseTemplate
 
   alias Commanded.Aggregate.Multi
+  alias Commanded.Middleware.Pipeline
+  alias Commanded.Middleware.ExtractAggregateIdentity
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
   using opts do
@@ -171,10 +173,24 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         do: &aggregate_module.execute/2,
         else: &command_handler_module.handle/2
 
-    aggregate_module
-    |> struct()
-    |> evolve(initial_events, evolver)
-    |> execute(command, evolver, decider)
+    # Extract the real aggregate identity using the same middleware as production
+    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+
+    result =
+      aggregate_module
+      |> struct()
+      |> evolve(initial_events, evolver)
+      |> execute(command, evolver, decider)
+
+    # Transform the result to use the real aggregate identity (only if we have one)
+    case result do
+      {:ok, state, events} when aggregate_uuid != nil ->
+        transformed_events = transform_event_identities(events, aggregate_uuid, aggregate_module)
+        transformed_state = transform_aggregate_identity(state, aggregate_uuid, aggregate_module)
+        {:ok, transformed_state, transformed_events}
+
+      other -> other  # No transformation for simple test fixtures or when no identity config
+    end
   end
 
   defp execute(state, command, evolver, decider) do
@@ -238,4 +254,79 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     |> List.wrap()
     |> Enum.reduce(state, &evolver.(&2, &1))
   end
+
+  defp extract_aggregate_identity(command, aggregate_module) do
+    # Follow the same pattern as CommandRouter:
+    # 1. Try command module first (for transaction scripts)
+    # 2. Fall back to aggregate module (for regular aggregates)
+    command_module = command.__struct__
+
+    {identifier, identity_prefix} =
+      if function_exported?(command_module, :aggregate_identifier, 0) and
+         function_exported?(command_module, :identity_prefix, 0) do
+        # Transaction script pattern - use command module's configuration
+        {command_module.aggregate_identifier(), command_module.identity_prefix()}
+      else
+        # Regular aggregate pattern - use aggregate module's configuration
+        {get_identifier(aggregate_module), get_identity_prefix(aggregate_module)}
+      end
+
+    # Create a pipeline like Commanded does in production
+    pipeline = %Pipeline{
+      command: command,
+      identity: identifier,
+      identity_prefix: identity_prefix
+    }
+
+    # Let ExtractAggregateIdentity middleware handle everything
+    case ExtractAggregateIdentity.before_dispatch(pipeline) do
+      %Pipeline{assigns: %{aggregate_uuid: uuid}} -> uuid
+      %Pipeline{} -> nil  # No transformation applied
+    end
+  end
+
+  defp get_identity_prefix(aggregate_module) do
+    if function_exported?(aggregate_module, :identity_prefix, 0) do
+      aggregate_module.identity_prefix()
+    else
+      nil  # No prefix
+    end
+  end
+
+  defp transform_event_identities(events, aggregate_uuid, aggregate_module) do
+    identifier = get_identifier(aggregate_module)
+
+    events
+    |> List.wrap()
+    |> Enum.map(fn event ->
+      # Only transform if the event has the identifier field and the UUID is different
+      if Map.has_key?(event, identifier) and Map.get(event, identifier) != aggregate_uuid do
+        Map.put(event, identifier, aggregate_uuid)
+      else
+        event  # Return unchanged if no identifier field or already correct
+      end
+    end)
+  end
+
+  defp transform_aggregate_identity(state, aggregate_uuid, aggregate_module) do
+    identifier = get_identifier(aggregate_module)
+
+    # Only transform if the state has the identifier field and the UUID is different
+    if Map.has_key?(state, identifier) and Map.get(state, identifier) != aggregate_uuid do
+      Map.put(state, identifier, aggregate_uuid)
+    else
+      state  # Return unchanged if no identifier field or already correct
+    end
+  end
+
+  defp get_identifier(aggregate_module) do
+    if function_exported?(aggregate_module, :identifier, 0) do
+      aggregate_module.identifier()
+    else
+      # No default - Commanded requires explicit identifier configuration
+      # For test fixtures that don't use Trogon.Commanded.Aggregate, return nil
+      nil
+    end
+  end
+
 end
