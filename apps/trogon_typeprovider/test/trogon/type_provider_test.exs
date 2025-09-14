@@ -145,8 +145,8 @@ defmodule Trogon.TypeProviderTest do
         quote do
           defmodule ConflictedTypeProvider do
             use Trogon.TypeProvider
-            import_type_provider AccountTypeProvider
-            import_type_provider IAMTypeProvider
+            import_type_provider Trogon.TypeProvider.TestSupport.AccountTypeProvider
+            import_type_provider Trogon.TypeProvider.TestSupport.IAMTypeProvider
           end
         end
       )
