@@ -175,6 +175,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
 
     # Extract the real aggregate identity using the same middleware as production
     aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
 
     result =
       aggregate_module
@@ -184,12 +185,19 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
 
     # Transform the result to use the real aggregate identity (only if we have one)
     case result do
-      {:ok, state, events} when aggregate_uuid != nil ->
+      {:ok, state, events} when not is_nil(aggregate_uuid) ->
         transformed_events = transform_event_identities(events, aggregate_uuid, aggregate_module)
         transformed_state = transform_aggregate_identity(state, aggregate_uuid, aggregate_module)
         {:ok, transformed_state, transformed_events}
 
-      other -> other  # No transformation for simple test fixtures or when no identity config
+      {:ok, _state, _events} when is_nil(aggregate_uuid) ->
+        # This should only happen for simple test fixtures without identity configuration
+        # If we reach here with a real Trogon.Commanded.Aggregate, something is wrong
+        result
+
+      # No transformation for simple test fixtures or when no identity config
+      other ->
+        other
     end
   end
 
@@ -263,7 +271,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
 
     {identifier, identity_prefix} =
       if function_exported?(command_module, :aggregate_identifier, 0) and
-         function_exported?(command_module, :identity_prefix, 0) do
+           function_exported?(command_module, :identity_prefix, 0) do
         # Transaction script pattern - use command module's configuration
         {command_module.aggregate_identifier(), command_module.identity_prefix()}
       else
@@ -281,7 +289,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     # Let ExtractAggregateIdentity middleware handle everything
     case ExtractAggregateIdentity.before_dispatch(pipeline) do
       %Pipeline{assigns: %{aggregate_uuid: uuid}} -> uuid
-      %Pipeline{} -> nil  # No transformation applied
+      # No transformation applied
+      %Pipeline{} -> nil
     end
   end
 
@@ -289,7 +298,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     if function_exported?(aggregate_module, :identity_prefix, 0) do
       aggregate_module.identity_prefix()
     else
-      nil  # No prefix
+      # No prefix
+      nil
     end
   end
 
@@ -303,7 +313,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
       if Map.has_key?(event, identifier) and Map.get(event, identifier) != aggregate_uuid do
         Map.put(event, identifier, aggregate_uuid)
       else
-        event  # Return unchanged if no identifier field or already correct
+        # Return unchanged if no identifier field or already correct
+        event
       end
     end)
   end
@@ -315,7 +326,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     if Map.has_key?(state, identifier) and Map.get(state, identifier) != aggregate_uuid do
       Map.put(state, identifier, aggregate_uuid)
     else
-      state  # Return unchanged if no identifier field or already correct
+      # Return unchanged if no identifier field or already correct
+      state
     end
   end
 
@@ -328,5 +340,4 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
       nil
     end
   end
-
 end

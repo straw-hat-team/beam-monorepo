@@ -14,6 +14,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
   # Test aggregates that use REAL Trogon.Commanded.Aggregate with identity configuration
   defmodule AccountCreated do
     use Trogon.Commanded.Event, aggregate_identifier: :uuid
+
     embedded_schema do
       field :name, :string
     end
@@ -23,6 +24,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
     use Trogon.Commanded.Command,
       aggregate_identifier: :uuid,
       identity_prefix: "account-"
+
     embedded_schema do
       field :name, :string
     end
@@ -49,6 +51,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
   # Test with function-based prefix
   defmodule UserRegistered do
     use Trogon.Commanded.Event, aggregate_identifier: :user_id
+
     embedded_schema do
       field :email, :string
     end
@@ -58,6 +61,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
     use Trogon.Commanded.Command,
       aggregate_identifier: :user_id,
       identity_prefix: fn -> "user-#{Date.utc_today().year}-" end
+
     embedded_schema do
       field :email, :string
     end
@@ -91,6 +95,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
         identity: :uuid,
         identity_prefix: "account-"
       }
+
       processed_pipeline = ExtractAggregateIdentity.before_dispatch(real_pipeline)
       real_aggregate_uuid = processed_pipeline.assigns[:aggregate_uuid]
 
@@ -101,7 +106,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_events(
         [],
         command,
-        [%AccountCreated{uuid: "account-test123", name: "Test Account"}],  # ✅ MATCHES real behavior!
+        # ✅ MATCHES real behavior!
+        [%AccountCreated{uuid: "account-test123", name: "Test Account"}],
         Account,
         nil
       )
@@ -110,7 +116,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_state(
         [],
         command,
-        %Account{uuid: "account-test123", name: "Test Account"},  # ✅ MATCHES real behavior!
+        # ✅ MATCHES real behavior!
+        %Account{uuid: "account-test123", name: "Test Account"},
         Account,
         nil
       )
@@ -127,6 +134,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
         identity: :user_id,
         identity_prefix: fn -> "user-#{Date.utc_today().year}-" end
       }
+
       processed_pipeline = ExtractAggregateIdentity.before_dispatch(real_pipeline)
       real_aggregate_uuid = processed_pipeline.assigns[:aggregate_uuid]
 
@@ -137,7 +145,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_events(
         [],
         command,
-        [%UserRegistered{user_id: expected_id, email: "john@example.com"}],  # ✅ MATCHES real behavior!
+        # ✅ MATCHES real behavior!
+        [%UserRegistered{user_id: expected_id, email: "john@example.com"}],
         User,
         nil
       )
@@ -146,7 +155,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_state(
         [],
         command,
-        %User{user_id: expected_id, email: "john@example.com"},  # ✅ MATCHES real behavior!
+        # ✅ MATCHES real behavior!
+        %User{user_id: expected_id, email: "john@example.com"},
         User,
         nil
       )
@@ -160,7 +170,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_events(
         [],
         %TestCommand{id: "simple", action: :create_event},
-        [%TestEvent{id: "simple", name: "created"}],  # No transformation - works as before
+        # No transformation - works as before
+        [%TestEvent{id: "simple", name: "created"}],
         TestAggregate,
         nil
       )
@@ -180,7 +191,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_events(
         [],
         command,
-        real_events,  # ✅ MATCHES what real Commanded would produce!
+        # ✅ MATCHES what real Commanded would produce!
+        real_events,
         Account,
         nil
       )
@@ -202,7 +214,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_events(
         [],
         command1,
-        [%AccountCreated{uuid: real_stream_id_1, name: "Account 1"}],  # ✅ CORRECT stream ID!
+        # ✅ CORRECT stream ID!
+        [%AccountCreated{uuid: real_stream_id_1, name: "Account 1"}],
         Account,
         nil
       )
@@ -210,7 +223,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_events(
         [],
         command2,
-        [%AccountCreated{uuid: real_stream_id_2, name: "Account 2"}],  # ✅ CORRECT stream ID!
+        # ✅ CORRECT stream ID!
+        [%AccountCreated{uuid: real_stream_id_2, name: "Account 2"}],
         Account,
         nil
       )
@@ -226,7 +240,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixProofTest do
       CommandHandlerCase.assert_state(
         [],
         command,
-        %Account{uuid: expected_lookup_id, name: "Lookup Account"},  # ✅ CORRECT lookup ID!
+        # ✅ CORRECT lookup ID!
+        %Account{uuid: expected_lookup_id, name: "Lookup Account"},
         Account,
         nil
       )
