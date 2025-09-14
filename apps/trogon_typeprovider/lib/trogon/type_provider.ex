@@ -149,6 +149,7 @@ defmodule Trogon.TypeProvider do
 
   def __import_type_provider__(mod, provider_mod) do
     ensure_compiled!(mod)
+    ensure_compiled!(provider_mod)
 
     if not type_provider?(provider_mod) do
       raise ArgumentError, """
