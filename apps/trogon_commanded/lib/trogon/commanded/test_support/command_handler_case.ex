@@ -115,18 +115,26 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
+    # Extract the correct stream ID for this aggregate
+    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
+
+    # Transform all events to use the correct stream ID
+    transformed_initial_events = transform_event_identities(initial_events, aggregate_uuid, aggregate_module)
+    transformed_expected_events = transform_event_identities(expected_events, aggregate_uuid, aggregate_module)
+
     assert {:ok, _state, events} =
              aggregate_run(
                aggregate_module,
                command_handler_module,
-               initial_events,
+               transformed_initial_events,
                command
              )
 
     actual_events = List.wrap(events)
-    expected_events = List.wrap(expected_events)
+    transformed_expected_events = List.wrap(transformed_expected_events)
 
-    assert actual_events == expected_events
+    assert actual_events == transformed_expected_events
   end
 
   def assert_state(
@@ -136,15 +144,24 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
+    # Extract the correct stream ID for this aggregate
+    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
+
+    # Transform initial events to use the correct stream ID
+    transformed_initial_events = transform_event_identities(initial_events, aggregate_uuid, aggregate_module)
+    # Transform expected state to use the correct stream ID
+    transformed_expected_state = transform_aggregate_identity(expected_state, aggregate_uuid, aggregate_module)
+
     assert {:ok, state, _events} =
              aggregate_run(
                aggregate_module,
                command_handler_module,
-               initial_events,
+               transformed_initial_events,
                command
              )
 
-    assert state == expected_state
+    assert state == transformed_expected_state
   end
 
   def assert_error(
@@ -154,11 +171,18 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
+    # Extract the correct stream ID for this aggregate
+    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
+
+    # Transform initial events to use the correct stream ID
+    transformed_initial_events = transform_event_identities(initial_events, aggregate_uuid, aggregate_module)
+
     assert {:error, reason} =
              aggregate_run(
                aggregate_module,
                command_handler_module,
-               initial_events,
+               transformed_initial_events,
                command
              )
 
@@ -173,29 +197,22 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         do: &aggregate_module.execute/2,
         else: &command_handler_module.handle/2
 
-    # Extract the real aggregate identity using the same middleware as production
-    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
-    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
-
     result =
       aggregate_module
       |> struct()
       |> evolve(initial_events, evolver)
       |> execute(command, evolver, decider)
 
-    # Transform the result to use the real aggregate identity (only if we have one)
+    # Transform the result to use the real aggregate identity
+    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
+
     case result do
-      {:ok, state, events} when not is_nil(aggregate_uuid) ->
+      {:ok, state, events} ->
         transformed_events = transform_event_identities(events, aggregate_uuid, aggregate_module)
         transformed_state = transform_aggregate_identity(state, aggregate_uuid, aggregate_module)
         {:ok, transformed_state, transformed_events}
 
-      {:ok, _state, _events} when is_nil(aggregate_uuid) ->
-        # This should only happen for simple test fixtures without identity configuration
-        # If we reach here with a real Trogon.Commanded.Aggregate, something is wrong
-        result
-
-      # No transformation for simple test fixtures or when no identity config
       other ->
         other
     end
