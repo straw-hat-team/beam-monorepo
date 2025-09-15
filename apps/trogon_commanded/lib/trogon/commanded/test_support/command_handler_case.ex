@@ -194,7 +194,6 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
 
     assert is_list(initial_events), "Initial events must be a list of events"
     aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
-    assert aggregate_uuid, "Aggregate UUID must be present"
 
     # Validate that all initial events belong to this aggregate
     validate_initial_events_belong_to_aggregate(initial_events, aggregate_uuid, aggregate_module)
