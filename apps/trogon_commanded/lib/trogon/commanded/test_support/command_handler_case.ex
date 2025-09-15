@@ -357,87 +357,12 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
 
     events
     |> List.wrap()
-    |> Enum.map(fn event ->
-      # Only transform if the event has the identifier field and the UUID is different
-      if Map.has_key?(event, identifier) do
-        event_identifier = Map.get(event, identifier)
-
-        # Convert event identifier to string using String.Chars protocol if it's not nil
-        # Handle cases where the identifier doesn't implement String.Chars (like Protobuf structs)
-        event_identifier_string =
-          if event_identifier do
-            try do
-              to_string(event_identifier)
-            rescue
-              Protocol.UndefinedError ->
-                # Fallback: if String.Chars is not implemented, compare the raw values
-                event_identifier
-            end
-          else
-            nil
-          end
-
-        if event_identifier_string != aggregate_uuid do
-          # Only transform if the event identifier is a string or can be converted to match
-          # Don't transform complex structs (like Protobuf) to strings
-          if is_binary(event_identifier) do
-            Map.put(event, identifier, aggregate_uuid)
-          else
-            # For complex identifiers (like Protobuf structs), don't transform
-            # This preserves the original structure for proper testing
-            event
-          end
-        else
-          # Return unchanged if already correct
-          event
-        end
-      else
-        # Return unchanged if no identifier field
-        event
-      end
-    end)
+    |> Enum.map(&transform_single_event(&1, identifier, aggregate_uuid))
   end
 
   defp transform_aggregate_identity(state, aggregate_uuid, aggregate_module) do
     identifier = get_identifier(aggregate_module)
-
-    # Only transform if the state has the identifier field and the UUID is different
-    if Map.has_key?(state, identifier) do
-      state_identifier = Map.get(state, identifier)
-
-      # Convert state identifier to string using String.Chars protocol if it's not nil
-      # Handle cases where the identifier doesn't implement String.Chars (like Protobuf structs)
-      state_identifier_string =
-        if state_identifier do
-          try do
-            to_string(state_identifier)
-          rescue
-            Protocol.UndefinedError ->
-              # Fallback: if String.Chars is not implemented, compare the raw values
-              state_identifier
-          end
-        else
-          nil
-        end
-
-      if state_identifier_string != aggregate_uuid do
-        # Only transform if the state identifier is a string or can be converted to match
-        # Don't transform complex structs (like Protobuf) to strings
-        if is_binary(state_identifier) do
-          Map.put(state, identifier, aggregate_uuid)
-        else
-          # For complex identifiers (like Protobuf structs), don't transform
-          # This preserves the original structure for proper testing
-          state
-        end
-      else
-        # Return unchanged if already correct
-        state
-      end
-    else
-      # Return unchanged if no identifier field
-      state
-    end
+    transform_single_event(state, identifier, aggregate_uuid)
   end
 
   defp get_identifier(aggregate_module) do
@@ -450,6 +375,41 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     end
   end
 
+  # Helper function to transform a single event/state with consistent logic
+  defp transform_single_event(item, identifier, aggregate_uuid) do
+    if Map.has_key?(item, identifier) do
+      current_identifier = Map.get(item, identifier)
+
+      if should_transform_identifier?(current_identifier, aggregate_uuid) do
+        Map.put(item, identifier, aggregate_uuid)
+      else
+        item
+      end
+    else
+      item
+    end
+  end
+
+  # Determines if an identifier should be transformed based on type and value
+  defp should_transform_identifier?(current_identifier, aggregate_uuid) do
+    current_as_string = safe_to_string(current_identifier)
+
+    # Only transform string identifiers that don't already match
+    is_binary(current_identifier) and current_as_string != aggregate_uuid
+  end
+
+  # Safely converts an identifier to string, handling protocol errors
+  defp safe_to_string(nil), do: nil
+  defp safe_to_string(value) do
+    try do
+      to_string(value)
+    rescue
+      Protocol.UndefinedError ->
+        # For complex structs (Protobuf, etc.), return the original value
+        value
+    end
+  end
+
   defp validate_initial_events_belong_to_aggregate(initial_events, aggregate_uuid, aggregate_module) do
     # Skip validation for simple test fixtures without identity configuration
     if aggregate_uuid do
@@ -458,43 +418,35 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
       # Only validate if the aggregate also has identity configuration
       # This handles cases where commands have identity but aggregates don't (transaction script pattern)
       if identifier do
-        for {event, index} <- Enum.with_index(List.wrap(initial_events)) do
-          event_identifier = Map.get(event, identifier)
-
-          # Convert event identifier to string using String.Chars protocol if it's not nil
-          # Handle cases where the identifier doesn't implement String.Chars (like Protobuf structs)
-          event_identifier_string =
-            if event_identifier do
-              try do
-                to_string(event_identifier)
-              rescue
-                Protocol.UndefinedError ->
-                  # Fallback: if String.Chars is not implemented, compare the raw values
-                  event_identifier
-              end
-            else
-              nil
-            end
-
-          # Only validate strict equality for string identifiers
-          # For complex identifiers (Protobuf structs), be more lenient
-          should_validate_strict = is_binary(event_identifier) and is_binary(aggregate_uuid)
-
-          if should_validate_strict and event_identifier_string != aggregate_uuid do
-            flunk("""
-            Initial event at index #{index} does not belong to the aggregate under test.
-
-            Expected aggregate identifier: #{inspect(aggregate_uuid)}
-            Event identifier: #{inspect(event_identifier_string)}
-            Event: #{inspect(event)}
-
-            All initial events must belong to the same aggregate being tested.
-            """)
-          end
-        end
+        initial_events
+        |> List.wrap()
+        |> Enum.with_index()
+        |> Enum.each(&validate_single_event(&1, identifier, aggregate_uuid))
       end
       # If aggregate doesn't have identity configuration, skip validation
       # This is common in transaction script patterns where only the command has identity
+    end
+  end
+
+  # Validates that a single event belongs to the expected aggregate
+  defp validate_single_event({event, index}, identifier, aggregate_uuid) do
+    event_identifier = Map.get(event, identifier)
+    event_identifier_string = safe_to_string(event_identifier)
+
+    # Only validate strict equality for string identifiers
+    # For complex identifiers (Protobuf structs), be more lenient
+    should_validate_strict = is_binary(event_identifier) and is_binary(aggregate_uuid)
+
+    if should_validate_strict and event_identifier_string != aggregate_uuid do
+      flunk("""
+      Initial event at index #{index} does not belong to the aggregate under test.
+
+      Expected aggregate identifier: #{inspect(aggregate_uuid)}
+      Event identifier: #{inspect(event_identifier_string)}
+      Event: #{inspect(event)}
+
+      All initial events must belong to the same aggregate being tested.
+      """)
     end
   end
 end
