@@ -115,26 +115,25 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
-    # Extract the correct stream ID for this aggregate
-    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
-    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
+    result = run_aggregate_with_identity(
+      initial_events,
+      command,
+      aggregate_module,
+      command_handler_module
+    )
 
-    # Transform all events to use the correct stream ID
-    transformed_initial_events = transform_event_identities(initial_events, aggregate_uuid, aggregate_module)
-    transformed_expected_events = transform_event_identities(expected_events, aggregate_uuid, aggregate_module)
+    case result do
+      {_state, actual_events, aggregate_uuid} ->
+        # Transform expected events to use the correct stream ID
+        transformed_expected_events = transform_event_identities(expected_events, aggregate_uuid, aggregate_module)
 
-    assert {:ok, _state, events} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               transformed_initial_events,
-               command
-             )
+        transformed_expected_events = List.wrap(transformed_expected_events)
 
-    actual_events = List.wrap(events)
-    transformed_expected_events = List.wrap(transformed_expected_events)
+        assert actual_events == transformed_expected_events
 
-    assert actual_events == transformed_expected_events
+      {:error, _reason} ->
+        flunk("Expected success but got error: #{inspect(result)}")
+    end
   end
 
   def assert_state(
@@ -144,24 +143,23 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
-    # Extract the correct stream ID for this aggregate
-    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
-    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
+    result = run_aggregate_with_identity(
+      initial_events,
+      command,
+      aggregate_module,
+      command_handler_module
+    )
 
-    # Transform initial events to use the correct stream ID
-    transformed_initial_events = transform_event_identities(initial_events, aggregate_uuid, aggregate_module)
-    # Transform expected state to use the correct stream ID
-    transformed_expected_state = transform_aggregate_identity(expected_state, aggregate_uuid, aggregate_module)
+    case result do
+      {state, _events, aggregate_uuid} ->
+        # Transform expected state to use the correct stream ID
+        transformed_expected_state = transform_aggregate_identity(expected_state, aggregate_uuid, aggregate_module)
 
-    assert {:ok, state, _events} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               transformed_initial_events,
-               command
-             )
+        assert state == transformed_expected_state
 
-    assert state == transformed_expected_state
+      {:error, _reason} ->
+        flunk("Expected success but got error: #{inspect(result)}")
+    end
   end
 
   def assert_error(
@@ -171,22 +169,52 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         aggregate_module,
         command_handler_module
       ) do
-    # Extract the correct stream ID for this aggregate
+    result = run_aggregate_with_identity(
+      initial_events,
+      command,
+      aggregate_module,
+      command_handler_module
+    )
+
+    case result do
+      {:error, reason} ->
+        assert reason == expected_error
+      other ->
+        flunk("Expected error #{inspect(expected_error)}, but got: #{inspect(other)}")
+    end
+  end
+
+  # Common function that runs aggregate with proper identity handling for all assertion types
+  defp run_aggregate_with_identity(
+        initial_events,
+        command,
+        aggregate_module,
+        command_handler_module
+      ) do
+
+    assert is_list(initial_events), "Initial events must be a list of events"
     aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
-    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
+    assert aggregate_uuid, "Aggregate UUID must be present"
 
-    # Transform initial events to use the correct stream ID
-    transformed_initial_events = transform_event_identities(initial_events, aggregate_uuid, aggregate_module)
+    # Validate that all initial events belong to this aggregate
+    validate_initial_events_belong_to_aggregate(initial_events, aggregate_uuid, aggregate_module)
 
-    assert {:error, reason} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               transformed_initial_events,
-               command
-             )
+    # Transform initial events to use the correct stream ID (if applicable)
+    transformed_initial_events =
+      if aggregate_uuid do
+        transform_event_identities(initial_events, aggregate_uuid, aggregate_module)
+      else
+        initial_events
+      end
 
-    assert reason == expected_error
+    # Run the aggregate with consistent stream IDs
+    result = aggregate_run(aggregate_module, command_handler_module, transformed_initial_events, command)
+
+    # Return the result along with the aggregate_uuid for use in assertions
+    case result do
+      {:ok, state, events} -> {state, List.wrap(events), aggregate_uuid}
+      other -> other
+    end
   end
 
   defp aggregate_run(aggregate_module, command_handler_module, initial_events, command) do
@@ -203,18 +231,23 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
       |> evolve(initial_events, evolver)
       |> execute(command, evolver, decider)
 
-    # Transform the result to use the real aggregate identity
+    # Transform the result to use the real aggregate identity (if applicable)
     aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
-    assert aggregate_uuid, "aggregate_uuid must never be nil for aggregates with identity configuration"
 
-    case result do
-      {:ok, state, events} ->
-        transformed_events = transform_event_identities(events, aggregate_uuid, aggregate_module)
-        transformed_state = transform_aggregate_identity(state, aggregate_uuid, aggregate_module)
-        {:ok, transformed_state, transformed_events}
+    if aggregate_uuid do
+      # This aggregate has identity configuration - transform the results
+      case result do
+        {:ok, state, events} ->
+          transformed_events = transform_event_identities(events, aggregate_uuid, aggregate_module)
+          transformed_state = transform_aggregate_identity(state, aggregate_uuid, aggregate_module)
+          {:ok, transformed_state, transformed_events}
 
-      other ->
-        other
+        other ->
+          other
+      end
+    else
+      # This is a simple test fixture without identity configuration - return as-is
+      result
     end
   end
 
@@ -355,6 +388,32 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
       # No default - Commanded requires explicit identifier configuration
       # For test fixtures that don't use Trogon.Commanded.Aggregate, return nil
       nil
+    end
+  end
+
+  defp validate_initial_events_belong_to_aggregate(initial_events, aggregate_uuid, aggregate_module) do
+    # Skip validation for simple test fixtures without identity configuration
+    if aggregate_uuid do
+      identifier = get_identifier(aggregate_module)
+
+      # Assert that the aggregate has identity configuration
+      assert identifier, "Aggregate #{inspect(aggregate_module)} must have identity configuration when aggregate_uuid is present"
+
+      for {event, index} <- Enum.with_index(List.wrap(initial_events)) do
+        event_identifier = Map.get(event, identifier)
+
+        if event_identifier != aggregate_uuid do
+          flunk("""
+          Initial event at index #{index} does not belong to the aggregate under test.
+
+          Expected aggregate identifier: #{inspect(aggregate_uuid)}
+          Event identifier: #{inspect(event_identifier)}
+          Event: #{inspect(event)}
+
+          All initial events must belong to the same aggregate being tested.
+          """)
+        end
+      end
     end
   end
 end
