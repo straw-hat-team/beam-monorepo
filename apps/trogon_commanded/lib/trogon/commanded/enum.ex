@@ -99,12 +99,12 @@ defmodule Trogon.Commanded.Enum do
       """
       @spec new(attrs :: %{required(:value) => value()}) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
       def new(attrs) when is_map(attrs) do
-        ValueObject.__new__(__MODULE__, attrs)
+        ValueObject.new(__MODULE__, attrs)
       end
 
       @spec new(value :: value()) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
       def new(value) do
-        ValueObject.__new__(__MODULE__, %{value: value})
+        ValueObject.new(__MODULE__, %{value: value})
       end
 
       @doc """
@@ -112,12 +112,12 @@ defmodule Trogon.Commanded.Enum do
       """
       @spec new!(attrs :: %{required(:value) => value()}) :: %__MODULE__{}
       def new!(attrs) when is_map(attrs) do
-        ValueObject.__new__!(__MODULE__, attrs)
+        ValueObject.new!(__MODULE__, attrs)
       end
 
       @spec new!(value :: value()) :: %__MODULE__{}
       def new!(value) do
-        ValueObject.__new__!(__MODULE__, %{value: value})
+        ValueObject.new!(__MODULE__, %{value: value})
       end
 
       @doc """
