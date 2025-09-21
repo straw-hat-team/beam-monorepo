@@ -1,5 +1,6 @@
 defmodule Trogon.Commanded.ValueObjectTest do
   use ExUnit.Case, async: true
+  doctest Trogon.Commanded.ValueObject
 
   describe "new/1" do
     test "overriding validate/2" do

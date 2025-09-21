@@ -82,7 +82,7 @@ defmodule Trogon.Commanded.ValueObject do
       """
       @spec new(attrs :: map()) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
       def new(attrs) do
-        ValueObject.__new__(__MODULE__, attrs)
+        ValueObject.new(__MODULE__, attrs)
       end
 
       @doc """
@@ -90,7 +90,7 @@ defmodule Trogon.Commanded.ValueObject do
       """
       @spec new!(attrs :: map()) :: %__MODULE__{}
       def new!(attrs) do
-        ValueObject.__new__!(__MODULE__, attrs)
+        ValueObject.new!(__MODULE__, attrs)
       end
 
       @doc false
@@ -169,13 +169,94 @@ defmodule Trogon.Commanded.ValueObject do
     end
   end
 
-  def __new__(struct_module, attrs) do
+  @doc """
+  Creates a value object struct for the given module and attributes.
+
+  This function applies the changeset validation logic defined in the value object
+  module and returns either `{:ok, struct}` on success or `{:error, changeset}`
+  when validation fails.
+
+  ## Parameters
+
+  - `struct_module` - The value object module that uses `Trogon.Commanded.ValueObject`
+  - `attrs` - A map of attributes to create the value object with
+
+  ## Examples
+
+  Creating a simple value object:
+
+      iex> Trogon.Commanded.ValueObject.new(TestSupport.MessageOne, %{title: "Hello"})
+      {:ok, %TestSupport.MessageOne{title: "Hello"}}
+
+  Creating a value object with validation:
+
+      iex> Trogon.Commanded.ValueObject.new(TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
+      {:ok, %TestSupport.TransferableMoney{amount: 100, currency: :USD}}
+
+  Validation failure example:
+
+      iex> {:error, changeset} = Trogon.Commanded.ValueObject.new(TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
+      iex> changeset.valid?
+      false
+
+  Missing required field:
+
+      iex> {:error, changeset} = Trogon.Commanded.ValueObject.new(TestSupport.MyValueOject, %{amount: 25})
+      iex> changeset.valid?
+      false
+
+  """
+  @spec new(struct_module :: atom(), attrs :: map()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  def new(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
     struct_module
     |> apply_changeset(attrs)
     |> Changeset.apply_action(:new)
   end
 
-  def __new__!(struct_module, attrs) do
+  @doc """
+  Creates a value object struct for the given module and attributes, raising on validation errors.
+
+  This function is similar to `new/2` but raises an `Ecto.InvalidChangesetError`
+  instead of returning an error tuple when validation fails.
+
+  ## Parameters
+
+  - `struct_module` - The value object module that uses `Trogon.Commanded.ValueObject`
+  - `attrs` - A map of attributes to create the value object with
+
+  ## Examples
+
+  Creating a simple value object:
+
+      iex> Trogon.Commanded.ValueObject.new!(TestSupport.MessageOne, %{title: "Hello"})
+      %TestSupport.MessageOne{title: "Hello"}
+
+  Creating a value object with validation:
+
+      iex> Trogon.Commanded.ValueObject.new!(TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
+      %TestSupport.TransferableMoney{amount: 100, currency: :USD}
+
+  Validation failure raises an exception:
+
+      iex> try do
+      ...>   Trogon.Commanded.ValueObject.new!(TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
+      ...> rescue
+      ...>   Ecto.InvalidChangesetError -> :error_raised
+      ...> end
+      :error_raised
+
+  Missing required field raises an exception:
+
+      iex> try do
+      ...>   Trogon.Commanded.ValueObject.new!(TestSupport.MyValueOject, %{amount: 25})
+      ...> rescue
+      ...>   Ecto.InvalidChangesetError -> :error_raised
+      ...> end
+      :error_raised
+
+  """
+  @spec new!(struct_module :: atom(), attrs :: map()) :: struct()
+  def new!(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
     struct_module
     |> apply_changeset(attrs)
     |> Changeset.apply_action!(:new)
