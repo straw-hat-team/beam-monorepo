@@ -1,6 +1,28 @@
 defmodule Trogon.Error do
   alias Trogon.Error.Metadata
+
   import Trogon.Error.Metadata, only: [is_empty_metadata: 1]
+
+  @codes [
+    :CANCELLED,
+    :UNKNOWN,
+    :INVALID_ARGUMENT,
+    :DEADLINE_EXCEEDED,
+    :NOT_FOUND,
+    :ALREADY_EXISTS,
+    :PERMISSION_DENIED,
+    :RESOURCE_EXHAUSTED,
+    :FAILED_PRECONDITION,
+    :ABORTED,
+    :OUT_OF_RANGE,
+    :UNIMPLEMENTED,
+    :INTERNAL,
+    :UNAVAILABLE,
+    :DATA_LOSS,
+    :UNAUTHENTICATED
+  ]
+
+  @visibility_levels [:INTERNAL, :PRIVATE, :PUBLIC]
 
   @options_schema NimbleOptions.new!(
                     domain: [
@@ -26,31 +48,12 @@ defmodule Trogon.Error do
                         "Default metadata to be merged with runtime metadata. Values will be automatically converted to MetadataValue structs."
                     ],
                     code: [
-                      type:
-                        {:in,
-                         [
-                           :CANCELLED,
-                           :UNKNOWN,
-                           :INVALID_ARGUMENT,
-                           :DEADLINE_EXCEEDED,
-                           :NOT_FOUND,
-                           :ALREADY_EXISTS,
-                           :PERMISSION_DENIED,
-                           :RESOURCE_EXHAUSTED,
-                           :FAILED_PRECONDITION,
-                           :ABORTED,
-                           :OUT_OF_RANGE,
-                           :UNIMPLEMENTED,
-                           :INTERNAL,
-                           :UNAVAILABLE,
-                           :DATA_LOSS,
-                           :UNAUTHENTICATED
-                         ]},
+                      type: {:in, @codes},
                       default: :UNKNOWN,
                       doc: "The standard error code"
                     ],
                     visibility: [
-                      type: {:in, [:INTERNAL, :PRIVATE, :PUBLIC]},
+                      type: {:in, @visibility_levels},
                       default: :INTERNAL,
                       doc: "Whether the error should be visible to end users or kept internal"
                     ],
@@ -91,7 +94,6 @@ defmodule Trogon.Error do
       )
   """
 
-  # Error codes as per the spec
   @type code ::
           :CANCELLED
           | :UNKNOWN
@@ -181,85 +183,30 @@ defmodule Trogon.Error do
 
   @spec_version 1
 
-  @doc """
-  Defines an error module with the given options.
+  @derive {Inspect, except: [:__trogon_error__]}
+  @enforce_keys [:specversion, :code, :message, :domain, :reason, :metadata]
+  defexception [
+    :__trogon_error__,
+    :specversion,
+    :code,
+    :message,
+    :domain,
+    :reason,
+    :metadata,
+    :causes,
+    :visibility,
+    :subject,
+    :id,
+    :time,
+    :help,
+    :debug_info,
+    :localized_message,
+    :retry_info,
+    :source_id
+  ]
 
-  ## Options
-
-  #{NimbleOptions.docs(@options_schema)}
-  """
-  defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts] do
-      alias Trogon.Error
-
-      opts = Error.validate_options!(opts)
-
-      compiled_opts =
-        [code: :UNKNOWN, visibility: :INTERNAL, help: nil]
-        |> Keyword.merge(opts)
-        |> Keyword.update!(:help, &Macro.escape/1)
-        |> Keyword.update!(:metadata, &Error._compile_metadata(&1))
-        |> then(&Keyword.put_new(&1, :message, &1[:code]))
-        |> Keyword.update!(:message, &Error.to_msg/1)
-
-      @derive {Inspect, except: [:__trogon_error__]}
-      @enforce_keys [:specversion, :code, :message, :domain, :reason, :metadata]
-      defexception [
-        :__trogon_error__,
-        :specversion,
-        :code,
-        :message,
-        :domain,
-        :reason,
-        :metadata,
-        :causes,
-        :visibility,
-        :subject,
-        :id,
-        :time,
-        :help,
-        :debug_info,
-        :localized_message,
-        :retry_info,
-        :source_id
-      ]
-
-      @doc """
-      Raises an error with the given options.
-
-      > #### When to use `exception/1` {: .info}
-      > Use `exception/1` when you want to raise an error.
-      >
-      > Example:
-      >
-      > ```elixir
-      > raise MyApp.NotFoundError, metadata: Trogon.Error.Metadata.new(%{resource: "user"})
-      > ```
-      >
-      > Otherwise, use `new!/1` to create an error instance.
-      """
-      @impl Exception
-      @spec exception(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
-      def exception(opts \\ []) do
-        Error._exception(__MODULE__, unquote(compiled_opts), opts)
-      end
-
-      @doc """
-      Creates a new error instance with the given options.
-      """
-      @spec new!(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
-      def new!(opts \\ []) when is_list(opts) do
-        Error._exception(__MODULE__, unquote(compiled_opts), opts)
-      end
-
-      @impl Exception
-      def message(%__MODULE__{} = error) do
-        Error._message(error)
-      end
-    end
-  end
-
-  def _message(error) do
+  @impl Exception
+  def message(error) do
     help =
       (error.help || %{})
       |> Map.get(:links, [])
@@ -303,7 +250,8 @@ defmodule Trogon.Error do
 
   defp pretty_print(term), do: inspect(term, pretty: true)
 
-  def _exception(struct_module, compile_opts, opts \\ []) do
+  @doc false
+  def exception(struct_module, compile_opts, opts \\ []) do
     domain = Keyword.fetch!(compile_opts, :domain)
     reason = Keyword.fetch!(compile_opts, :reason)
     code = Keyword.fetch!(compile_opts, :code)
@@ -362,7 +310,116 @@ defmodule Trogon.Error do
     NimbleOptions.validate!(opts, @options_schema)
   end
 
+  defp validate_runtime_options!(opts) do
+    code = opts[:code]
+
+    if code && code not in @codes do
+      raise ArgumentError, "Invalid code: #{inspect(code)}"
+    end
+
+    visibility = opts[:visibility]
+
+    if visibility && visibility not in @visibility_levels do
+      raise ArgumentError, "Invalid visibility: #{inspect(visibility)}"
+    end
+
+    domain = opts[:domain]
+
+    if not is_binary(domain) do
+      raise ArgumentError, "Invalid domain: #{inspect(domain)}"
+    end
+
+    reason = opts[:reason]
+
+    if not is_binary(reason) do
+      raise ArgumentError, "Invalid reason: #{inspect(reason)}"
+    end
+
+    opts
+  end
+
   defdelegate metadata, to: Metadata, as: :new
+
+  @template_opts [:domain, :reason, :code, :message, :visibility, :help, :metadata]
+
+  @doc """
+  Creates a new Trogon error at runtime with dynamic values.
+
+  This function allows you to create Trogon errors without having predefined
+  error modules, which is useful for handling external errors from services
+  you don't control.
+
+  ## Parameters
+
+  The function accepts the same options as template creation with `use Trogon.Error`,
+  but as instance parameters:
+
+  - `:domain` (required) - The error domain identifying the service
+  - `:reason` (required) - A unique identifier for the specific error
+  - `:code` (optional) - The standard error code (defaults to `:UNKNOWN`)
+  - `:message` (optional) - The error message (defaults to the code)
+  - `:visibility` (optional) - Error visibility (defaults to `:INTERNAL`)
+  - `:help` (optional) - Help information
+  - `:metadata` (optional) - Default metadata
+
+  Plus all the instance options supported by regular Trogon errors:
+
+  - `:causes` - List of causing errors
+  - `:subject` - The subject this error relates to
+  - `:debug_info` - Debug information
+  - `:localized_message` - Localized message
+  - `:retry_info` - Retry information
+  - `:id` - Error instance ID
+  - `:time` - Error timestamp
+  - `:source_id` - Source identifier
+
+  ## Examples
+
+      # Basic external error
+      Trogon.Error.new!(
+        domain: "com.stripe.payment",
+        reason: "card_declined",
+        message: "Your card was declined"
+      )
+
+      # With additional metadata and options
+      Trogon.Error.new!(
+        domain: "com.external.api",
+        reason: "rate_limit_exceeded",
+        code: :RESOURCE_EXHAUSTED,
+        message: "Rate limit exceeded",
+        metadata: Trogon.Error.Metadata.new(%{
+          "limit" => "100",
+          "window" => "3600"
+        }),
+        subject: "api-client-123",
+        retry_info: %{retry_offset: %Duration{second: 60}}
+      )
+
+  """
+  @spec new!(keyword()) :: t(__MODULE__)
+  def new!(opts) when is_list(opts) do
+    {template_opts, instance_opts} = Keyword.split(opts, @template_opts)
+
+    template_opts = validate_runtime_options!(template_opts)
+
+    compiled_opts =
+      [code: :UNKNOWN, visibility: :INTERNAL, help: nil, metadata: %{}]
+      |> Keyword.merge(template_opts)
+      |> Keyword.update!(:metadata, &to_metadata/1)
+      |> then(&Keyword.put_new(&1, :message, &1[:code]))
+      |> Keyword.update!(:message, &to_msg/1)
+
+    exception(__MODULE__, compiled_opts, instance_opts)
+  end
+
+  defp to_metadata(%Metadata{} = metadata) do
+    metadata
+  end
+
+  defp to_metadata(raw_metadata) when is_map(raw_metadata) do
+    Metadata.new(raw_metadata)
+  end
 
   @doc """
   Converts an atom to an integer code.
@@ -462,9 +519,88 @@ defmodule Trogon.Error do
            when is_map(term) and is_map_key(term, :__trogon_error__) and
                   :erlang.map_get(:__trogon_error__, term) == true
 
-  def _compile_metadata(metadata) when is_map(metadata) do
+  @doc false
+  def compile_metadata(metadata) when is_map(metadata) do
     metadata
     |> Metadata.new()
     |> Macro.escape()
+  end
+
+  @doc """
+  Defines an error module with the given options.
+
+  ## Options
+
+  #{NimbleOptions.docs(@options_schema)}
+  """
+  defmacro __using__(opts) do
+    quote bind_quoted: [opts: opts] do
+      alias Trogon.Error
+
+      opts = Error.validate_options!(opts)
+
+      compiled_opts =
+        [code: :UNKNOWN, visibility: :INTERNAL, help: nil]
+        |> Keyword.merge(opts)
+        |> Keyword.update!(:help, &Macro.escape/1)
+        |> Keyword.update!(:metadata, &Error.compile_metadata(&1))
+        |> then(&Keyword.put_new(&1, :message, &1[:code]))
+        |> Keyword.update!(:message, &Error.to_msg/1)
+
+      @derive {Inspect, except: [:__trogon_error__]}
+      @enforce_keys [:specversion, :code, :message, :domain, :reason, :metadata]
+      defexception [
+        :__trogon_error__,
+        :specversion,
+        :code,
+        :message,
+        :domain,
+        :reason,
+        :metadata,
+        :causes,
+        :visibility,
+        :subject,
+        :id,
+        :time,
+        :help,
+        :debug_info,
+        :localized_message,
+        :retry_info,
+        :source_id
+      ]
+
+      @doc """
+      Raises an error with the given options.
+
+      > #### When to use `exception/1` {: .info}
+      > Use `exception/1` when you want to raise an error.
+      >
+      > Example:
+      >
+      > ```elixir
+      > raise MyApp.NotFoundError, metadata: Trogon.Error.Metadata.new(%{resource: "user"})
+      > ```
+      >
+      > Otherwise, use `new!/1` to create an error instance.
+      """
+      @impl Exception
+      @spec exception(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
+      def exception(opts \\ []) do
+        Error.exception(__MODULE__, unquote(compiled_opts), opts)
+      end
+
+      @doc """
+      Creates a new error instance with the given options.
+      """
+      @spec new!(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
+      def new!(opts \\ []) when is_list(opts) do
+        Error.exception(__MODULE__, unquote(compiled_opts), opts)
+      end
+
+      @impl Exception
+      def message(%__MODULE__{} = error) do
+        Error.message(error)
+      end
+    end
   end
 end

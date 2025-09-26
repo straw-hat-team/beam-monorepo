@@ -277,6 +277,14 @@ defmodule Trogon.ErrorTest do
           message: "Missing domain"
       end
     end
+
+    assert_raise ArgumentError, "Invalid domain: nil", fn ->
+      Trogon.Error.new!(reason: "missing_domain")
+    end
+
+    assert_raise ArgumentError, "Invalid reason: nil", fn ->
+      Trogon.Error.new!(domain: "com.test")
+    end
   end
 
   test "validates invalid code values" do
@@ -288,6 +296,14 @@ defmodule Trogon.ErrorTest do
           message: "Invalid code",
           code: :invalid_code_value
       end
+    end
+
+    assert_raise ArgumentError, ~r/Invalid code: :INVALID_CODE/, fn ->
+      Trogon.Error.new!(
+        domain: "com.test",
+        reason: "test",
+        code: :INVALID_CODE
+      )
     end
   end
 
@@ -503,6 +519,27 @@ defmodule Trogon.ErrorTest do
                  - user_id: 123 visibility=INTERNAL\
              """
     end
+
+    test "handles empty maps correctly in message formatting" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.test.empty",
+          reason: "empty_map_test",
+          message: "test message",
+          debug_info: %{},
+          retry_info: %{}
+        )
+
+      message = Exception.message(error)
+
+      assert message == """
+             test message
+               visibility: :INTERNAL
+               domain: com.test.empty
+               reason: empty_map_test
+               code: :UNKNOWN\
+             """
+    end
   end
 
   describe "is_trogon_error?/1" do
@@ -511,6 +548,200 @@ defmodule Trogon.ErrorTest do
       assert TestSupport.trogon_error?(error)
       refute TestSupport.trogon_error?(%{})
       refute TestSupport.trogon_error?(:something_went_wrong)
+    end
+  end
+
+  describe "new!/1 instance creation" do
+    test "creates error instance with minimum required fields" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.external.service",
+          reason: "api_error"
+        )
+
+      assert %Trogon.Error{} = error
+      assert error.domain == "com.external.service"
+      assert error.reason == "api_error"
+      assert error.code == :UNKNOWN
+      assert error.message == "unknown error"
+      assert error.visibility == :INTERNAL
+      assert error.specversion == 1
+      assert error.__trogon_error__ == true
+      assert %Trogon.Error.Metadata{} = error.metadata
+      assert error.causes == []
+      assert error.subject == nil
+    end
+
+    test "validates runtime visibility option" do
+      assert_raise ArgumentError, "Invalid visibility: :invalid_visibility", fn ->
+        Trogon.Error.new!(
+          domain: "com.test.runtime",
+          reason: "test_error",
+          visibility: :invalid_visibility
+        )
+      end
+    end
+
+    test "creates error instance with all template options" do
+      metadata = Trogon.Error.Metadata.new(%{"key" => "value"})
+
+      error =
+        Trogon.Error.new!(
+          domain: "com.stripe.payment",
+          reason: "card_declined",
+          code: :INVALID_ARGUMENT,
+          message: "Your card was declined",
+          visibility: :PUBLIC,
+          metadata: metadata
+        )
+
+      assert error.domain == "com.stripe.payment"
+      assert error.reason == "card_declined"
+      assert error.code == :INVALID_ARGUMENT
+      assert error.message == "Your card was declined"
+      assert error.visibility == :PUBLIC
+      assert error.metadata == metadata
+    end
+
+    test "creates error instance with instance options" do
+      time = DateTime.utc_now()
+
+      error =
+        Trogon.Error.new!(
+          domain: "com.external.api",
+          reason: "rate_limit",
+          subject: "user-123",
+          id: "error-456",
+          time: time,
+          source_id: "api-gateway",
+          debug_info: %{stack_entries: ["line 1"], detail: "debug info"}
+        )
+
+      assert error.subject == "user-123"
+      assert error.id == "error-456"
+      assert error.time == time
+      assert error.source_id == "api-gateway"
+      assert error.debug_info == %{stack_entries: ["line 1"], detail: "debug info"}
+    end
+
+    test "handles metadata properly" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.payment.service",
+          reason: "payment_failed",
+          metadata: Trogon.Error.Metadata.new(%{"service" => "payment"})
+        )
+
+      assert error.metadata["service"].value == "payment"
+      assert error.metadata["service"].visibility == :INTERNAL
+    end
+
+    test "error instance behaves like template errors" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.external.api",
+          reason: "timeout",
+          message: "Request timed out"
+        )
+
+      assert_raise Trogon.Error, ~r/^Request timed out/, fn ->
+        raise error
+      end
+
+      message = Exception.message(error)
+      assert String.starts_with?(message, "Request timed out")
+      assert String.contains?(message, "com.external.api")
+      assert String.contains?(message, "timeout")
+    end
+
+    test "accepts unknown instance options gracefully" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.test.unknown",
+          reason: "unknown_fields",
+          custom_field: "custom_value",
+          external_id: "ext-123",
+          unknown_option: %{data: "some data"}
+        )
+
+      assert %Trogon.Error{} = error
+      assert error.domain == "com.test.unknown"
+      assert error.reason == "unknown_fields"
+    end
+
+    test "creates error compatible with external service data" do
+      external_data = %{
+        "domain" => "com.stripe.payment",
+        "reason" => "card_declined",
+        "code" => "INVALID_ARGUMENT",
+        "message" => "Your card was declined by the issuer",
+        "metadata" => %{
+          "decline_code" => "generic_decline",
+          "charge_id" => "ch_abc123"
+        }
+      }
+
+      metadata =
+        Trogon.Error.Metadata.new(%{
+          "decline_code" => external_data["metadata"]["decline_code"],
+          "charge_id" => external_data["metadata"]["charge_id"]
+        })
+
+      error =
+        Trogon.Error.new!(
+          domain: external_data["domain"],
+          reason: external_data["reason"],
+          code: String.to_atom(external_data["code"]),
+          message: external_data["message"],
+          metadata: metadata
+        )
+
+      assert error.domain == "com.stripe.payment"
+      assert error.reason == "card_declined"
+      assert error.code == :INVALID_ARGUMENT
+      assert error.message == "Your card was declined by the issuer"
+      assert error.metadata["decline_code"].value == "generic_decline"
+      assert error.metadata["charge_id"].value == "ch_abc123"
+    end
+  end
+
+  describe "metadata/0 delegate function" do
+    test "delegates to Metadata.new/0" do
+      result = Trogon.Error.metadata()
+      expected = Trogon.Error.Metadata.new()
+
+      assert result == expected
+      assert %Trogon.Error.Metadata{} = result
+      assert result.entries == %{}
+    end
+  end
+
+  describe "template and instance error compatibility" do
+    test "both patterns produce compatible error structures" do
+      compile_time_error = TestSupport.TestError.new!(metadata: Trogon.Error.Metadata.new(%{"source" => "internal"}))
+
+      runtime_error =
+        Trogon.Error.new!(
+          domain: "com.external.api",
+          reason: "timeout",
+          metadata: Trogon.Error.Metadata.new(%{"source" => "external"})
+        )
+
+      assert compile_time_error.__trogon_error__ == runtime_error.__trogon_error__
+      assert compile_time_error.specversion == runtime_error.specversion
+      assert is_struct(compile_time_error.metadata, Trogon.Error.Metadata)
+      assert is_struct(runtime_error.metadata, Trogon.Error.Metadata)
+    end
+
+    test "pattern matching distinguishes between error sources" do
+      internal_error = TestSupport.TestError.new!()
+      external_error = Trogon.Error.new!(domain: "com.external", reason: "api_error")
+
+      assert %TestSupport.TestError{} = internal_error
+      assert %Trogon.Error{} = external_error
+
+      assert_raise TestSupport.TestError, fn -> raise internal_error end
+      assert_raise Trogon.Error, ~r/unknown error/, fn -> raise external_error end
     end
   end
 end
