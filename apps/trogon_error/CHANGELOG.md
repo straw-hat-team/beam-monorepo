@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.5.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.4.1...trogon_error@v0.5.0) (2025-09-26)
+
+
+### Features
+
+* **trogon_error:** Add runtime error creation with new!/1 ([#239](https://github.com/straw-hat-team/beam-monorepo/issues/239)) ([380d970](https://github.com/straw-hat-team/beam-monorepo/commit/380d9709ad62e0fc1a7ebe5516661f69d111405d))
+
 ## [0.4.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.4.0...trogon_error@v0.4.1) (2025-08-26)
 
 
