@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.5.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.0...trogon_error@v0.5.1) (2025-10-06)
+
+
+### Bug Fixes
+
+* **trogon_error:** Make validate_options! hidden from docs ([#242](https://github.com/straw-hat-team/beam-monorepo/issues/242)) ([bd52fe7](https://github.com/straw-hat-team/beam-monorepo/commit/bd52fe7cd2b46c083c1883e9e8cfb60016b63ddf))
+
 ## [0.5.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.4.1...trogon_error@v0.5.0) (2025-09-26)
 
 
