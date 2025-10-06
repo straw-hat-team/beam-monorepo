@@ -292,20 +292,7 @@ defmodule Trogon.Error do
     })
   end
 
-  @doc """
-  Validates compile-time options using NimbleOptions.
-
-  ## Examples
-
-      iex> opts = [domain: "com.test", reason: "TEST"]
-      iex> validated = Trogon.Error.validate_options!(opts)
-      iex> validated[:domain]
-      "com.test"
-      iex> validated[:reason]
-      "TEST"
-
-  """
-  @spec validate_options!(keyword()) :: keyword()
+  @doc false
   def validate_options!(opts) do
     NimbleOptions.validate!(opts, @options_schema)
   end
