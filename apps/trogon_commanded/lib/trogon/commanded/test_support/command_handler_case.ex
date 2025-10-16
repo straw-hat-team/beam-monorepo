@@ -50,6 +50,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
   use ExUnit.CaseTemplate
 
   alias Commanded.Aggregate.Multi
+  alias Commanded.Middleware.Pipeline
+  alias Commanded.Middleware.ExtractAggregateIdentity
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
   using opts do
@@ -106,61 +108,70 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     end
   end
 
-  def assert_events(
-        initial_events,
-        command,
-        expected_events,
-        aggregate_module,
-        command_handler_module
-      ) do
-    assert {:ok, _state, events} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               initial_events,
-               command
-             )
+  def assert_events(initial_events, command, expected_events, aggregate_module, command_handler_module) do
+    run_and_assert(initial_events, command, aggregate_module, command_handler_module, fn
+      {_state, actual_events, aggregate_uuid} ->
+        expected = transform_identities(expected_events, aggregate_uuid, aggregate_module)
+        assert actual_events == List.wrap(expected)
 
-    actual_events = List.wrap(events)
-    expected_events = List.wrap(expected_events)
-
-    assert actual_events == expected_events
+      {:error, reason} ->
+        flunk("Expected success but got error: #{inspect(reason)}")
+    end)
   end
 
-  def assert_state(
-        initial_events,
-        command,
-        expected_state,
-        aggregate_module,
-        command_handler_module
-      ) do
-    assert {:ok, state, _events} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               initial_events,
-               command
-             )
+  def assert_state(initial_events, command, expected_state, aggregate_module, command_handler_module) do
+    run_and_assert(initial_events, command, aggregate_module, command_handler_module, fn
+      {state, _events, aggregate_uuid} ->
+        expected = transform_identities(expected_state, aggregate_uuid, aggregate_module)
+        assert state == expected
 
-    assert state == expected_state
+      {:error, reason} ->
+        flunk("Expected success but got error: #{inspect(reason)}")
+    end)
   end
 
-  def assert_error(
-        initial_events,
-        command,
-        expected_error,
-        aggregate_module,
-        command_handler_module
-      ) do
-    assert {:error, reason} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               initial_events,
-               command
-             )
+  def assert_error(initial_events, command, expected_error, aggregate_module, command_handler_module) do
+    run_and_assert(initial_events, command, aggregate_module, command_handler_module, fn
+      {:error, reason} -> assert reason == expected_error
+      other -> flunk("Expected error #{inspect(expected_error)}, but got: #{inspect(other)}")
+    end)
+  end
 
-    assert reason == expected_error
+  # Common assertion runner that eliminates duplication
+  defp run_and_assert(initial_events, command, aggregate_module, command_handler_module, assertion_fn) do
+    result = run_aggregate_with_identity(initial_events, command, aggregate_module, command_handler_module)
+    assertion_fn.(result)
+  end
+
+  # Common function that runs aggregate with proper identity handling for all assertion types
+  defp run_aggregate_with_identity(
+         initial_events,
+         command,
+         aggregate_module,
+         command_handler_module
+       ) do
+    assert is_list(initial_events), "Initial events must be a list of events"
+    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+
+    # Transform initial events to use the correct stream ID (if applicable)
+    transformed_initial_events =
+      if aggregate_uuid do
+        transform_identities(initial_events, aggregate_uuid, aggregate_module)
+      else
+        initial_events
+      end
+
+    # Validate that all transformed events belong to this aggregate
+    validate_initial_events_belong_to_aggregate(transformed_initial_events, aggregate_uuid, aggregate_module)
+
+    # Run the aggregate with consistent stream IDs
+    result = aggregate_run(aggregate_module, command_handler_module, transformed_initial_events, command)
+
+    # Return the result along with the aggregate_uuid for use in assertions
+    case result do
+      {:ok, state, events} -> {state, List.wrap(events), aggregate_uuid}
+      other -> other
+    end
   end
 
   defp aggregate_run(aggregate_module, command_handler_module, initial_events, command) do
@@ -171,10 +182,30 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
         do: &aggregate_module.execute/2,
         else: &command_handler_module.handle/2
 
-    aggregate_module
-    |> struct()
-    |> evolve(initial_events, evolver)
-    |> execute(command, evolver, decider)
+    result =
+      aggregate_module
+      |> struct()
+      |> evolve(initial_events, evolver)
+      |> execute(command, evolver, decider)
+
+    # Transform the result to use the real aggregate identity (if applicable)
+    aggregate_uuid = extract_aggregate_identity(command, aggregate_module)
+
+    if aggregate_uuid do
+      # This aggregate has identity configuration - transform the results
+      case result do
+        {:ok, state, events} ->
+          transformed_events = transform_identities(events, aggregate_uuid, aggregate_module)
+          transformed_state = transform_identities(state, aggregate_uuid, aggregate_module)
+          {:ok, transformed_state, transformed_events}
+
+        other ->
+          other
+      end
+    else
+      # This is a simple test fixture without identity configuration - return as-is
+      result
+    end
   end
 
   defp execute(state, command, evolver, decider) do
@@ -237,5 +268,113 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     events
     |> List.wrap()
     |> Enum.reduce(state, &evolver.(&2, &1))
+  end
+
+  defp extract_aggregate_identity(command, aggregate_module) do
+    command_module = command.__struct__
+
+    # Get identity configuration - try command module first, then aggregate module
+    {identifier, identity_prefix} = get_identity_config(command_module, aggregate_module)
+
+    # Use Commanded's middleware to extract the UUID
+    %Pipeline{command: command, identity: identifier, identity_prefix: identity_prefix}
+    |> ExtractAggregateIdentity.before_dispatch()
+    |> case do
+      %Pipeline{assigns: %{aggregate_uuid: uuid}} -> uuid
+      %Pipeline{} -> nil
+    end
+  end
+
+  # Extract identity configuration with fallback logic
+  defp get_identity_config(command_module, aggregate_module) do
+    if has_identity_functions?(command_module) do
+      {command_module.aggregate_identifier(), command_module.identity_prefix()}
+    else
+      {get_identifier(aggregate_module), get_identity_prefix(aggregate_module)}
+    end
+  end
+
+  defp has_identity_functions?(module) do
+    function_exported?(module, :aggregate_identifier, 0) and
+      function_exported?(module, :identity_prefix, 0)
+  end
+
+  defp get_identity_prefix(aggregate_module) do
+    if function_exported?(aggregate_module, :identity_prefix, 0) do
+      aggregate_module.identity_prefix()
+    else
+      # No prefix
+      nil
+    end
+  end
+
+  # Unified identity transformation for both events and state
+  defp transform_identities(data, aggregate_uuid, aggregate_module) do
+    identifier = get_identifier(aggregate_module)
+
+    case data do
+      items when is_list(items) -> Enum.map(items, &transform_single_item(&1, identifier, aggregate_uuid))
+      single_item -> transform_single_item(single_item, identifier, aggregate_uuid)
+    end
+  end
+
+  defp get_identifier(aggregate_module) do
+    if function_exported?(aggregate_module, :identifier, 0) do
+      aggregate_module.identifier()
+    else
+      # No default - Commanded requires explicit identifier configuration
+      # For test fixtures that don't use Trogon.Commanded.Aggregate, return nil
+      nil
+    end
+  end
+
+  # Transform a single item's identifier if needed
+  defp transform_single_item(item, identifier, aggregate_uuid) do
+    with true <- identifier != nil and Map.has_key?(item, identifier),
+         current when is_binary(current) <- Map.get(item, identifier),
+         true <- current != aggregate_uuid do
+      Map.put(item, identifier, aggregate_uuid)
+    else
+      _ -> item
+    end
+  end
+
+  # Safely converts an identifier to string, handling protocol errors
+  defp safe_to_string(nil), do: nil
+
+  defp safe_to_string(value) do
+    try do
+      to_string(value)
+    rescue
+      Protocol.UndefinedError ->
+        # For complex structs (Protobuf, etc.), return the original value
+        value
+    end
+  end
+
+  defp validate_initial_events_belong_to_aggregate(initial_events, aggregate_uuid, aggregate_module) do
+    # Only validate when both aggregate_uuid and identifier are available
+    with true <- aggregate_uuid != nil,
+         identifier when identifier != nil <- get_identifier(aggregate_module) do
+      initial_events
+      |> List.wrap()
+      |> Enum.with_index()
+      |> Enum.each(&validate_event_belongs_to_aggregate(&1, identifier, aggregate_uuid))
+    end
+  end
+
+  defp validate_event_belongs_to_aggregate({event, index}, identifier, aggregate_uuid) do
+    event_identifier = Map.get(event, identifier)
+
+    # Only validate string identifiers for strict equality
+    if is_binary(event_identifier) and is_binary(aggregate_uuid) and
+         safe_to_string(event_identifier) != aggregate_uuid do
+      flunk("""
+      Initial event at index #{index} does not belong to the aggregate under test.
+      Expected: #{inspect(aggregate_uuid)}
+      Got: #{inspect(event_identifier)}
+      Event: #{inspect(event)}
+      """)
+    end
   end
 end
