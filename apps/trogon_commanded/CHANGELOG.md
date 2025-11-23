@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.28.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.28.0...trogon_commanded@v0.28.1) (2025-11-23)
+
+
+### Bug Fixes
+
+* **trogon_commanded:** Use fully qualified module name ([#253](https://github.com/straw-hat-team/beam-monorepo/issues/253)) ([8ef35a5](https://github.com/straw-hat-team/beam-monorepo/commit/8ef35a5fc1766273c35858286c887be670dbf311))
+
 ## [0.28.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.27.0...trogon_commanded@v0.28.0) (2025-09-26)
 
 
