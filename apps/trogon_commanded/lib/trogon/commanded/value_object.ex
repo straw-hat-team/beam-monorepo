@@ -82,7 +82,7 @@ defmodule Trogon.Commanded.ValueObject do
       """
       @spec new(attrs :: map()) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
       def new(attrs) do
-        ValueObject.new(__MODULE__, attrs)
+        Trogon.Commanded.ValueObject.new(__MODULE__, attrs)
       end
 
       @doc """
@@ -90,7 +90,7 @@ defmodule Trogon.Commanded.ValueObject do
       """
       @spec new!(attrs :: map()) :: %__MODULE__{}
       def new!(attrs) do
-        ValueObject.new!(__MODULE__, attrs)
+        Trogon.Commanded.ValueObject.new!(__MODULE__, attrs)
       end
 
       @doc false
@@ -103,7 +103,7 @@ defmodule Trogon.Commanded.ValueObject do
       @spec changeset(message :: %__MODULE__{}, attrs :: map()) :: Ecto.Changeset.t()
       def changeset(message, attrs) do
         message
-        |> ValueObject.changeset(attrs)
+        |> Trogon.Commanded.ValueObject.changeset(attrs)
         |> validate(attrs)
       end
 
