@@ -2,7 +2,7 @@ defmodule Trogon.Error.MixProject do
   use Mix.Project
 
   @app :trogon_error
-  @version "0.5.1"
+  @version "0.5.2"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
