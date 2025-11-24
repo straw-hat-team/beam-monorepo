@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.5.2](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.1...trogon_error@v0.5.2) (2025-11-24)
+
+
+### Bug Fixes
+
+* **trogon_error:** Use expanded alias to fix dialyzer ([#255](https://github.com/straw-hat-team/beam-monorepo/issues/255)) ([762ff0a](https://github.com/straw-hat-team/beam-monorepo/commit/762ff0ab0134233356a80622cadb9106db603749))
+
 ## [0.5.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.0...trogon_error@v0.5.1) (2025-10-06)
 
 
