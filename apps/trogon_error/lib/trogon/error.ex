@@ -522,17 +522,15 @@ defmodule Trogon.Error do
   """
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
-      alias Trogon.Error
-
-      opts = Error.validate_options!(opts)
+      opts = Trogon.Error.validate_options!(opts)
 
       compiled_opts =
         [code: :UNKNOWN, visibility: :INTERNAL, help: nil]
         |> Keyword.merge(opts)
         |> Keyword.update!(:help, &Macro.escape/1)
-        |> Keyword.update!(:metadata, &Error.compile_metadata(&1))
+        |> Keyword.update!(:metadata, &Trogon.Error.compile_metadata(&1))
         |> then(&Keyword.put_new(&1, :message, &1[:code]))
-        |> Keyword.update!(:message, &Error.to_msg/1)
+        |> Keyword.update!(:message, &Trogon.Error.to_msg/1)
 
       @derive {Inspect, except: [:__trogon_error__]}
       @enforce_keys [:specversion, :code, :message, :domain, :reason, :metadata]
@@ -573,7 +571,7 @@ defmodule Trogon.Error do
       @impl Exception
       @spec exception(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
       def exception(opts \\ []) do
-        Error.exception(__MODULE__, unquote(compiled_opts), opts)
+        Trogon.Error.exception(__MODULE__, unquote(compiled_opts), opts)
       end
 
       @doc """
@@ -581,12 +579,12 @@ defmodule Trogon.Error do
       """
       @spec new!(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
       def new!(opts \\ []) when is_list(opts) do
-        Error.exception(__MODULE__, unquote(compiled_opts), opts)
+        Trogon.Error.exception(__MODULE__, unquote(compiled_opts), opts)
       end
 
       @impl Exception
       def message(%__MODULE__{} = error) do
-        Error.message(error)
+        Trogon.Error.message(error)
       end
     end
   end
