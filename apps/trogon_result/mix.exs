@@ -21,11 +21,14 @@ defmodule Trogon.Result.MixProject do
       deps: deps(),
       aliases: aliases(),
       test_coverage: test_coverage(),
-      preferred_cli_env: preferred_cli_env(),
       package: package(),
       docs: docs(),
       dialyzer: dialyzer()
     ]
+  end
+
+  def cli do
+    [preferred_envs: preferred_cli_env()]
   end
 
   def application do
