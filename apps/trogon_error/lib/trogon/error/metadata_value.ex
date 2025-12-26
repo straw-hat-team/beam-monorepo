@@ -31,10 +31,19 @@ defmodule Trogon.Error.MetadataValue do
           visibility: visibility()
         }
 
-  @doc """
-  Creates a new MetadataValue with the given value and visibility.
+  @typedoc """
+  Raw input format for creating a MetadataValue.
 
-  The value will be converted to a string if it's not already one.
+  - Simple string: defaults to `:INTERNAL` visibility
+  - Tuple `{value, visibility}`: explicit visibility control
+
+      "user_id"              # => %MetadataValue{value: "user_id", visibility: :INTERNAL}
+      {"secret", :PRIVATE}   # => %MetadataValue{value: "secret", visibility: :PRIVATE}
+  """
+  @type raw :: String.t() | {String.t(), visibility()}
+
+  @doc """
+  Creates a MetadataValue with explicit visibility. Non-string values are converted via `to_string/1`.
 
   ## Examples
 
@@ -50,7 +59,7 @@ defmodule Trogon.Error.MetadataValue do
   end
 
   @doc """
-  Creates a new MetadataValue with the given value and default visibility.
+  Creates a MetadataValue with `:INTERNAL` visibility. See `new/2` for explicit visibility.
 
   ## Examples
 

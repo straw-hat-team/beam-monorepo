@@ -24,6 +24,19 @@ defmodule Trogon.Error.Metadata do
 
   @type t :: %__MODULE__{entries: %{String.t() => MetadataValue.t()}}
 
+  @typedoc """
+  Raw input format for creating Metadata via `new/1`.
+
+  Values without explicit visibility default to `:INTERNAL`.
+  See `t:Trogon.Error.MetadataValue.raw/0` for value formats.
+
+      %{
+        "user_id" => "123",                  # visibility: :INTERNAL (default)
+        "api_key" => {"secret", :PRIVATE}    # visibility: :PRIVATE (explicit)
+      }
+  """
+  @type raw :: %{String.t() => MetadataValue.raw()}
+
   @doc """
   Guard that checks if metadata is empty (has no entries).
 
@@ -45,7 +58,7 @@ defmodule Trogon.Error.Metadata do
   @behaviour Access
 
   @doc """
-  Fetches a metadata value by key.
+  Fetches a metadata entry by key.
 
   ## Examples
 
@@ -70,8 +83,7 @@ defmodule Trogon.Error.Metadata do
 
       iex> metadata = Trogon.Error.Metadata.new(%{"count" => "1"})
       iex> {old_value, new_metadata} = Trogon.Error.Metadata.get_and_update(metadata, "count", fn old ->
-      ...>   new_value = %Trogon.Error.MetadataValue{value: "2", visibility: :internal}
-      ...>   {old, new_value}
+      ...>   {old, %Trogon.Error.MetadataValue{value: "2", visibility: :INTERNAL}}
       ...> end)
       iex> old_value.value
       "1"
@@ -86,7 +98,7 @@ defmodule Trogon.Error.Metadata do
   end
 
   @doc """
-  Pops a metadata entry by key.
+  Removes and returns a metadata entry by key.
 
   ## Examples
 
@@ -105,7 +117,7 @@ defmodule Trogon.Error.Metadata do
   end
 
   @doc """
-  Creates a new empty Metadata struct.
+  Creates an empty Metadata struct.
 
   ## Examples
 
@@ -119,12 +131,7 @@ defmodule Trogon.Error.Metadata do
   end
 
   @doc """
-  Creates a new Metadata struct from a map of entries.
-
-  Accepts various formats for metadata values:
-  - Simple values (converted to MetadataValue with :internal visibility)
-  - Tuples with explicit visibility: `{value, visibility}`
-  - Pre-existing MetadataValue structs
+  Creates a Metadata struct from a map. See `t:raw/0` for accepted input formats.
 
   ## Examples
 
@@ -141,7 +148,7 @@ defmodule Trogon.Error.Metadata do
   end
 
   @doc """
-  Merges two Metadata structs, with the second taking precedence for duplicate keys.
+  Merges two Metadata structs. The second argument takes precedence for duplicate keys.
 
   ## Examples
 

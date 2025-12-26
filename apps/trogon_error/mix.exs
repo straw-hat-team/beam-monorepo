@@ -102,6 +102,7 @@ defmodule Trogon.Error.MixProject do
         "README.md",
         "CHANGELOG.md"
       ],
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       groups_for_extras: [
         "How-to": ~r/docs\/how-to\/.?/,
         Explanations: ~r/docs\/explanations\/.?/,
