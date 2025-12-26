@@ -24,76 +24,107 @@ defmodule Trogon.Error do
 
   @visibility_levels [:INTERNAL, :PRIVATE, :PUBLIC]
 
-  @options_schema NimbleOptions.new!(
-                    domain: [
-                      type: :string,
-                      required: true,
-                      doc: "The error domain identifying the service or component that generated the error"
-                    ],
-                    reason: [
-                      type: :string,
-                      required: true,
-                      doc: "A unique identifier for the specific error within the domain"
-                    ],
-                    message: [
-                      type: {:or, [:atom, :string]},
-                      required: false,
-                      doc: "The error message, either an atom that maps to a standard message or a custom string"
-                    ],
-                    metadata: [
-                      type:
-                        {:map, :string, {:or, [:string, {:tuple, [:string, {:in, [:INTERNAL, :PRIVATE, :PUBLIC]}]}]}},
-                      default: %{},
-                      doc:
-                        "Default metadata to be merged with runtime metadata. Values will be automatically converted to MetadataValue structs."
-                    ],
-                    code: [
-                      type: {:in, @codes},
-                      default: :UNKNOWN,
-                      doc: "The standard error code"
-                    ],
-                    visibility: [
-                      type: {:in, @visibility_levels},
-                      default: :INTERNAL,
-                      doc: "Whether the error should be visible to end users or kept internal"
-                    ],
-                    help: [
-                      type: :map,
-                      required: false,
-                      keys: [
-                        links: [
-                          type:
-                            {:list,
-                             {:map,
-                              [description: [type: :string, required: false], url: [type: :string, required: true]]}}
-                        ]
-                      ],
-                      doc: "Help information with links to documentation"
-                    ]
-                  )
+  @template_opts_schema NimbleOptions.new!(
+                          domain: [
+                            type: :string,
+                            type_spec: quote(do: domain()),
+                            required: true,
+                            doc: "See `t:domain/0`."
+                          ],
+                          reason: [
+                            type: :string,
+                            type_spec: quote(do: reason()),
+                            required: true,
+                            doc: "See `t:reason/0`."
+                          ],
+                          message: [
+                            type: {:or, [:atom, :string]},
+                            type_spec: quote(do: atom() | message()),
+                            required: false,
+                            doc: "See `t:message/0`. Use `:code` if not provided as a string."
+                          ],
+                          metadata: [
+                            type:
+                              {:map, :string,
+                               {:or, [:string, {:tuple, [:string, {:in, [:INTERNAL, :PRIVATE, :PUBLIC]}]}]}},
+                            type_spec: quote(do: Metadata.raw()),
+                            default: %{},
+                            doc: "Default metadata merged with instance metadata. See `t:Trogon.Error.Metadata.raw/0`."
+                          ],
+                          code: [
+                            type: {:in, @codes},
+                            type_spec: quote(do: code()),
+                            default: :UNKNOWN,
+                            doc: "See `t:code/0`."
+                          ],
+                          visibility: [
+                            type: {:in, @visibility_levels},
+                            type_spec: quote(do: visibility()),
+                            default: :INTERNAL,
+                            doc: "See `t:visibility/0`."
+                          ],
+                          help: [
+                            type: :map,
+                            type_spec: quote(do: help()),
+                            required: false,
+                            keys: [
+                              links: [
+                                type:
+                                  {:list,
+                                   {:map,
+                                    [
+                                      description: [type: :string, required: false],
+                                      url: [type: :string, required: true]
+                                    ]}}
+                              ]
+                            ],
+                            doc: "See `t:help/0`."
+                          ]
+                        )
 
   @moduledoc """
-  Universal Error Specification implementation for Elixir.
+  [Error Specification](https://straw-hat-team.github.io/adr/adrs/0129349218/README.html) implementation for Elixir.
 
-  This module provides a `use` macro to define structured exceptions
-  following the Universal Error Specification ADR.
-
-  ## Usage
+  ## Quick Start
 
       defmodule MyApp.NotFoundError do
         use Trogon.Error,
-          domain: "com.myapp.mydomain",
+          domain: "com.myapp.resources",
           reason: "not_found",
-          message: "The {resource} was not found"
+          code: :NOT_FOUND,
+          message: "Resource not found"
       end
 
-  ## Creating Errors
-
+      # Create an error instance with dynamic metadata
       MyApp.NotFoundError.new!(
-        metadata: Trogon.Error.Metadata.new(%{resource: "user"})
+        metadata: Trogon.Error.Metadata.new(%{
+          "resource_type" => "user",
+          "resource_id" => "123"
+        })
       )
+
+  ## Design Philosophy
+
+  Trogon errors follow the "Error as Type" pattern where `t:domain/0` + `t:reason/0`
+  uniquely identify the error type, `t:message/0` is a static compile-time description,
+  and `t:metadata/0` carries instance-specific dynamic values.
+
+  The message is intentionally **not overridable at runtime** to ensure consistent
+  messages for logging/monitoring and predictable error contracts for API consumers.
+
+  ## Key Types
+
+  - `t:domain/0` + `t:reason/0` - Unique error identifier
+  - `t:code/0` - Standard error code (Google RPC compatible)
+  - `t:message/0` - Static error description
+  - `t:metadata/0` - Dynamic instance data
+  - `t:error_opt/0` - Instance creation options
   """
 
+  @typedoc """
+  The standard error code. See [Google RPC error codes](https://github.com/grpc/grpc/blob/master/doc/statuscodes.md)
+  for more details.
+  """
   @type code ::
           :CANCELLED
           | :UNKNOWN
@@ -112,50 +143,137 @@ defmodule Trogon.Error do
           | :DATA_LOSS
           | :UNAUTHENTICATED
 
+  @typedoc """
+  Whether the error should be visible to end users or kept internal.
+
+  - `:INTERNAL` - The error is not visible from outside the application.
+  - `:PRIVATE` - The error is visible from applications belonging to the same organization.
+  - `:PUBLIC` - The error is visible to everyone.
+  """
   @type visibility :: :INTERNAL | :PRIVATE | :PUBLIC
 
+  @typedoc """
+  The error message template describing what went wrong.
+
+  Defined at compile time and cannot be overridden at runtime. For dynamic values,
+  treat the message as a template and pass runtime data via `:metadata`.
+  """
+  @type message :: String.t()
+
+  @typedoc """
+  The error domain identifying the service or component that generated the error.
+
+  Examples: `"com.myapp.payments"`, `"com.stripe.api"`
+  """
+  @type domain :: String.t()
+
+  @typedoc """
+  A unique identifier for the specific error within the domain.
+
+  Combined with `t:domain/0`, this creates a globally unique error identifier:
+
+      # domain: "com.myapp.payments", reason: "card_declined"
+      # domain: "com.myapp.users", reason: "not_found"
+  """
+  @type reason :: String.t()
+
+  @typedoc """
+  Instance-specific metadata as key-value pairs.
+
+      Trogon.Error.Metadata.new(%{
+        "user_id" => "123",
+        "resource_type" => "order"
+      })
+
+  See `Trogon.Error.Metadata` for visibility controls and advanced usage.
+  """
   @type metadata :: Metadata.t()
 
+  @typedoc """
+  A pointer to the field or element that caused the error.
+
+  Examples: `"email"`, `"user.address.zipCode"`, `"/items/0/quantity"` (JSON Pointer)
+  """
   @type subject :: String.t()
 
+  @typedoc """
+  Source identifier indicating where the error originated.
+  """
   @type source_id :: String.t()
 
+  @typedoc """
+  Unique identifier for this error instance.
+  """
   @type id :: String.t()
+
+  @typedoc """
+  Timestamp when the error occurred.
+  """
   @type time :: DateTime.t()
 
+  @typedoc """
+  A single help link with a description and URL.
+  """
   @type help_link :: %{
           description: String.t(),
           url: String.t()
         }
 
+  @typedoc """
+  Help information containing links to documentation or support resources.
+  """
   @type help :: %{
           links: list(help_link())
         }
 
+  @typedoc """
+  Debug information for troubleshooting, including stack traces and details.
+  """
   @type debug_info :: %{
           stack_entries: list(String.t()),
           detail: String.t()
         }
 
+  @typedoc """
+  Localized message for internationalization (i18n) support.
+
+  The `locale` follows [IETF BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt)
+  (e.g., `"en-US"`, `"fr-CH"`, `"es-MX"`).
+  """
   @type localized_message :: %{
           locale: String.t(),
           message: String.t()
         }
 
+  @typedoc false
   @type retry_info_duration :: %{retry_offset: Duration.t()}
-  # TODO: Enable retry info time aftr https://github.com/aip-dev/google.aip.dev/issues/1528 is resolved
+
+  # TODO: Enable retry info time after https://github.com/aip-dev/google.aip.dev/issues/1528 is resolved
   #  To avoid breaking changes, and strong incompatibility with Google RPC spec, we're not adding retry info time.
   # @type retry_info_time :: %{retry_time: DateTime.t()}
+
+  @typedoc """
+  Retry information for recoverable errors, indicating when to retry.
+
+      retry_info: %{retry_offset: %Duration{second: 60}}
+  """
   @type retry_info :: retry_info_duration()
 
+  @typedoc """
+  The Trogon error struct type, parameterized by the error module.
+
+      @spec find_user(String.t()) ::
+              {:ok, User.t()}
+              | {:error, Trogon.Error.t(MyApp.NotFoundError)}
+  """
   @type t(struct) :: %{
           __struct__: struct,
           __exception__: true,
           specversion: non_neg_integer(),
           code: code(),
-          message: String.t(),
-          domain: String.t(),
-          reason: String.t(),
+          message: message(),
+          domain: domain(),
+          reason: reason(),
           metadata: metadata(),
           causes: list(t(module())),
           visibility: visibility(),
@@ -169,7 +287,20 @@ defmodule Trogon.Error do
           source_id: source_id() | nil
         }
 
-  @type error_opts :: [
+  @typedoc """
+  Instance options for `new!/1`. See the type definition for available keys.
+
+      MyApp.NotFoundError.new!(
+        metadata: Trogon.Error.Metadata.new(%{"user_id" => "123"}),
+        subject: "user:123",
+        localized_message: %{locale: "es", message: "Usuario no encontrado"}
+      )
+
+  > #### The `:message` option is not supported {: .warning}
+  >
+  > Use `:localized_message` for i18n or `:metadata` for dynamic values.
+  """
+  @type error_opt ::
           {:metadata, metadata()}
           | {:causes, list(t(module()))}
           | {:subject, subject() | nil}
@@ -179,7 +310,23 @@ defmodule Trogon.Error do
           | {:id, id() | nil}
           | {:time, time() | nil}
           | {:source_id, source_id() | nil}
-        ]
+
+  @typedoc """
+  A single template option for defining an error module with `use Trogon.Error`.
+
+      defmodule MyApp.NotFoundError do
+        use Trogon.Error,
+          domain: "com.myapp.resources",
+          reason: "not_found",
+          code: :NOT_FOUND,
+          message: "Resource not found"
+      end
+
+  ## Options
+
+  #{NimbleOptions.docs(@template_opts_schema)}
+  """
+  @type template_opt :: unquote(NimbleOptions.option_typespec(@template_opts_schema))
 
   @spec_version 1
 
@@ -293,8 +440,8 @@ defmodule Trogon.Error do
   end
 
   @doc false
-  def validate_options!(opts) do
-    NimbleOptions.validate!(opts, @options_schema)
+  def validate_template_opts!(opts) do
+    NimbleOptions.validate!(opts, @template_opts_schema)
   end
 
   defp validate_runtime_options!(opts) do
@@ -332,33 +479,8 @@ defmodule Trogon.Error do
   @doc """
   Creates a new Trogon error at runtime with dynamic values.
 
-  This function allows you to create Trogon errors without having predefined
-  error modules, which is useful for handling external errors from services
-  you don't control.
-
-  ## Parameters
-
-  The function accepts the same options as template creation with `use Trogon.Error`,
-  but as instance parameters:
-
-  - `:domain` (required) - The error domain identifying the service
-  - `:reason` (required) - A unique identifier for the specific error
-  - `:code` (optional) - The standard error code (defaults to `:UNKNOWN`)
-  - `:message` (optional) - The error message (defaults to the code)
-  - `:visibility` (optional) - Error visibility (defaults to `:INTERNAL`)
-  - `:help` (optional) - Help information
-  - `:metadata` (optional) - Default metadata
-
-  Plus all the instance options supported by regular Trogon errors:
-
-  - `:causes` - List of causing errors
-  - `:subject` - The subject this error relates to
-  - `:debug_info` - Debug information
-  - `:localized_message` - Localized message
-  - `:retry_info` - Retry information
-  - `:id` - Error instance ID
-  - `:time` - Error timestamp
-  - `:source_id` - Source identifier
+  Useful for handling external errors from services you don't control,
+  without needing predefined error modules.
 
   ## Examples
 
@@ -384,7 +506,7 @@ defmodule Trogon.Error do
       )
 
   """
-  @spec new!(keyword()) :: t(__MODULE__)
+  @spec new!([template_opt() | error_opt()]) :: t(__MODULE__)
   def new!(opts) when is_list(opts) do
     {template_opts, instance_opts} = Keyword.split(opts, @template_opts)
 
@@ -409,14 +531,15 @@ defmodule Trogon.Error do
   end
 
   @doc """
-  Converts an atom to an integer code.
+  Converts a code atom or error struct to its integer value.
 
   ## Examples
 
       iex> Trogon.Error.to_code_int(:CANCELLED)
       1
+
       iex> err = TestSupport.InvalidCurrencyError.new!()
-      ...> Trogon.Error.to_code_int(err)
+      iex> Trogon.Error.to_code_int(err)
       2
   """
   @spec to_code_int(atom() | t(module())) :: non_neg_integer()
@@ -439,14 +562,15 @@ defmodule Trogon.Error do
   def to_code_int(:UNAUTHENTICATED), do: 16
 
   @doc """
-  Converts an error code to its corresponding HTTP status code.
+  Converts a code atom or error struct to its HTTP status code.
 
   ## Examples
 
       iex> Trogon.Error.to_http_status_code(:CANCELLED)
       499
+
       iex> err = TestSupport.InvalidCurrencyError.new!()
-      ...> Trogon.Error.to_http_status_code(err)
+      iex> Trogon.Error.to_http_status_code(err)
       500
   """
   @spec to_http_status_code(atom() | t(module())) :: non_neg_integer()
@@ -488,7 +612,7 @@ defmodule Trogon.Error do
   def to_msg(:DATA_LOSS), do: "data loss or corruption"
 
   @doc """
-  Checks if a term is a Trogon error.
+  Guard that checks if a term is a Trogon error.
 
   ## Examples
 
@@ -513,16 +637,11 @@ defmodule Trogon.Error do
     |> Macro.escape()
   end
 
-  @doc """
-  Defines an error module with the given options.
-
-  ## Options
-
-  #{NimbleOptions.docs(@options_schema)}
-  """
+  @doc "See `t:template_opt/0` for available options."
+  @spec __using__([template_opt()]) :: Macro.t()
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
-      opts = Trogon.Error.validate_options!(opts)
+      opts = Trogon.Error.validate_template_opts!(opts)
 
       compiled_opts =
         [code: :UNKNOWN, visibility: :INTERNAL, help: nil]
@@ -554,30 +673,15 @@ defmodule Trogon.Error do
         :source_id
       ]
 
-      @doc """
-      Raises an error with the given options.
-
-      > #### When to use `exception/1` {: .info}
-      > Use `exception/1` when you want to raise an error.
-      >
-      > Example:
-      >
-      > ```elixir
-      > raise MyApp.NotFoundError, metadata: Trogon.Error.Metadata.new(%{resource: "user"})
-      > ```
-      >
-      > Otherwise, use `new!/1` to create an error instance.
-      """
+      @doc "Creates an error struct for use with `raise/2`."
       @impl Exception
-      @spec exception(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
+      @spec exception([Trogon.Error.error_opt()]) :: Trogon.Error.t(module())
       def exception(opts \\ []) do
         Trogon.Error.exception(__MODULE__, unquote(compiled_opts), opts)
       end
 
-      @doc """
-      Creates a new error instance with the given options.
-      """
-      @spec new!(Trogon.Error.error_opts()) :: Trogon.Error.t(__MODULE__)
+      @doc "Creates a new error instance."
+      @spec new!([Trogon.Error.error_opt()]) :: Trogon.Error.t(module())
       def new!(opts \\ []) when is_list(opts) do
         Trogon.Error.exception(__MODULE__, unquote(compiled_opts), opts)
       end
