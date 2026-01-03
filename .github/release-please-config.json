@@ -27,6 +27,9 @@
     },
     "apps/trogon_typeprovider": {
       "component": "trogon_typeprovider"
+    },
+    "apps/trogon_grpchealth": {
+      "component": "trogon_grpchealth"
     }
   },
   "plugins": [

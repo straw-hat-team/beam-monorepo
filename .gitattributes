@@ -1,0 +1,4 @@
+# Generated code
+**/lib/generated/** linguist-generated=true
+**/*.pb.ex linguist-generated=true
+**/health_service.ex linguist-generated=true

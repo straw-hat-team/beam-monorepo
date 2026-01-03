@@ -1,0 +1,9 @@
+version: v1
+deps:
+  - buf.build/grpc/grpc:v1.55.0
+lint:
+  use:
+    - DEFAULT
+breaking:
+  use:
+    - FILE

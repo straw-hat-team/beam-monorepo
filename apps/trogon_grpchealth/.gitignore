@@ -1,0 +1,16 @@
+# Ignore all files unless explicitly tracked
+*
+
+# Reverse ignore for important files
+!.formatter.exs
+!.gitignore
+!.bufignore
+!buf.yaml
+!buf.gen.yaml
+!mix.exs
+!mix.lock
+!README*
+!CHANGELOG*
+!LICENSE*
+!lib/**
+!test/**

@@ -1,0 +1,6 @@
+version: v1
+plugins:
+  - plugin: buf.build/protocolbuffers/elixir:v1.4.0
+    out: lib/generated
+    opt:
+      - package_prefix=Trogon.GrpcHealth
