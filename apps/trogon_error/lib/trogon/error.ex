@@ -673,15 +673,21 @@ defmodule Trogon.Error do
         :source_id
       ]
 
+      @typedoc "See `t:Trogon.Error.error_opt/0`."
+      @type error_opt :: Trogon.Error.error_opt()
+
+      @typedoc "See `t:Trogon.Error.t/1`."
+      @type t :: Trogon.Error.t(__MODULE__)
+
       @doc "Creates an error struct for use with `raise/2`."
       @impl Exception
-      @spec exception([Trogon.Error.error_opt()]) :: Trogon.Error.t(module())
+      @spec exception([error_opt()]) :: t()
       def exception(opts \\ []) do
         Trogon.Error.exception(__MODULE__, unquote(compiled_opts), opts)
       end
 
       @doc "Creates a new error instance."
-      @spec new!([Trogon.Error.error_opt()]) :: Trogon.Error.t(module())
+      @spec new!([error_opt()]) :: t()
       def new!(opts \\ []) when is_list(opts) do
         Trogon.Error.exception(__MODULE__, unquote(compiled_opts), opts)
       end
