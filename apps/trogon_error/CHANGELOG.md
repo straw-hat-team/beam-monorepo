@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.5.4](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.3...trogon_error@v0.5.4) (2026-01-04)
+
+
+### Bug Fixes
+
+* **trogon_error:** Type specifications for error options ([#274](https://github.com/straw-hat-team/beam-monorepo/issues/274)) ([4572a0f](https://github.com/straw-hat-team/beam-monorepo/commit/4572a0f78237ba10661676cb90d6807cfc26b111))
+
 ## [0.5.3](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.2...trogon_error@v0.5.3) (2026-01-04)
 
 
