@@ -5,8 +5,6 @@ defmodule Trogon.Error.Metadata do
   This module provides a wrapper around metadata entries, where each entry
   is a `MetadataValue` struct containing both the value and its visibility level.
 
-  Implements the `Access` behavior for convenient map-like access to metadata entries.
-
   ## Examples
 
       iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123", "action" => "login"})
@@ -180,4 +178,31 @@ defmodule Trogon.Error.Metadata do
 
   defp entry_key(key) when is_binary(key), do: key
   defp entry_key(key), do: to_string(key)
+end
+
+defimpl Enumerable, for: Trogon.Error.Metadata do
+  def count(%Trogon.Error.Metadata{entries: entries}) do
+    {:ok, map_size(entries)}
+  end
+
+  def member?(%Trogon.Error.Metadata{entries: entries}, {key, value}) do
+    {:ok, Map.has_key?(entries, key) and Map.get(entries, key) == value}
+  end
+
+  def member?(%Trogon.Error.Metadata{entries: entries}, key) when is_binary(key) do
+    {:ok, Map.has_key?(entries, key)}
+  end
+
+  def member?(_, _) do
+    {:ok, false}
+  end
+
+  def reduce(%Trogon.Error.Metadata{entries: entries}, acc, fun) do
+    Enumerable.Map.reduce(entries, acc, fun)
+  end
+
+  def slice(%Trogon.Error.Metadata{entries: entries}) do
+    entries_list = Map.to_list(entries)
+    {:ok, length(entries_list), &Enum.slice(entries_list, &1, &2)}
+  end
 end

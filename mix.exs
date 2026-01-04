@@ -9,9 +9,12 @@ defmodule BeamMonorepoUmbrella.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       test_coverage: test_coverage(),
-      preferred_cli_env: preferred_cli_env(),
       dialyzer: dialyzer()
     ]
+  end
+
+  def cli do
+    [preferred_envs: preferred_cli_env()]
   end
 
   defp test_coverage do

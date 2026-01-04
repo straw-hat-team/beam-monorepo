@@ -156,4 +156,124 @@ defmodule Trogon.Error.MetadataTest do
       assert non_empty_result == :not_empty
     end
   end
+
+  describe "Enumerable protocol" do
+    test "Enum.reduce/3 over metadata entries" do
+      metadata = Metadata.new(%{"user_id" => "123", "action" => "login"})
+
+      result =
+        Enum.reduce(metadata, [], fn {key, value}, acc ->
+          [{key, value.value} | acc]
+        end)
+
+      assert Enum.sort(result) == [{"action", "login"}, {"user_id", "123"}]
+    end
+
+    test "Enum.count/1 returns number of entries" do
+      metadata = Metadata.new(%{"a" => "1", "b" => "2", "c" => "3"})
+
+      assert Enum.count(metadata) == 3
+    end
+
+    test "Enum.count/1 on empty metadata returns 0" do
+      metadata = Metadata.new(%{})
+
+      # We explicitly test count/1 here because it's a protocol function we implemented.
+      # This is NOT a performance anti-pattern; we're validating the Enumerable.count/1
+      # protocol callback works correctly, not just checking if metadata is empty.
+      # credo:disable-for-next-line
+      assert Enum.count(metadata) == 0
+    end
+
+    test "Enum.map/2 transforms metadata entries" do
+      metadata = Metadata.new(%{"x" => "10", "y" => "20"})
+
+      result =
+        Enum.map(metadata, fn {key, value} ->
+          {key, String.to_integer(value.value) * 2}
+        end)
+
+      assert Enum.sort(result) == [{"x", 20}, {"y", 40}]
+    end
+
+    test "Enum.filter/2 filters metadata entries" do
+      metadata = Metadata.new(%{"visible" => {"yes", :PUBLIC}, "hidden" => {"no", :PRIVATE}})
+
+      result =
+        Enum.filter(metadata, fn {_key, value} ->
+          value.visibility == :PUBLIC
+        end)
+
+      assert length(result) == 1
+      assert {key, value} = List.first(result)
+      assert key == "visible"
+      assert value.visibility == :PUBLIC
+    end
+
+    test "Enum.member?/2 checks membership by key" do
+      metadata = Metadata.new(%{"key" => "value"})
+
+      assert Enum.member?(metadata, "key")
+      refute Enum.member?(metadata, "nonexistent")
+    end
+
+    test "Enum.member?/2 checks membership by key-value tuple" do
+      metadata = Metadata.new(%{"key" => "value"})
+
+      assert Enum.member?(metadata, {"key", %MetadataValue{value: "value", visibility: :INTERNAL}})
+      refute Enum.member?(metadata, {"key", %MetadataValue{value: "wrong", visibility: :INTERNAL}})
+    end
+
+    test "Enum.to_list/1 converts metadata to list of tuples" do
+      metadata = Metadata.new(%{"a" => "1", "b" => "2"})
+
+      result = Enum.to_list(metadata)
+
+      assert length(result) == 2
+
+      assert Enum.all?(result, fn {key, value} ->
+               is_binary(key) and is_struct(value, MetadataValue)
+             end)
+    end
+
+    test "Enum.slice/2 with range" do
+      metadata = Metadata.new(%{"a" => "1", "b" => "2", "c" => "3"})
+
+      result = Enum.slice(metadata, 1..2)
+
+      assert length(result) == 2
+
+      assert Enum.all?(result, fn {_key, value} ->
+               is_struct(value, MetadataValue)
+             end)
+    end
+
+    test "Enum.slice/3 with start and length" do
+      metadata = Metadata.new(%{"a" => "1", "b" => "2", "c" => "3"})
+
+      result = Enum.slice(metadata, 0, 2)
+
+      assert length(result) == 2
+
+      assert Enum.all?(result, fn {_key, value} ->
+               is_struct(value, MetadataValue)
+             end)
+    end
+
+    test "Enum.slice/3 on empty metadata returns empty list" do
+      metadata = Metadata.new(%{})
+
+      result = Enum.slice(metadata, 0, 5)
+
+      assert result == []
+    end
+
+    test "Enum.slice/3 with out of bounds indices" do
+      metadata = Metadata.new(%{"a" => "1", "b" => "2"})
+
+      result = Enum.slice(metadata, 5, 10)
+
+      assert result == []
+    end
+  end
 end
