@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.2.2...trogon_typeprovider@v0.2.3) (2026-01-04)
+
+
+### Bug Fixes
+
+* **trogon_error:** Implement enum for metadata ([#265](https://github.com/straw-hat-team/beam-monorepo/issues/265)) ([9b787b5](https://github.com/straw-hat-team/beam-monorepo/commit/9b787b52982ac9900931afe16fe148a68a176f16))
+
 ## [0.2.2](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.2.1...trogon_typeprovider@v0.2.2) (2025-07-08)
 
 
