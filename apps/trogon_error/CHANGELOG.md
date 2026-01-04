@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.5.3](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.2...trogon_error@v0.5.3) (2026-01-04)
+
+
+### Bug Fixes
+
+* **trogon_error:** Enhance documentation and add error message templates ([#261](https://github.com/straw-hat-team/beam-monorepo/issues/261)) ([cbc22b7](https://github.com/straw-hat-team/beam-monorepo/commit/cbc22b70171aad15b5d090a910ad02d50ab251db))
+* **trogon_error:** Implement enum for metadata ([#265](https://github.com/straw-hat-team/beam-monorepo/issues/265)) ([9b787b5](https://github.com/straw-hat-team/beam-monorepo/commit/9b787b52982ac9900931afe16fe148a68a176f16))
+
 ## [0.5.2](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.1...trogon_error@v0.5.2) (2025-11-24)
 
 
