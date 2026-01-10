@@ -8,7 +8,7 @@ defmodule Trogon.TypeProvider do
 
   defmacro __using__(opts \\ []) do
     quote bind_quoted: [opts: opts] do
-      import TypeProvider, only: [register_type: 2, import_type_provider: 1]
+      import TypeProvider, only: [register_type: 2, register_protobuf_message: 1, import_type_provider: 1]
 
       @type_mapping_prefix Keyword.get(opts, :prefix, "")
       @before_compile TypeProvider
@@ -35,6 +35,40 @@ defmodule Trogon.TypeProvider do
       TypeProvider.__register_type__(
         __MODULE__,
         type,
+        struct_mod
+      )
+    end
+  end
+
+  @doc """
+  Registers a mapping from a Protobuf message module using its `full_name/0` function as the type.
+
+  This macro requires the Protobuf message module to have a `full_name/0` function that returns
+  the fully qualified protobuf type name (e.g., "google.protobuf.Timestamp").
+
+  To generate protobuf modules with `full_name/0`, ensure your protobuf modules are generated
+  with the `gen_descriptors=true` option, or define `full_name/0` manually.
+
+  ## Example
+
+      defmodule MyTypeProvider do
+        use Trogon.TypeProvider
+
+        # Registers the module using its full_name/0 as the type
+        register_protobuf_message MyApp.Proto.AccountCreated
+      end
+
+  This is equivalent to:
+
+      register_type "my_app.account_created", MyApp.Proto.AccountCreated
+
+  (assuming `MyApp.Proto.AccountCreated.full_name()` returns `"my_app.account_created"`)
+  """
+  @spec register_protobuf_message(struct_mod :: module()) :: Macro.t()
+  defmacro register_protobuf_message(struct_mod) do
+    quote bind_quoted: [struct_mod: struct_mod] do
+      TypeProvider.__register_protobuf_message__(
+        __MODULE__,
         struct_mod
       )
     end
@@ -130,21 +164,7 @@ defmodule Trogon.TypeProvider do
       """
     end
 
-    case find_mapping_by_type(mod, type) do
-      nil ->
-        add_mapping(mod, type, struct_mod)
-
-      {found_mod, type, found_struct_mod} ->
-        raise ArgumentError, """
-        Duplicate type registration for #{inspect(type)}
-
-        Already registered: #{inspect(found_struct_mod)} in #{inspect(found_mod)}
-        Attempted to register: #{inspect(struct_mod)} in #{inspect(mod)}
-
-        Each type must be unique within a TypeProvider.
-        Consider using different types or check for duplicate registrations.
-        """
-    end
+    add_mapping_or_raise!(mod, type, struct_mod)
   end
 
   def __import_type_provider__(mod, provider_mod) do
@@ -168,29 +188,25 @@ defmodule Trogon.TypeProvider do
     end
 
     for {_, type, struct_mod} <- provider_mod.__type_mapping__() do
-      case find_mapping_by_type(mod, type) do
-        nil ->
-          add_mapping(mod, type, struct_mod)
-
-        {_registered_mod, _, found_struct_mod} ->
-          raise ArgumentError, """
-          Cannot import type "#{type}" - already exists
-
-          Trying to import from: #{inspect(provider_mod)}
-          Into TypeProvider: #{inspect(mod)}
-
-          CONFLICT:
-          • Type "#{type}" is already registered as #{inspect(found_struct_mod)}
-          • Cannot import #{inspect(struct_mod)} because the type is taken
-
-          SOLUTIONS:
-          • Use different types in #{inspect(provider_mod)}
-          • Add a prefix to avoid conflicts:
-              use Trogon.TypeProvider, prefix: "iam."
-          • Import types selectively instead of all at once
-          """
-      end
+      add_mapping_or_raise!(mod, type, struct_mod, import_from: provider_mod)
     end
+  end
+
+  def __register_protobuf_message__(mod, struct_mod) do
+    ensure_compiled!(mod)
+    ensure_compiled!(struct_mod)
+
+    if not protobuf_message?(struct_mod) do
+      raise ArgumentError, """
+      Invalid Protobuf message registration in #{inspect(mod)}
+
+      Expected: #{inspect(struct_mod)} to be a Protobuf message with full_name/0
+      Problem: Module is not a valid Protobuf message
+      """
+    end
+
+    type = type_with_prefix(mod, struct_mod.full_name())
+    add_mapping_or_raise!(mod, type, struct_mod)
   end
 
   defp type_with_prefix(mod, type) do
@@ -199,6 +215,49 @@ defmodule Trogon.TypeProvider do
 
   defp add_mapping(mod, type, struct_mod) do
     Module.put_attribute(mod, :type_mapping, {mod, type, struct_mod})
+  end
+
+  defp add_mapping_or_raise!(mod, type, struct_mod, opts \\ []) do
+    case find_mapping_by_type(mod, type) do
+      nil ->
+        add_mapping(mod, type, struct_mod)
+
+      {_found_mod, _type, found_struct_mod} ->
+        raise ArgumentError, duplicate_type_error(mod, type, struct_mod, found_struct_mod, opts)
+    end
+  end
+
+  defp duplicate_type_error(mod, type, struct_mod, found_struct_mod, opts) do
+    case Keyword.get(opts, :import_from) do
+      nil ->
+        """
+        Duplicate type registration for #{inspect(type)}
+
+        Already registered: #{inspect(found_struct_mod)} in #{inspect(mod)}
+        Attempted to register: #{inspect(struct_mod)} in #{inspect(mod)}
+
+        Each type must be unique within a TypeProvider.
+        Consider using different types or check for duplicate registrations.
+        """
+
+      provider_mod ->
+        """
+        Cannot import type #{inspect(type)} - already exists
+
+        Trying to import from: #{inspect(provider_mod)}
+        Into TypeProvider: #{inspect(mod)}
+
+        CONFLICT:
+        • Type #{inspect(type)} is already registered as #{inspect(found_struct_mod)}
+        • Cannot import #{inspect(struct_mod)} because the type is taken
+
+        SOLUTIONS:
+        • Use different types in #{inspect(provider_mod)}
+        • Add a prefix to avoid conflicts:
+            use Trogon.TypeProvider, prefix: "iam."
+        • Import types selectively instead of all at once
+        """
+    end
   end
 
   defp find_mapping_by_type(mod, type) do
@@ -213,6 +272,12 @@ defmodule Trogon.TypeProvider do
 
   defp type_provider?(mod) do
     function_exported?(mod, :__type_mapping__, 0)
+  end
+
+  # TODO: Maybe we should refactor to use Protobuf.is_protobuf_message/1 guard once is released?
+  # https://github.com/elixir-protobuf/protobuf/pull/428 is merged
+  defp protobuf_message?(mod) do
+    function_exported?(mod, :full_name, 0) and defines_struct?(mod)
   end
 
   defp defines_struct?(mod) do

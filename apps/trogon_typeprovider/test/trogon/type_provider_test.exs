@@ -11,8 +11,13 @@ defmodule Trogon.TypeProviderTest do
     AccountWithPrefixTypeProvider,
     LedgerTypeProvider,
     MyAppTypeProvider,
-    IAMTypeProvider
+    IAMTypeProvider,
+    ProtobufTypeProvider,
+    ProtobufWithPrefixTypeProvider,
+    MixedTypeProvider
   }
+
+  alias Trogon.TypeProvider.TestSupport.Trogon.Typeprovider.Demo
 
   test "given a type provider when registering a mapping that already exists then raises an error" do
     expected_message = """
@@ -156,5 +161,83 @@ defmodule Trogon.TypeProviderTest do
   test "given a type provider with a struct that has enforce_keys a when calling to_type then it returns the mapped string" do
     assert {:ok, "something_with_enforce_keys_happened"} =
              AccountTypeProvider.to_type(%SomethingWithEnforceKeysHappened{aggregate_id: nil})
+  end
+
+  test "given a type provider with protobuf message when calling to_type then returns the full_name" do
+    assert {:ok, "trogon.typeprovider.demo.UserCreated"} = ProtobufTypeProvider.to_type(%Demo.UserCreated{})
+    assert {:ok, "trogon.typeprovider.demo.UserDeleted"} = ProtobufTypeProvider.to_type(%Demo.UserDeleted{})
+  end
+
+  test "given a type provider with protobuf message when calling to_module then returns the module" do
+    assert {:ok, Demo.UserCreated} = ProtobufTypeProvider.to_module("trogon.typeprovider.demo.UserCreated")
+    assert {:ok, Demo.UserDeleted} = ProtobufTypeProvider.to_module("trogon.typeprovider.demo.UserDeleted")
+  end
+
+  test "given a type provider with prefix and protobuf message when calling to_type then returns prefixed full_name" do
+    assert {:ok, "events.trogon.typeprovider.demo.OrderPlaced"} =
+             ProtobufWithPrefixTypeProvider.to_type(%Demo.OrderPlaced{})
+  end
+
+  test "given a type provider with prefix and protobuf message when calling to_module then returns the module" do
+    assert {:ok, Demo.OrderPlaced} =
+             ProtobufWithPrefixTypeProvider.to_module("events.trogon.typeprovider.demo.OrderPlaced")
+  end
+
+  test "given a type provider with mixed registrations when calling to_type then works for both" do
+    assert {:ok, "account_created"} = MixedTypeProvider.to_type(%AccountCreated{})
+    assert {:ok, "trogon.typeprovider.demo.UserCreated"} = MixedTypeProvider.to_type(%Demo.UserCreated{})
+  end
+
+  test "given a type provider when registering a module without full_name/0 then raises an error" do
+    expected_message = """
+    Invalid Protobuf message registration in InvalidProtobufTypeProvider
+
+    Expected: NotAProtobuf to be a Protobuf message with full_name/0
+    Problem: Module is not a valid Protobuf message
+    """
+
+    assert_raise(ArgumentError, expected_message, fn ->
+      Code.compile_quoted(
+        quote do
+          defmodule NotAProtobuf do
+            defstruct [:id]
+          end
+
+          defmodule InvalidProtobufTypeProvider do
+            use Trogon.TypeProvider
+            register_protobuf_message NotAProtobuf
+          end
+        end
+      )
+    end)
+  end
+
+  test "given a type provider when registering duplicate protobuf messages then raises an error" do
+    expected_message = """
+    Duplicate type registration for "myapp.events.DuplicateEvent"
+
+    Already registered: DuplicateProtoEvent in DuplicateProtobufTypeProvider
+    Attempted to register: DuplicateProtoEvent in DuplicateProtobufTypeProvider
+
+    Each type must be unique within a TypeProvider.
+    Consider using different types or check for duplicate registrations.
+    """
+
+    assert_raise(ArgumentError, expected_message, fn ->
+      Code.compile_quoted(
+        quote do
+          defmodule DuplicateProtoEvent do
+            defstruct [:id]
+            def full_name, do: "myapp.events.DuplicateEvent"
+          end
+
+          defmodule DuplicateProtobufTypeProvider do
+            use Trogon.TypeProvider
+            register_protobuf_message DuplicateProtoEvent
+            register_protobuf_message DuplicateProtoEvent
+          end
+        end
+      )
+    end)
   end
 end
