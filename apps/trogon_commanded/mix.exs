@@ -45,7 +45,7 @@ defmodule Trogon.Commanded.MixProject do
       {:jason, "~> 1.2"},
       {:ecto, "~> 3.6"},
       {:polymorphic_embed, "~> 5.0"},
-      {:protobuf, "~> 0.13", optional: true},
+      {:protobuf, "~> 0.16", optional: true},
 
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},

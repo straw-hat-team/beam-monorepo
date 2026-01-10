@@ -9,7 +9,7 @@ defmodule Trogon.Commanded.TypeProvider do
 
   defmacro __using__(opts \\ []) do
     quote bind_quoted: [opts: opts] do
-      import TypeProvider, only: [register_type: 2, import_type_provider: 1]
+      import TypeProvider, only: [register_type: 2, register_protobuf_message: 1, import_type_provider: 1]
 
       @type_mapping_prefix Keyword.get(opts, :prefix, "")
       @behaviour Commanded.EventStore.TypeProvider
@@ -41,6 +41,27 @@ defmodule Trogon.Commanded.TypeProvider do
       TypeProvider.__register_type__(
         __MODULE__,
         name,
+        struct_mod
+      )
+    end
+  end
+
+  @doc """
+  Registers a mapping from a Protobuf message module using its `full_name/0` function as the type.
+
+  ## Example
+
+      defmodule MyTypeProvider do
+        use Trogon.Commanded.TypeProvider
+
+        register_protobuf_message MyApp.Proto.AccountCreated
+      end
+  """
+  @spec register_protobuf_message(struct_mod :: module()) :: Macro.t()
+  defmacro register_protobuf_message(struct_mod) do
+    quote bind_quoted: [struct_mod: struct_mod] do
+      TypeProvider.__register_protobuf_message__(
+        __MODULE__,
         struct_mod
       )
     end
@@ -160,6 +181,26 @@ defmodule Trogon.Commanded.TypeProvider do
     end
   end
 
+  def __register_protobuf_message__(mod, struct_mod) do
+    ensure_compiled!(struct_mod)
+
+    unless protobuf_message?(struct_mod) do
+      raise ArgumentError,
+            "#{inspect(mod)} registration expected #{inspect(struct_mod)} to be a Protobuf message with full_name/0"
+    end
+
+    name = name_with_prefix(mod, struct_mod.full_name())
+
+    case find_mapping_by_name(mod, name) do
+      nil ->
+        add_mapping(mod, name, struct_mod)
+
+      {found_mod, name, found_struct_mod} ->
+        raise ArgumentError,
+              "#{inspect(name)} already registered with #{inspect(found_struct_mod)} in #{inspect(found_mod)}"
+    end
+  end
+
   defp name_with_prefix(mod, name) do
     Module.get_attribute(mod, :type_mapping_prefix) <> name
   end
@@ -183,5 +224,25 @@ defmodule Trogon.Commanded.TypeProvider do
     |> mod.__info__()
     |> Keyword.get(:__type_mapping__)
     |> Kernel.!=(nil)
+  end
+
+  # TODO: Maybe we should refactor to use Protobuf.is_protobuf_message/1 guard once is released?
+  # https://github.com/elixir-protobuf/protobuf/pull/428 is merged
+  defp protobuf_message?(mod) do
+    function_exported?(mod, :full_name, 0) and Helpers.defines_struct?(mod)
+  end
+
+  defp ensure_compiled!(mod) do
+    case Code.ensure_compiled(mod) do
+      {:error, :nofile} ->
+        # Module was compiled inline (e.g., in tests), continue without ensuring compilation
+        :ok
+
+      {:error, reason} ->
+        raise "could not load module #{inspect(mod)} due to reason #{inspect(reason)}"
+
+      {:module, _} ->
+        :ok
+    end
   end
 end
