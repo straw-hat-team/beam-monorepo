@@ -3,5 +3,5 @@
   "apps/one_piece_graceful_shutdown": "0.1.0",
   "apps/trogon_result": "1.0.0",
   "apps/trogon_error": "0.5.4",
-  "apps/trogon_typeprovider": "0.2.2"
+  "apps/trogon_typeprovider": "0.3.0"
 }
