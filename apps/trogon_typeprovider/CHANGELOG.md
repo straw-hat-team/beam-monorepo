@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.2.2...trogon_typeprovider@v0.3.0) (2026-01-10)
+
+
+### Features
+
+* **trogon_typeprovider:** Add support for registering Protobuf messages ([#282](https://github.com/straw-hat-team/beam-monorepo/issues/282)) ([c580030](https://github.com/straw-hat-team/beam-monorepo/commit/c580030e14cd881f814417d73bdba0e573fd8a95))
+
+
 ## [0.2.2](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.2.1...trogon_typeprovider@v0.2.2) (2025-07-08)
 
 
