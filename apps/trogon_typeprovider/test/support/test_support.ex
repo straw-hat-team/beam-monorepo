@@ -83,4 +83,30 @@ defmodule Trogon.TypeProvider.TestSupport do
 
     register_type "test_event", TestEvent
   end
+
+  defmodule ProtobufTypeProvider do
+    use Trogon.TypeProvider
+
+    alias Trogon.TypeProvider.TestSupport.Trogon.Typeprovider.Demo
+
+    register_protobuf_message Demo.UserCreated
+    register_protobuf_message Demo.UserDeleted
+  end
+
+  defmodule ProtobufWithPrefixTypeProvider do
+    use Trogon.TypeProvider, prefix: "events."
+
+    alias Trogon.TypeProvider.TestSupport.Trogon.Typeprovider.Demo
+
+    register_protobuf_message Demo.OrderPlaced
+  end
+
+  defmodule MixedTypeProvider do
+    use Trogon.TypeProvider
+
+    alias Trogon.TypeProvider.TestSupport.Trogon.Typeprovider.Demo
+
+    register_type "account_created", AccountCreated
+    register_protobuf_message Demo.UserCreated
+  end
 end

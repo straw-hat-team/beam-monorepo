@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package trogon.typeprovider.demo;
+
+message UserCreated {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+}
+
+message UserDeleted {
+  string id = 1;
+}
+
+message OrderPlaced {
+  string id = 1;
+  repeated string items = 2;
+}
