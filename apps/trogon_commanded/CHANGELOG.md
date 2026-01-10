@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.29.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.28.1...trogon_commanded@v0.29.0) (2026-01-10)
+
+
+### Features
+
+* **trogon_commanded:** Add type provider Protobuf message registration directly ([#284](https://github.com/straw-hat-team/beam-monorepo/issues/284)) ([f6b243e](https://github.com/straw-hat-team/beam-monorepo/commit/f6b243e31c9926d5c30bd82af4efcac474702651))
+
+
 ## [0.28.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.28.0...trogon_commanded@v0.28.1) (2025-11-23)
 
 
