@@ -8,36 +8,78 @@ defmodule Trogon.Result do
   alias Trogon.Result.ExpectedError
 
   @typedoc """
-  An Ok result.
+  An Ok result with a specific value type.
   """
-  @type ok :: {:ok, any}
+  @type ok(value) :: {:ok, value}
 
   @typedoc """
-  An Error result.
+  An Ok result with any value type.
   """
-  @type err :: {:error, any}
+  @type ok :: ok(any())
 
   @typedoc """
-  An Result Tuple.
+  An Error result with a specific reason type.
   """
-  @type t :: ok() | err()
+  @type err(reason) :: {:error, reason}
+
+  @typedoc """
+  An Error result with any reason type.
+  """
+  @type err :: err(any())
+
+  @typedoc """
+  A Result Tuple with specific ok and error types.
+
+  ## Examples
+
+      @type fetch_user_error :: :not_found | :db_error
+      @spec fetch_user(integer()) :: Trogon.Result.t(User.t(), fetch_user_error())
+      def fetch_user(id), do: ...
+
+  """
+  @type t(ok_value, err_reason) :: ok(ok_value) | err(err_reason)
+
+  @typedoc """
+  A Result Tuple with any value types.
+  """
+  @type t :: t(any(), any())
+
+  @typedoc """
+  A predicate function that takes a value and returns a boolean.
+  """
+  @type predicate(a) :: (a -> boolean())
+
+  @typedoc """
+  A mapper function that transforms a value from type `a` to type `b`.
+  """
+  @type mapper(a, b) :: (a -> b)
+
+  @typedoc """
+  A side-effect function used for tapping into values without transforming them.
+  """
+  @type tap_func(a) :: (a -> any())
+
+  @typedoc """
+  A lazy function that produces a value when called with no arguments.
+  """
+  @type lazy(a) :: (-> a)
 
   @doc """
-  Wraps a value into an `t:ok/0` result.
+  Wraps a value into an `t:ok/1` result.
 
       iex> Trogon.Result.ok(42)
       {:ok, 42}
   """
-  @spec ok(value :: any) :: ok
+  @spec ok(value) :: ok(value) when value: any()
   def ok(value), do: {:ok, value}
 
   @doc """
-  Wraps a value into an `t:err/0` result.
+  Wraps a value into an `t:err/1` result.
 
       iex> Trogon.Result.err("oops")
       {:error, "oops"}
   """
-  @spec err(reason :: any) :: err
+  @spec err(reason) :: err(reason) when reason: any()
   def err(reason), do: {:error, reason}
 
   @doc """
@@ -53,7 +95,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.ok?()
       false
   """
-  @spec ok?(value :: t) :: boolean
+  @spec ok?(value :: t()) :: boolean()
   def ok?({:ok, _}), do: true
   def ok?({:error, _}), do: false
 
@@ -72,7 +114,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.ok_and?(is_meaning_of_life)
       false
   """
-  @spec ok_and?(value :: t, predicate :: (any -> boolean)) :: boolean
+  @spec ok_and?(value :: t(a, any()), predicate :: predicate(a)) :: boolean() when a: any()
   def ok_and?({:error, _}, _func), do: false
   def ok_and?({:ok, val}, func), do: func.(val) == true
 
@@ -89,7 +131,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.err?()
       true
   """
-  @spec err?(value :: t) :: boolean
+  @spec err?(value :: t()) :: boolean()
   def err?({:ok, _}), do: false
   def err?({:error, _}), do: true
 
@@ -108,7 +150,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.err_and?(is_not_found)
       true
   """
-  @spec err_and?(value :: t, predicate :: (any -> boolean)) :: boolean
+  @spec err_and?(value :: t(any(), e), predicate :: predicate(e)) :: boolean() when e: any()
   def err_and?({:ok, _}, _func), do: false
   def err_and?({:error, val}, func), do: func.(val) == true
 
@@ -178,7 +220,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.contains_ok?(42)
       false
   """
-  @spec contains_ok?(result :: t, value :: any) :: boolean
+  @spec contains_ok?(result :: t(a, any()), value :: a) :: boolean() when a: any()
   def contains_ok?({:error, _}, _), do: false
   def contains_ok?({:ok, value}, value), do: true
   def contains_ok?({:ok, _}, _), do: false
@@ -201,7 +243,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.contains_err?("ops")
       false
   """
-  @spec contains_err?(result :: t, value :: any) :: boolean
+  @spec contains_err?(result :: t(any(), e), value :: e) :: boolean() when e: any()
   def contains_err?({:ok, _}, _), do: false
   def contains_err?({:error, value}, value), do: true
   def contains_err?({:error, _}, _), do: false
@@ -231,7 +273,8 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.map_ok(meaning_of_life)
       {:ok, 42}
   """
-  @spec map_ok(result :: t, on_ok :: (any -> any) | any) :: t
+  @spec map_ok(result :: t(a, e), on_ok :: mapper(a, b)) :: t(b, e) when a: any(), b: any(), e: any()
+  @spec map_ok(result :: t(a, e), on_ok :: b) :: t(b, e) when a: any(), b: any(), e: any()
   def map_ok({:ok, val}, on_ok) when is_function(on_ok), do: ok(on_ok.(val))
   def map_ok({:ok, _val}, value), do: ok(value)
   def map_ok({:error, _} = error, _on_ok), do: error
@@ -269,7 +312,8 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.map_ok_or(meaning_of_life, went_wrong)
       "something went wrong because a sleepy bear"
   """
-  @spec map_ok_or(result :: t, on_ok :: (any -> any), on_error :: any | (any -> any)) :: any
+  @spec map_ok_or(result :: t(a, e), on_ok :: mapper(a, b), on_error :: mapper(e, b) | b) :: b
+        when a: any(), b: any(), e: any()
   def map_ok_or({:ok, val}, on_ok, _), do: on_ok.(val)
   def map_ok_or({:error, reason}, _, on_error) when is_function(on_error), do: on_error.(reason)
   def map_ok_or({:error, _}, _, on_error), do: on_error
@@ -295,7 +339,8 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.when_ok(meaning_of_life)
       42
   """
-  @spec when_ok(result :: t, on_ok :: (any -> any) | any) :: err() | any
+  @spec when_ok(result :: t(a, e), on_ok :: mapper(a, b)) :: err(e) | b when a: any(), b: any(), e: any()
+  @spec when_ok(result :: t(a, e), on_ok :: b) :: err(e) | b when a: any(), b: any(), e: any()
   def when_ok({:ok, val}, on_ok) when is_function(on_ok), do: on_ok.(val)
   def when_ok({:ok, _val}, value), do: value
   def when_ok({:error, _} = error, _), do: error
@@ -326,7 +371,8 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.and_ok(Trogon.Result.err("late error"))
       {:error, "something went wrong"}
   """
-  @spec and_ok(first_result :: t, second_result :: t) :: t
+  @spec and_ok(first_result :: t(any(), e), second_result :: t(b, e)) :: t(b, e)
+        when b: any(), e: any()
   def and_ok({:ok, _}, {:ok, _} = second_result), do: second_result
   def and_ok({:ok, _}, {:error, _} = second_result), do: second_result
   def and_ok({:error, _} = first_result, {:ok, _}), do: first_result
@@ -360,7 +406,8 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.unwrap_ok(say_hello_world)
       "hello, world!"
   """
-  @spec unwrap_ok(result :: t, on_error :: any | (any -> any)) :: any
+  @spec unwrap_ok(result :: t(a, e), on_error :: mapper(e, a)) :: a when a: any(), e: any()
+  @spec unwrap_ok(result :: t(a, e), on_error :: a) :: a when a: any(), e: any()
   def unwrap_ok({:ok, v}, _), do: v
   def unwrap_ok({:error, reason}, on_error) when is_function(on_error), do: on_error.(reason)
   def unwrap_ok({:error, _reason}, on_error), do: on_error
@@ -386,7 +433,7 @@ defmodule Trogon.Result do
       ...> end
       "was a unwrap failure"
   """
-  @spec unwrap_ok!(result :: t) :: any | no_return
+  @spec unwrap_ok!(result :: t(a, any())) :: a | no_return when a: any()
   def unwrap_ok!({:ok, val}), do: val
   def unwrap_ok!({:error, reason}), do: raise(OkUnwrapError, reason: reason)
 
@@ -411,7 +458,7 @@ defmodule Trogon.Result do
       ...> end
       42
   """
-  @spec expect_ok!(result :: t, message :: String.t()) :: any | no_return
+  @spec expect_ok!(result :: t(a, any()), message :: String.t()) :: a | no_return when a: any()
   def expect_ok!({:ok, val}, _message), do: val
   def expect_ok!({:error, reason}, message), do: raise(ExpectedError, message: message, value: reason)
 
@@ -424,7 +471,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.tap_ok(success_log)
       {:ok, 42}
   """
-  @spec tap_ok(result :: t, func :: (any -> any)) :: t
+  @spec tap_ok(result :: t(a, e), func :: tap_func(a)) :: t(a, e) when a: any(), e: any()
   def tap_ok(result, func), do: map_ok(result, &tap(&1, func))
 
   @doc ~S"""
@@ -452,7 +499,9 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.map_err(meaning_of_life)
       {:error, "must be 42 instead of 21"}
   """
-  @spec map_err(result :: t, on_error :: (any -> any) | any) :: t
+  @spec map_err(result :: t(a, e1), on_error :: mapper(e1, e2)) :: t(a, e2)
+        when a: any(), e1: any(), e2: any()
+  @spec map_err(result :: t(a, e1), on_error :: e2) :: t(a, e2) when a: any(), e1: any(), e2: any()
   def map_err({:ok, _} = result, _), do: result
   def map_err({:error, reason}, on_error) when is_function(on_error), do: err(on_error.(reason))
   def map_err({:error, _}, reason), do: err(reason)
@@ -478,7 +527,8 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.when_err(failure)
       "lazy ooops"
   """
-  @spec when_err(result :: t, on_err :: (any -> t) | any) :: ok() | any
+  @spec when_err(result :: t(a, e), on_err :: mapper(e, b)) :: ok(a) | b when a: any(), b: any(), e: any()
+  @spec when_err(result :: t(a, e), on_err :: b) :: ok(a) | b when a: any(), b: any(), e: any()
   def when_err({:ok, _} = resp, _), do: resp
   def when_err({:error, reason}, on_err) when is_function(on_err), do: on_err.(reason)
   def when_err({:error, _}, value), do: value
@@ -509,7 +559,8 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.and_err(Trogon.Result.err("late error"))
       {:error, "late error"}
   """
-  @spec and_err(first_result :: t, second_result :: t) :: t
+  @spec and_err(first_result :: t(a, any()), second_result :: t(a, e)) :: t(a, e)
+        when a: any(), e: any()
   def and_err({:ok, _} = first_result, {:ok, _}), do: first_result
   def and_err({:ok, _} = first_result, {:error, _}), do: first_result
   def and_err({:error, _}, {:ok, _} = second_result), do: second_result
@@ -536,7 +587,7 @@ defmodule Trogon.Result do
       ...> end
       "was a unwrap failure"
   """
-  @spec unwrap_err!(result :: t) :: any | no_return
+  @spec unwrap_err!(result :: t(any(), e)) :: e | no_return when e: any()
   def unwrap_err!({:ok, val}), do: raise(ErrUnwrapError, value: val)
   def unwrap_err!({:error, reason}), do: reason
 
@@ -561,7 +612,7 @@ defmodule Trogon.Result do
       ...> end
       "oops"
   """
-  @spec expect_err!(result :: t, message :: String.t()) :: any | no_return
+  @spec expect_err!(result :: t(any(), e), message :: String.t()) :: e | no_return when e: any()
   def expect_err!({:error, reason}, _message), do: reason
   def expect_err!({:ok, val}, message), do: raise(ExpectedError, message: message, value: val)
 
@@ -574,7 +625,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.tap_err(failure_log)
       {:error, "ooopsy"}
   """
-  @spec tap_err(result :: t, func :: (any -> any)) :: t
+  @spec tap_err(result :: t(a, e), func :: tap_func(e)) :: t(a, e) when a: any(), e: any()
   def tap_err(result, func), do: map_err(result, &tap(&1, func))
 
   @doc ~S"""
@@ -604,7 +655,8 @@ defmodule Trogon.Result do
       ...> Trogon.Result.reject_nil(nil, new_error)
       {:error, "ooops"}
   """
-  @spec reject_nil(value :: any, on_nil :: any | (-> any)) :: t
+  @spec reject_nil(value :: a | nil | t(a, e), on_nil :: e | lazy(e)) :: t(a, e)
+        when a: any(), e: any()
   def reject_nil(nil, on_nil) when is_function(on_nil), do: err(on_nil.())
   def reject_nil(nil, on_nil), do: err(on_nil)
   def reject_nil({:ok, _} = response, _), do: response
@@ -638,7 +690,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.flatten()
       {:error, {:error, "oops"}}
   """
-  @spec flatten(result :: t) :: t
+  @spec flatten(result :: t(t(a, e), e)) :: t(a, e) when a: any(), e: any()
   def flatten(value), do: when_ok(value, &Function.identity/1)
 
   @doc """
@@ -658,7 +710,7 @@ defmodule Trogon.Result do
       ...> ])
       {:error, "oops"}
   """
-  @spec collect(Enum.t()) :: t
+  @spec collect(Enumerable.t(t(a, e))) :: t([a], e) when a: any(), e: any()
   def collect(result_list) do
     result_list
     |> Enum.map(&unwrap_ok!/1)
@@ -681,7 +733,7 @@ defmodule Trogon.Result do
       ...> |> Trogon.Result.unwrap()
       "oops"
   """
-  @spec unwrap(result :: t) :: any
+  @spec unwrap(result :: t(a, a)) :: a when a: any()
   def unwrap({:ok, v}), do: v
   def unwrap({:error, v}), do: v
 end
