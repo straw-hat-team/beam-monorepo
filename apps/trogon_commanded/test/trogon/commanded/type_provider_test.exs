@@ -3,6 +3,10 @@ defmodule Trogon.Commanded.TypeProviderTest do
   alias Trogon.Commanded.TypeProvider
   alias Trogon.Commanded.TypeProvider.UnregisteredMappingError
 
+  alias Trogon.Commanded.TestSupport.Trogon.Commanded.Demo.AccountOpened, as: ProtoAccountOpened
+  alias Trogon.Commanded.TestSupport.Trogon.Commanded.Demo.AccountClosed, as: ProtoAccountClosed
+  alias Trogon.Commanded.TestSupport.Trogon.Commanded.Demo.TransferInitiated, as: ProtoTransferInitiated
+
   defmodule SomethingWithEnforceKeysHappened do
     @enforce_keys [:aggregate_id]
     defstruct [:aggregate_id, :foo, :bar]
@@ -38,6 +42,23 @@ defmodule Trogon.Commanded.TypeProviderTest do
     use TypeProvider, prefix: "accounts."
     register_type "account_created", AccountCreated
     register_type "account_locked", AccountLocked
+  end
+
+  defmodule ProtobufTypeProvider do
+    use TypeProvider
+    register_protobuf_message ProtoAccountOpened
+    register_protobuf_message ProtoAccountClosed
+  end
+
+  defmodule ProtobufWithPrefixTypeProvider do
+    use TypeProvider, prefix: "events."
+    register_protobuf_message ProtoTransferInitiated
+  end
+
+  defmodule MixedTypeProvider do
+    use TypeProvider
+    register_type "account_created", AccountCreated
+    register_protobuf_message ProtoAccountOpened
   end
 
   defmodule IAMAccountCreated do
@@ -183,5 +204,67 @@ defmodule Trogon.Commanded.TypeProviderTest do
   test "given a type provider with a struct that has enforce_keys a when calling to_struct then it returns the mapped struct" do
     assert struct(SomethingWithEnforceKeysHappened) ==
              AccountTypeProvider.to_struct("something_with_enforce_keys_happened")
+  end
+
+  test "given a type provider with protobuf message when calling to_string then returns the full_name" do
+    assert "trogon.commanded.demo.AccountOpened" ==
+             ProtobufTypeProvider.to_string(%ProtoAccountOpened{})
+  end
+
+  test "given a type provider with protobuf message when calling to_struct then returns the struct" do
+    assert %ProtoAccountOpened{} = ProtobufTypeProvider.to_struct("trogon.commanded.demo.AccountOpened")
+  end
+
+  test "given a type provider with prefix and protobuf message when calling to_string then returns prefixed full_name" do
+    assert "events.trogon.commanded.demo.TransferInitiated" ==
+             ProtobufWithPrefixTypeProvider.to_string(%ProtoTransferInitiated{})
+  end
+
+  test "given a type provider with prefix and protobuf message when calling to_struct then returns the struct" do
+    assert %ProtoTransferInitiated{} =
+             ProtobufWithPrefixTypeProvider.to_struct("events.trogon.commanded.demo.TransferInitiated")
+  end
+
+  test "given a type provider with mixed registrations when calling to_string then works for both" do
+    assert "account_created" == MixedTypeProvider.to_string(%AccountCreated{})
+    assert "trogon.commanded.demo.AccountOpened" == MixedTypeProvider.to_string(%ProtoAccountOpened{})
+  end
+
+  test "given a type provider when registering a module without full_name/0 then raises an error" do
+    expected_message =
+      "InvalidProtobufTypeProvider registration expected NotAProtobuf to be a Protobuf message with full_name/0"
+
+    assert_raise(ArgumentError, expected_message, fn ->
+      Code.compile_quoted(
+        quote do
+          defmodule NotAProtobuf do
+            defstruct [:id]
+          end
+
+          defmodule InvalidProtobufTypeProvider do
+            use Trogon.Commanded.TypeProvider
+            register_protobuf_message NotAProtobuf
+          end
+        end
+      )
+    end)
+  end
+
+  test "given a type provider when registering duplicate protobuf messages then raises an error" do
+    expected_message =
+      ~s("trogon.commanded.demo.AccountOpened" already registered with Trogon.Commanded.TestSupport.Trogon.Commanded.Demo.AccountOpened in DuplicateProtobufTypeProvider)
+
+    assert_raise(ArgumentError, expected_message, fn ->
+      Code.compile_quoted(
+        quote do
+          defmodule DuplicateProtobufTypeProvider do
+            use Trogon.Commanded.TypeProvider
+
+            register_protobuf_message Trogon.Commanded.TestSupport.Trogon.Commanded.Demo.AccountOpened
+            register_protobuf_message Trogon.Commanded.TestSupport.Trogon.Commanded.Demo.AccountOpened
+          end
+        end
+      )
+    end)
   end
 end
