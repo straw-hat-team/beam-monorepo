@@ -1,0 +1,257 @@
+defmodule Trogon.Commanded.ObjectId do
+  @moduledoc """
+  Macro for defining type-safe, domain-specific object IDs.
+
+  ObjectIds are type-safe identifiers that combine a human-readable prefix with a value,
+  stored as `{prefix}{separator}{id}` (e.g., `"user_abc-123"`).
+
+  ## Usage
+
+      defmodule MyApp.UserId do
+        use Trogon.Commanded.ObjectId,
+          object_type: "user"
+      end
+
+      # Create
+      user_id = MyApp.UserId.new("abc-123")
+      #=> %MyApp.UserId{id: "abc-123"}
+
+      # Convert to string
+      to_string(user_id)
+      #=> "user_abc-123"
+
+      # Parse
+      MyApp.UserId.parse("user_abc-123")
+      #=> {:ok, %MyApp.UserId{id: "abc-123"}}
+
+  ## Type Safety
+
+  Each ObjectId type is a separate struct, providing compile-time and runtime type safety:
+
+      def process_user(%MyApp.UserId{} = id), do: ...
+      def process_order(%MyApp.OrderId{} = id), do: ...
+
+      process_user(MyApp.OrderId.new("123"))  #=> FunctionClauseError!
+
+  ## Ecto Integration
+
+  ObjectIds implement `Ecto.Type`, so you can use them directly in schemas:
+
+      schema "users" do
+        field :id, MyApp.UserId
+      end
+  """
+
+  @using_opts_schema NimbleOptions.new!(
+                       object_type: [
+                         type: :string,
+                         required: true,
+                         doc: "The object type (e.g., `\"user\"`, `\"order\"`)."
+                       ],
+                       separator: [
+                         type: :string,
+                         default: "_",
+                         doc: "Separator between prefix and id."
+                       ],
+                       storage_format: [
+                         type: {:in, [:full, :drop_prefix]},
+                         default: :full,
+                         doc: """
+                         Database storage format.
+                         - `:full` - Store complete string (e.g., `"user_abc-123"`)
+                         - `:drop_prefix` - Store only the id (e.g., `"abc-123"`)
+                         """
+                       ],
+                       json_format: [
+                         type: {:in, [:full, :drop_prefix]},
+                         default: :full,
+                         doc: """
+                         JSON encoding format.
+                         - `:full` - Encode complete string (e.g., `"user_abc-123"`)
+                         - `:drop_prefix` - Encode only the id (e.g., `"abc-123"`)
+                         """
+                       ]
+                     )
+
+  @doc """
+  Defines a type-safe ObjectId module.
+
+  ## Options
+
+  #{NimbleOptions.docs(@using_opts_schema)}
+
+  ## Examples
+
+      defmodule MyApp.UserId do
+        use Trogon.Commanded.ObjectId, object_type: "user"
+      end
+
+      defmodule MyApp.OrderId do
+        use Trogon.Commanded.ObjectId, object_type: "order", separator: "#"
+      end
+
+      defmodule MyApp.AccountId do
+        use Trogon.Commanded.ObjectId, object_type: "acct", storage_format: :drop_prefix
+      end
+  """
+  defmacro __using__(opts) do
+    opts = NimbleOptions.validate!(opts, @using_opts_schema)
+    object_type = Keyword.fetch!(opts, :object_type)
+    separator = Keyword.fetch!(opts, :separator)
+    storage_format = Keyword.fetch!(opts, :storage_format)
+    json_format = Keyword.fetch!(opts, :json_format)
+
+    # Precompute at compile time
+    prefix = object_type <> separator
+    prefix_len = byte_size(prefix)
+
+    quote location: :keep do
+      @behaviour Ecto.Type
+
+      @type t :: %__MODULE__{id: binary()}
+
+      defstruct [:id]
+
+      @doc false
+      @spec object_type() :: String.t()
+      def object_type, do: unquote(object_type)
+
+      @doc false
+      @spec prefix() :: String.t()
+      def prefix, do: unquote(prefix)
+
+      @doc """
+      Wraps a value in an ObjectId struct.
+
+      Raises `FunctionClauseError` if value is empty.
+
+      ## Examples
+
+          iex> #{inspect(__MODULE__)}.new("abc-123")
+          %#{inspect(__MODULE__)}{id: "abc-123"}
+      """
+      @spec new(binary()) :: t()
+      def new(value) when is_binary(value) and value != "" do
+        %__MODULE__{id: value}
+      end
+
+      @doc """
+      Parses an ObjectId string.
+
+      The string must be in the format `#{unquote(prefix)}{id}`.
+
+      ## Examples
+
+          iex> #{inspect(__MODULE__)}.parse("#{unquote(prefix)}abc-123")
+          {:ok, %#{inspect(__MODULE__)}{id: "abc-123"}}
+
+          iex> #{inspect(__MODULE__)}.parse("invalid")
+          {:error, :invalid_format}
+
+          iex> #{inspect(__MODULE__)}.parse("wrong#{unquote(separator)}abc-123")
+          {:error, :invalid_format}
+      """
+      @spec parse(String.t()) :: {:ok, t()} | {:error, :invalid_format}
+      def parse(string) when is_binary(string) do
+        Trogon.Commanded.ObjectId.parse(
+          __MODULE__,
+          unquote(prefix),
+          unquote(prefix_len),
+          string
+        )
+      end
+
+      # Ecto.Type behavior implementation
+
+      @impl Ecto.Type
+      @spec type() :: :string
+      def type, do: :string
+
+      @impl Ecto.Type
+      @spec cast(any()) :: {:ok, t() | nil} | :error | {:error, atom()}
+      def cast(nil), do: {:ok, nil}
+      def cast(""), do: {:ok, nil}
+      def cast(%__MODULE__{id: ""}), do: :error
+      def cast(%__MODULE__{id: nil}), do: :error
+      def cast(%__MODULE__{id: id} = value) when is_binary(id), do: {:ok, value}
+      def cast(value) when is_binary(value), do: parse(value)
+      def cast(_), do: :error
+
+      @impl Ecto.Type
+      @spec load(any()) :: {:ok, t() | nil} | :error
+      def load(nil), do: {:ok, nil}
+      def load(""), do: {:ok, nil}
+
+      def load(value) when is_binary(value) do
+        full_value = Trogon.Commanded.ObjectId.with_prefix(value, unquote(storage_format), unquote(prefix))
+
+        case parse(full_value) do
+          {:ok, typeid} -> {:ok, typeid}
+          {:error, _} -> :error
+        end
+      end
+
+      def load(_), do: :error
+
+      @impl Ecto.Type
+      @spec dump(any()) :: {:ok, String.t() | nil} | :error
+      def dump(nil), do: {:ok, nil}
+      def dump(%__MODULE__{id: ""}), do: :error
+
+      def dump(%__MODULE__{id: id}) when is_binary(id) do
+        Trogon.Commanded.ObjectId.format(unquote(storage_format), unquote(prefix), id)
+      end
+
+      def dump(_), do: :error
+
+      @impl Ecto.Type
+      @spec equal?(any(), any()) :: boolean()
+      def equal?(%__MODULE__{id: a}, %__MODULE__{id: b}), do: a == b
+      def equal?(_, _), do: false
+
+      @impl Ecto.Type
+      @spec embed_as(atom()) :: :self
+      def embed_as(_format), do: :self
+
+      defimpl String.Chars do
+        @moduledoc false
+        def to_string(%@for{id: id}) when is_binary(id) do
+          "#{unquote(prefix)}#{id}"
+        end
+      end
+
+      if Code.ensure_loaded?(Jason.Encoder) do
+        defimpl Jason.Encoder do
+          @moduledoc false
+          def encode(%@for{id: id}, opts) when is_binary(id) do
+            {:ok, value} = Trogon.Commanded.ObjectId.format(unquote(json_format), unquote(prefix), id)
+            Jason.Encode.string(value, opts)
+          end
+        end
+      end
+    end
+  end
+
+  @doc false
+  @spec parse(module(), String.t(), non_neg_integer(), String.t()) ::
+          {:ok, struct()} | {:error, :invalid_format}
+  def parse(module, prefix, prefix_len, string) do
+    case string do
+      <<^prefix::binary-size(prefix_len), suffix::binary>> when suffix != "" ->
+        {:ok, struct(module, id: suffix)}
+
+      _ ->
+        {:error, :invalid_format}
+    end
+  end
+
+  @doc false
+  @spec format(:full | :drop_prefix, String.t(), String.t()) :: {:ok, String.t()}
+  def format(:full, prefix, id), do: {:ok, prefix <> id}
+  def format(:drop_prefix, _prefix, id), do: {:ok, id}
+
+  @doc false
+  @spec with_prefix(String.t(), :full | :drop_prefix, String.t()) :: String.t()
+  def with_prefix(value, :full, _prefix), do: value
+  def with_prefix(value, :drop_prefix, prefix), do: prefix <> value
+end
