@@ -255,4 +255,65 @@ defmodule TestSupport do
       end)
     end)
   end
+
+  defmodule UserId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "user"
+  end
+
+  defmodule OrderId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "order"
+  end
+
+  defmodule AccountId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "account"
+  end
+
+  defmodule CustomSeparatorId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "custom", separator: "#"
+  end
+
+  defmodule FullStorageId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "full", storage_format: :full
+  end
+
+  defmodule DropPrefixId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "drop", storage_format: :drop_prefix
+  end
+
+  defmodule TypeWithSeparatorId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "my_user", separator: "_"
+  end
+
+  defmodule SimpleTypeId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "myuser"
+  end
+
+  defmodule DashTypeId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "my-user", separator: "_"
+  end
+
+  defmodule JsonDropPrefixId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId,
+      object_type: "jsondrop",
+      storage_format: :full,
+      json_format: :drop_prefix
+  end
+
+  defmodule StorageDropJsonFullId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId,
+      object_type: "mixed",
+      storage_format: :drop_prefix,
+      json_format: :full
+  end
 end

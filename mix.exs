@@ -32,11 +32,16 @@ defmodule BeamMonorepoUmbrella.MixProject do
 
   defp dialyzer do
     [
-      plt_add_apps: [:mix]
+      plt_add_apps: [:mix],
+      plt_local_path: "priv/plts"
     ]
   end
 
   defp deps do
-    []
+    [
+      # Override to resolve conflict between excoveralls (only: [:test, :dev])
+      # and polymorphic_embed (needs it in all environments)
+      {:jason, "~> 1.4"}
+    ]
   end
 end
