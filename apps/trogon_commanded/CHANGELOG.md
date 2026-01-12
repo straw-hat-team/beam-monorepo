@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.30.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.29.0...trogon_commanded@v0.30.0) (2026-01-12)
+
+
+### Features
+
+* **trogon_commanded:** Add object id ([#287](https://github.com/straw-hat-team/beam-monorepo/issues/287)) ([a45bf21](https://github.com/straw-hat-team/beam-monorepo/commit/a45bf21a5f0ddb55cd5b27ac67d9c3745160f059))
+
 ## [0.29.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.28.1...trogon_commanded@v0.29.0) (2026-01-10)
 
 
