@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.31.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.30.0...trogon_commanded@v0.31.0) (2026-01-12)
+
+
+### Features
+
+* **trogon_commanded:** Add to_storage/1 ([#289](https://github.com/straw-hat-team/beam-monorepo/issues/289)) ([83aa85c](https://github.com/straw-hat-team/beam-monorepo/commit/83aa85c161783f0d8c9adbaa349523c3ca6f2d2f))
+
 ## [0.30.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.29.0...trogon_commanded@v0.30.0) (2026-01-12)
 
 

@@ -1,5 +1,5 @@
 {
-  "apps/trogon_commanded": "0.30.0",
+  "apps/trogon_commanded": "0.31.0",
   "apps/one_piece_graceful_shutdown": "0.1.0",
   "apps/trogon_result": "1.0.1",
   "apps/trogon_error": "0.5.4",
