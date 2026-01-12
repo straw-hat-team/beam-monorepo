@@ -104,6 +104,7 @@ defmodule Trogon.Commanded.ObjectId do
     # Precompute at compile time
     prefix = object_type <> separator
     prefix_len = byte_size(prefix)
+    storage_example_output = if storage_format == :full, do: inspect(prefix <> "abc-123"), else: inspect("abc-123")
 
     quote location: :keep do
       @behaviour Ecto.Type
@@ -193,15 +194,25 @@ defmodule Trogon.Commanded.ObjectId do
 
       def load(_), do: :error
 
+      @doc """
+      Converts an ObjectId struct to a storage format string.
+
+      ## Examples
+
+          iex> #{inspect(__MODULE__)}.to_storage(%#{inspect(__MODULE__)}{id: "abc-123"})
+          #{unquote(storage_example_output)}
+      """
+      @spec to_storage(t()) :: String.t()
+      def to_storage(%__MODULE__{id: id}) when is_binary(id) and id != "" do
+        Trogon.Commanded.ObjectId.format(unquote(storage_format), unquote(prefix), id)
+      end
+
       @impl Ecto.Type
       @spec dump(any()) :: {:ok, String.t() | nil} | :error
       def dump(nil), do: {:ok, nil}
       def dump(%__MODULE__{id: ""}), do: :error
-
-      def dump(%__MODULE__{id: id}) when is_binary(id) do
-        Trogon.Commanded.ObjectId.format(unquote(storage_format), unquote(prefix), id)
-      end
-
+      def dump(%__MODULE__{id: nil}), do: :error
+      def dump(%__MODULE__{id: id} = v) when is_binary(id), do: {:ok, to_storage(v)}
       def dump(_), do: :error
 
       @impl Ecto.Type
@@ -224,7 +235,7 @@ defmodule Trogon.Commanded.ObjectId do
         defimpl Jason.Encoder do
           @moduledoc false
           def encode(%@for{id: id}, opts) when is_binary(id) do
-            {:ok, value} = Trogon.Commanded.ObjectId.format(unquote(json_format), unquote(prefix), id)
+            value = Trogon.Commanded.ObjectId.format(unquote(json_format), unquote(prefix), id)
             Jason.Encode.string(value, opts)
           end
         end
@@ -246,9 +257,9 @@ defmodule Trogon.Commanded.ObjectId do
   end
 
   @doc false
-  @spec format(:full | :drop_prefix, String.t(), String.t()) :: {:ok, String.t()}
-  def format(:full, prefix, id), do: {:ok, prefix <> id}
-  def format(:drop_prefix, _prefix, id), do: {:ok, id}
+  @spec format(:full | :drop_prefix, String.t(), String.t()) :: String.t()
+  def format(:full, prefix, id), do: prefix <> id
+  def format(:drop_prefix, _prefix, id), do: id
 
   @doc false
   @spec with_prefix(String.t(), :full | :drop_prefix, String.t()) :: String.t()

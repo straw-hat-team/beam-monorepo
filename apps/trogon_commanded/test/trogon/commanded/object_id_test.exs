@@ -197,6 +197,26 @@ defmodule Trogon.Commanded.ObjectIdTest do
     end
   end
 
+  describe "to_storage/1" do
+    test "converts valid struct to storage format (default :full)" do
+      typeid = TestSupport.UserId.new(@test_uuid)
+
+      assert TestSupport.UserId.to_storage(typeid) == "user_#{@test_uuid}"
+    end
+
+    test "converts valid struct to storage format (:drop_prefix)" do
+      typeid = TestSupport.DropPrefixId.new(@test_uuid)
+
+      assert TestSupport.DropPrefixId.to_storage(typeid) == @test_uuid
+    end
+
+    test "converts valid struct with custom separator" do
+      typeid = TestSupport.CustomSeparatorId.new(@test_uuid)
+
+      assert TestSupport.CustomSeparatorId.to_storage(typeid) == "custom##{@test_uuid}"
+    end
+  end
+
   describe "dump/1" do
     test "dumps with storage_format: :full (default)" do
       typeid = TestSupport.UserId.new(@test_uuid)
@@ -241,6 +261,26 @@ defmodule Trogon.Commanded.ObjectIdTest do
 
     test "returns {:ok, nil} for nil (store NULL in database)" do
       assert {:ok, nil} = TestSupport.UserId.dump(nil)
+    end
+
+    test "delegates to to_storage for valid struct" do
+      typeid = TestSupport.UserId.new(@test_uuid)
+
+      {:ok, dump_result} = TestSupport.UserId.dump(typeid)
+      storage_result = TestSupport.UserId.to_storage(typeid)
+
+      assert dump_result == storage_result
+    end
+
+    test "enforces struct pattern matching before calling to_storage" do
+      # Plain map (not a struct) should fail
+      assert :error = TestSupport.UserId.dump(%{id: @test_uuid})
+
+      # Dict-like but not our struct
+      assert :error = TestSupport.UserId.dump(%{"id" => @test_uuid})
+
+      # Non-struct value
+      assert :error = TestSupport.UserId.dump(123)
     end
   end
 
