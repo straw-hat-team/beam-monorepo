@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package invalid.no_namespace.v1;
+
+import "trogon/uuid/v1/options.proto";
+
+// Invalid: Missing namespace option on enum.
+message NoNamespaceId {
+  enum IdentityVersion {
+    // NOTE: No (trogon.uuid.v1.enum).namespace option!
+
+    IDENTITY_VERSION_UNSPECIFIED = 0;
+    IDENTITY_VERSION_V1 = 1 [(trogon.uuid.v1.enum_value).format = {
+      template: "item/{item_id}"
+    }];
+  }
+
+  string value = 1;
+}

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package acme.file_namespace.v1;
+
+import "trogon/uuid/v1/options.proto";
+
+// File-level namespace - used as fallback when enum doesn't specify one.
+option (trogon.uuid.v1.file).namespace = {dns: "file-level.acme.com"};
+
+// This enum does NOT have its own namespace, should fall back to file-level.
+message FileNamespaceId {
+  enum IdentityVersion {
+    // NOTE: No (trogon.uuid.v1.enum).namespace here!
+
+    IDENTITY_VERSION_UNSPECIFIED = 0;
+    IDENTITY_VERSION_V1 = 1 [(trogon.uuid.v1.enum_value).format = {
+      template: "file/{file_id}"
+    }];
+  }
+
+  string value = 1;
+}

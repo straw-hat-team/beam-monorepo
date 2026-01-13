@@ -1,0 +1,13 @@
+version: v2
+managed:
+  enabled: true
+inputs:
+  - directory: .
+    paths:
+      - acme
+      - invalid
+plugins:
+  - local: protoc-gen-elixir
+    out: ../support/proto
+    opt:
+      - gen_descriptors=true

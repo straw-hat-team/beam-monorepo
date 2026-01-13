@@ -1,0 +1,11 @@
+version: v2
+modules:
+  - path: proto
+deps:
+  - buf.build/trogonstack/trogon-proto
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE
