@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package acme.user.v1;
+
+import "trogon/uuid/v1/options.proto";
+
+// User identity with single-key template.
+message UserId {
+  enum IdentityVersion {
+    option (trogon.uuid.v1.enum).namespace = {dns: "acme.example.com"};
+
+    IDENTITY_VERSION_UNSPECIFIED = 0;
+    IDENTITY_VERSION_V1 = 1 [(trogon.uuid.v1.enum_value).format = {
+      template: "user/{user_id}"
+    }];
+  }
+
+  string value = 1;
+}

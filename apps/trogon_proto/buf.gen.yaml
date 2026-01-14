@@ -1,0 +1,10 @@
+version: v2
+managed:
+  enabled: true
+inputs:
+  - module: buf.build/trogonstack/trogon-proto
+plugins:
+  - local: protoc-gen-elixir
+    out: lib/trogon/proto
+    opt:
+      - gen_descriptors=true
