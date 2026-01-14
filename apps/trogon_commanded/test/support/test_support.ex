@@ -316,4 +316,39 @@ defmodule TestSupport do
       storage_format: :drop_prefix,
       json_format: :full
   end
+
+  defmodule TenantId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "tenant"
+  end
+
+  defmodule SystemId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "system"
+  end
+
+  defmodule ServiceId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "service"
+  end
+
+  defmodule ContextId do
+    @moduledoc false
+    use Trogon.Commanded.UnionObjectId, types: [TenantId, SystemId]
+  end
+
+  defmodule PrincipalId do
+    @moduledoc false
+    use Trogon.Commanded.UnionObjectId, types: [TenantId, SystemId, ServiceId]
+  end
+
+  defmodule AmbiguousPrefixIdA do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "a", separator: "bc_"
+  end
+
+  defmodule AmbiguousPrefixIdB do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "abc", separator: "_"
+  end
 end
