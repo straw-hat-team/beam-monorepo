@@ -2,7 +2,7 @@ version: v2
 managed:
   enabled: true
 inputs:
-  - module: buf.build/trogonstack/trogon-proto
+  - module: buf.build/trogonstack/trogon-proto:v0.2.0
 plugins:
   - local: protoc-gen-elixir
     out: lib/trogon/proto

@@ -2,9 +2,9 @@ defmodule Trogon.Proto.Uuid.V1.UuidTemplateTest do
   use ExUnit.Case, async: true
 
   # Generated proto modules from test/proto/*.proto
-  alias Acme.FileNamespace.V1.FileNamespaceId
   alias Acme.Order.V1.OrderId
   alias Invalid.NoFormat.V1.NoFormatId
+  alias Invalid.NoNamespace.V1.NoNamespaceId
 
   # Test support modules using UuidTemplate
   alias Trogon.Proto.TestSupport.AcmeOrderId
@@ -141,10 +141,9 @@ defmodule Trogon.Proto.Uuid.V1.UuidTemplateTest do
     end
 
     test "raises when neither enum nor value level namespace is set" do
-      # FileNamespaceId has file-level namespace but no enum-level namespace
-      # File-level is not yet supported, so this should raise
+      # NoNamespaceId has no namespace at any level
       assert_raise ArgumentError, ~r/No namespace found/, fn ->
-        UuidTemplate.extract_options(FileNamespaceId.IdentityVersion, :IDENTITY_VERSION_V1)
+        UuidTemplate.extract_options(NoNamespaceId.IdentityVersion, :IDENTITY_VERSION_V1)
       end
     end
   end
