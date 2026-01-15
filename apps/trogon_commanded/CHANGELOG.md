@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.33.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.32.0...trogon_commanded@v0.33.0) (2026-01-15)
+
+
+### Features
+
+* **trogon_commanded:** Add parse! function for ObjectId and UnionObjectId ([#297](https://github.com/straw-hat-team/beam-monorepo/issues/297)) ([7067fba](https://github.com/straw-hat-team/beam-monorepo/commit/7067fba405a2356916ca988e79ef648ed90fa47c))
+
 ## [0.32.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.31.0...trogon_commanded@v0.32.0) (2026-01-15)
 
 
