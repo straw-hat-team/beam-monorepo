@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.32.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.31.0...trogon_commanded@v0.32.0) (2026-01-15)
+
+
+### Features
+
+* **trogon_commanded:** Add UnionObjectId macro for union types ([#295](https://github.com/straw-hat-team/beam-monorepo/issues/295)) ([9630ae5](https://github.com/straw-hat-team/beam-monorepo/commit/9630ae56d0d87c68d9d3097d768f952719ec682a))
+
 ## [0.31.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.30.0...trogon_commanded@v0.31.0) (2026-01-12)
 
 
