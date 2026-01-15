@@ -91,6 +91,68 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
   end
 
+  describe "parse!/1" do
+    test "parses a TenantId string" do
+      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+
+      result = TestSupport.ContextId.parse!(tenant_string)
+
+      assert result == %TestSupport.ContextId{id: %TestSupport.TenantId{id: @tenant_id_value}}
+    end
+
+    test "parses a SystemId string" do
+      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
+
+      result = TestSupport.ContextId.parse!(system_string)
+
+      assert result == %TestSupport.ContextId{id: %TestSupport.SystemId{id: @system_id_value}}
+    end
+
+    test "raises ArgumentError for invalid string" do
+      assert_raise ArgumentError, ~r/invalid TestSupport.ContextId: "invalid"/, fn ->
+        TestSupport.ContextId.parse!("invalid")
+      end
+    end
+
+    test "raises ArgumentError for empty string" do
+      assert_raise ArgumentError, ~r/invalid TestSupport.ContextId: ""/, fn ->
+        TestSupport.ContextId.parse!("")
+      end
+    end
+
+    test "raises ArgumentError when string doesn't match any type" do
+      assert_raise ArgumentError, ~r/invalid TestSupport.ContextId: "unknown_abc-123"/, fn ->
+        TestSupport.ContextId.parse!("unknown_abc-123")
+      end
+    end
+
+    test "error message includes the invalid value" do
+      invalid_value = "some_bad_value_123"
+
+      error =
+        assert_raise ArgumentError, fn ->
+          TestSupport.ContextId.parse!(invalid_value)
+        end
+
+      assert error.message =~ invalid_value
+    end
+
+    test "handles three-type unions" do
+      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
+      service_string = to_string(TestSupport.ServiceId.new(@service_id_value))
+
+      assert TestSupport.PrincipalId.parse!(tenant_string) ==
+               %TestSupport.PrincipalId{id: %TestSupport.TenantId{id: @tenant_id_value}}
+
+      assert TestSupport.PrincipalId.parse!(system_string) ==
+               %TestSupport.PrincipalId{id: %TestSupport.SystemId{id: @system_id_value}}
+
+      assert TestSupport.PrincipalId.parse!(service_string) ==
+               %TestSupport.PrincipalId{id: %TestSupport.ServiceId{id: @service_id_value}}
+    end
+  end
+
   describe "to_storage/1" do
     test "converts TenantId to storage string with prefix" do
       tenant_id = TestSupport.TenantId.new(@tenant_id_value)
