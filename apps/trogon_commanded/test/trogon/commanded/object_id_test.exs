@@ -111,6 +111,49 @@ defmodule Trogon.Commanded.ObjectIdTest do
     end
   end
 
+  describe "parse!/1" do
+    test "parses a valid string" do
+      typeid = TestSupport.UserId.new(@test_uuid)
+      typeid_string = to_string(typeid)
+
+      parsed = TestSupport.UserId.parse!(typeid_string)
+      assert parsed.id == typeid.id
+    end
+
+    test "raises ArgumentError for invalid format" do
+      assert_raise ArgumentError, ~r/invalid TestSupport.UserId: "invalid"/, fn ->
+        TestSupport.UserId.parse!("invalid")
+      end
+    end
+
+    test "raises ArgumentError for wrong prefix" do
+      order_string = to_string(TestSupport.OrderId.new(@test_uuid))
+
+      assert_raise ArgumentError, ~r/invalid TestSupport.UserId/, fn ->
+        TestSupport.UserId.parse!(order_string)
+      end
+    end
+
+    test "error message includes the invalid value" do
+      invalid_value = "some_bad_value_123"
+
+      error =
+        assert_raise ArgumentError, fn ->
+          TestSupport.UserId.parse!(invalid_value)
+        end
+
+      assert error.message =~ invalid_value
+    end
+
+    test "parses with custom separator" do
+      typeid = TestSupport.CustomSeparatorId.new(@test_uuid)
+      string = to_string(typeid)
+
+      parsed = TestSupport.CustomSeparatorId.parse!(string)
+      assert parsed.id == typeid.id
+    end
+  end
+
   describe "type/0" do
     test "returns :string" do
       assert TestSupport.UserId.type() == :string

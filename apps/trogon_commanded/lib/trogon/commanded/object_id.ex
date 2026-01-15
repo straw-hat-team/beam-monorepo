@@ -104,11 +104,24 @@ defmodule Trogon.Commanded.ObjectId do
     # Precompute at compile time
     prefix = object_type <> separator
     prefix_len = byte_size(prefix)
-    storage_example_output = if storage_format == :full, do: inspect(prefix <> "abc-123"), else: inspect("abc-123")
 
     quote location: :keep do
       @behaviour Ecto.Type
 
+      unquote(__generated_struct_and_metadata__(object_type, prefix))
+      unquote(__generated_new_function__())
+      unquote(__generated_parse_functions__(prefix, prefix_len, separator))
+      unquote(__generated_ecto_cast__())
+      unquote(__generated_ecto_load__(storage_format, prefix))
+      unquote(__generated_storage_functions__(storage_format, prefix))
+      unquote(__generated_ecto_dump__())
+      unquote(__generated_ecto_comparison__())
+      unquote(__generated_protocols__(prefix, json_format))
+    end
+  end
+
+  defp __generated_struct_and_metadata__(object_type, prefix) do
+    quote location: :keep do
       @type t :: %__MODULE__{id: binary()}
 
       defstruct [:id]
@@ -120,7 +133,11 @@ defmodule Trogon.Commanded.ObjectId do
       @doc false
       @spec prefix() :: String.t()
       def prefix, do: unquote(prefix)
+    end
+  end
 
+  defp __generated_new_function__ do
+    quote location: :keep do
       @doc """
       Wraps a value in an ObjectId struct.
 
@@ -135,7 +152,11 @@ defmodule Trogon.Commanded.ObjectId do
       def new(value) when is_binary(value) and value != "" do
         %__MODULE__{id: value}
       end
+    end
+  end
 
+  defp __generated_parse_functions__(prefix, prefix_len, separator) do
+    quote location: :keep do
       @doc """
       Parses an ObjectId string.
 
@@ -162,8 +183,31 @@ defmodule Trogon.Commanded.ObjectId do
         )
       end
 
-      # Ecto.Type behavior implementation
+      @doc """
+      Parses an ObjectId string, raising on failure.
 
+      Same as `parse/1` but raises `ArgumentError` if the string is invalid.
+
+      ## Examples
+
+          iex> #{inspect(__MODULE__)}.parse!("#{unquote(prefix)}abc-123")
+          %#{inspect(__MODULE__)}{id: "abc-123"}
+
+          iex> #{inspect(__MODULE__)}.parse!("invalid")
+          ** (ArgumentError) invalid #{inspect(__MODULE__)}: "invalid"
+      """
+      @spec parse!(String.t()) :: t()
+      def parse!(string) when is_binary(string) do
+        case parse(string) do
+          {:ok, id} -> id
+          {:error, _} -> raise ArgumentError, "invalid #{inspect(__MODULE__)}: #{inspect(string)}"
+        end
+      end
+    end
+  end
+
+  defp __generated_ecto_cast__ do
+    quote location: :keep do
       @impl Ecto.Type
       @spec type() :: :string
       def type, do: :string
@@ -177,7 +221,11 @@ defmodule Trogon.Commanded.ObjectId do
       def cast(%__MODULE__{id: id} = value) when is_binary(id), do: {:ok, value}
       def cast(value) when is_binary(value), do: parse(value)
       def cast(_), do: :error
+    end
+  end
 
+  defp __generated_ecto_load__(storage_format, prefix) do
+    quote location: :keep do
       @impl Ecto.Type
       @spec load(any()) :: {:ok, t() | nil} | :error
       def load(nil), do: {:ok, nil}
@@ -193,7 +241,14 @@ defmodule Trogon.Commanded.ObjectId do
       end
 
       def load(_), do: :error
+    end
+  end
 
+  defp __generated_storage_functions__(storage_format, prefix) do
+    storage_example_output =
+      if storage_format == :full, do: inspect(prefix <> "abc-123"), else: inspect("abc-123")
+
+    quote location: :keep do
       @doc """
       Converts an ObjectId struct to a storage format string.
 
@@ -206,7 +261,11 @@ defmodule Trogon.Commanded.ObjectId do
       def to_storage(%__MODULE__{id: id}) when is_binary(id) and id != "" do
         Trogon.Commanded.ObjectId.format(unquote(storage_format), unquote(prefix), id)
       end
+    end
+  end
 
+  defp __generated_ecto_dump__ do
+    quote location: :keep do
       @impl Ecto.Type
       @spec dump(any()) :: {:ok, String.t() | nil} | :error
       def dump(nil), do: {:ok, nil}
@@ -214,7 +273,11 @@ defmodule Trogon.Commanded.ObjectId do
       def dump(%__MODULE__{id: nil}), do: :error
       def dump(%__MODULE__{id: id} = v) when is_binary(id), do: {:ok, to_storage(v)}
       def dump(_), do: :error
+    end
+  end
 
+  defp __generated_ecto_comparison__ do
+    quote location: :keep do
       @impl Ecto.Type
       @spec equal?(any(), any()) :: boolean()
       def equal?(%__MODULE__{id: a}, %__MODULE__{id: b}), do: a == b
@@ -223,7 +286,11 @@ defmodule Trogon.Commanded.ObjectId do
       @impl Ecto.Type
       @spec embed_as(atom()) :: :self
       def embed_as(_format), do: :self
+    end
+  end
 
+  defp __generated_protocols__(prefix, json_format) do
+    quote location: :keep do
       defimpl String.Chars do
         @moduledoc false
         def to_string(%@for{id: id}) when is_binary(id) do

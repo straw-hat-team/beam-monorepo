@@ -219,6 +219,27 @@ defmodule Trogon.Commanded.UnionObjectId do
       )
 
       def parse(_), do: {:error, :invalid_format}
+
+      @doc """
+      Parses a string by trying each underlying type's parse function, raising on failure.
+
+      Same as `parse/1` but raises `ArgumentError` if the string is invalid.
+
+      ## Examples
+
+          iex> #{inspect(__MODULE__)}.parse!("#{unquote(Enum.at(types, 0)).prefix()}abc-123")
+          %#{inspect(__MODULE__)}{id: %#{unquote(Enum.at(types, 0))}{id: "abc-123"}}
+
+          iex> #{inspect(__MODULE__)}.parse!("invalid")
+          ** (ArgumentError) invalid #{inspect(__MODULE__)}: "invalid"
+      """
+      @spec parse!(String.t()) :: t()
+      def parse!(string) when is_binary(string) do
+        case parse(string) do
+          {:ok, union} -> union
+          {:error, _} -> raise ArgumentError, "invalid #{inspect(__MODULE__)}: #{inspect(string)}"
+        end
+      end
     end
   end
 
