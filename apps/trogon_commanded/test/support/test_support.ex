@@ -351,4 +351,42 @@ defmodule TestSupport do
     @moduledoc false
     use Trogon.Commanded.ObjectId, object_type: "abc", separator: "_"
   end
+
+  # Format validation test modules
+  defmodule UuidFormatId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "uuid", validate: :uuid
+  end
+
+  defmodule IntegerFormatId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId, object_type: "int", validate: :integer
+  end
+
+  defmodule UuidDropPrefixId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId,
+      object_type: "uuiddrop",
+      storage_format: :drop_prefix,
+      validate: :uuid
+  end
+
+  defmodule CustomValidator do
+    @moduledoc false
+
+    def check(value) do
+      if String.starts_with?(value, "valid-") do
+        :ok
+      else
+        {:error, :invalid_custom_format}
+      end
+    end
+  end
+
+  defmodule CustomFormatId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId,
+      object_type: "custom_fmt",
+      validate: {TestSupport.CustomValidator, :check}
+  end
 end

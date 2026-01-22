@@ -450,4 +450,128 @@ defmodule Trogon.Commanded.ObjectIdTest do
       assert Jason.encode!(%TestSupport.UserId{id: ""}) == ~s("user_")
     end
   end
+
+  describe "format validation: :uuid" do
+    @valid_uuid "550e8400-e29b-41d4-a716-446655440000"
+
+    test "accepts valid UUID" do
+      result = TestSupport.UuidFormatId.parse("uuid_#{@valid_uuid}")
+
+      assert {:ok, %TestSupport.UuidFormatId{id: @valid_uuid}} = result
+    end
+
+    test "rejects invalid UUID" do
+      assert {:error, :invalid_uuid} = TestSupport.UuidFormatId.parse("uuid_not-a-uuid")
+    end
+
+    test "rejects empty UUID" do
+      assert {:error, :invalid_format} = TestSupport.UuidFormatId.parse("uuid_")
+    end
+
+    test "works with storage_format: :drop_prefix" do
+      result = TestSupport.UuidDropPrefixId.parse("uuiddrop_#{@valid_uuid}")
+
+      assert {:ok, %TestSupport.UuidDropPrefixId{id: @valid_uuid}} = result
+    end
+
+    test "validates the raw id value regardless of storage_format" do
+      # Validation runs against the raw id value, not the storage format
+      assert {:error, :invalid_uuid} = TestSupport.UuidDropPrefixId.parse("uuiddrop_invalid")
+    end
+
+    test "parse! raises ArgumentError for invalid UUID" do
+      assert_raise ArgumentError, ~r/invalid TestSupport.UuidFormatId/, fn ->
+        TestSupport.UuidFormatId.parse!("uuid_not-a-uuid")
+      end
+    end
+
+    test "cast delegates to parse and validates UUID" do
+      assert {:ok, %TestSupport.UuidFormatId{}} =
+               TestSupport.UuidFormatId.cast("uuid_#{@valid_uuid}")
+
+      assert {:error, :invalid_uuid} = TestSupport.UuidFormatId.cast("uuid_invalid")
+    end
+  end
+
+  describe "format validation: :integer" do
+    test "accepts valid integer string" do
+      assert {:ok, %TestSupport.IntegerFormatId{id: "12345"}} =
+               TestSupport.IntegerFormatId.parse("int_12345")
+    end
+
+    test "accepts zero" do
+      assert {:ok, %TestSupport.IntegerFormatId{id: "0"}} =
+               TestSupport.IntegerFormatId.parse("int_0")
+    end
+
+    test "accepts negative integers" do
+      assert {:ok, %TestSupport.IntegerFormatId{id: "-123"}} =
+               TestSupport.IntegerFormatId.parse("int_-123")
+    end
+
+    test "rejects non-integer strings" do
+      assert {:error, :invalid_integer} = TestSupport.IntegerFormatId.parse("int_abc")
+    end
+
+    test "rejects integers with trailing characters" do
+      assert {:error, :invalid_integer} = TestSupport.IntegerFormatId.parse("int_123abc")
+    end
+
+    test "rejects floats" do
+      assert {:error, :invalid_integer} = TestSupport.IntegerFormatId.parse("int_12.34")
+    end
+
+    test "parse! raises ArgumentError for invalid integer" do
+      assert_raise ArgumentError, ~r/invalid TestSupport.IntegerFormatId/, fn ->
+        TestSupport.IntegerFormatId.parse!("int_not-an-int")
+      end
+    end
+  end
+
+  describe "format validation: custom function" do
+    test "accepts values passing custom validation" do
+      assert {:ok, %TestSupport.CustomFormatId{id: "valid-123"}} =
+               TestSupport.CustomFormatId.parse("custom_fmt_valid-123")
+    end
+
+    test "rejects values failing custom validation" do
+      assert {:error, :invalid_custom_format} =
+               TestSupport.CustomFormatId.parse("custom_fmt_invalid-value")
+    end
+
+    test "parse! raises ArgumentError for invalid custom format" do
+      assert_raise ArgumentError, ~r/invalid TestSupport.CustomFormatId/, fn ->
+        TestSupport.CustomFormatId.parse!("custom_fmt_bad")
+      end
+    end
+  end
+
+  describe "format validation: no format specified" do
+    test "ObjectId without format accepts any value" do
+      assert {:ok, %TestSupport.UserId{id: "any-value-here"}} =
+               TestSupport.UserId.parse("user_any-value-here")
+    end
+  end
+
+  describe "format validation: compile-time errors" do
+    test "raises ArgumentError when function does not exist" do
+      assert_raise ArgumentError, ~r/String.nonexistent\/1 is not defined/, fn ->
+        Code.compile_string("""
+        defmodule TestNonexistentFunc do
+          use Trogon.Commanded.ObjectId, object_type: "test", validate: {String, :nonexistent}
+        end
+        """)
+      end
+    end
+
+    test "raises NimbleOptions.ValidationError for invalid validate type" do
+      assert_raise NimbleOptions.ValidationError, fn ->
+        Code.compile_string("""
+        defmodule TestInvalidValidate do
+          use Trogon.Commanded.ObjectId, object_type: "test", validate: :invalid
+        end
+        """)
+      end
+    end
+  end
 end
