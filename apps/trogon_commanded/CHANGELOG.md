@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.34.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.33.0...trogon_commanded@v0.34.0) (2026-01-22)
+
+
+### Features
+
+* **trogon_commanded:** Add format validation for ObjectId ([#300](https://github.com/straw-hat-team/beam-monorepo/issues/300)) ([4411b74](https://github.com/straw-hat-team/beam-monorepo/commit/4411b74f69ebfadb078db666e7d3ede6bd00b96d))
+
 ## [0.33.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.32.0...trogon_commanded@v0.33.0) (2026-01-15)
 
 
