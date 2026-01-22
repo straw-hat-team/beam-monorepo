@@ -70,8 +70,40 @@ defmodule Trogon.Commanded.ObjectId do
                          - `:full` - Encode complete string (e.g., `"user_abc-123"`)
                          - `:drop_prefix` - Encode only the id (e.g., `"abc-123"`)
                          """
+                       ],
+                       validate: [
+                         type: {:or, [{:in, [nil, :uuid, :integer]}, {:tuple, [:atom, :atom]}]},
+                         default: nil,
+                         doc: """
+                         Validation for the raw id value (without prefix).
+                         - `nil` - No validation (default)
+                         - `:uuid` - Validates that the id is a valid UUID
+                         - `:integer` - Validates that the id is a valid integer string
+                         - `{Module, :function}` - Custom validator (compile-time optimized direct call).
+                           The function receives the raw id value and returns `:ok` or `{:error, reason}`.
+                         """
                        ]
                      )
+
+  defp expand_validate({module, function}, caller), do: {Macro.expand(module, caller), function}
+  defp expand_validate(other, _caller), do: other
+
+  # Validates MF tuple at compile time (if module is available)
+  defp validate_mf!({module, function}) do
+    cond do
+      not Code.ensure_loaded?(module) ->
+        # Module not yet compiled (e.g., defined in same file) - skip, will fail at runtime if wrong
+        :ok
+
+      not function_exported?(module, function, 1) ->
+        raise ArgumentError, "#{inspect(module)}.#{function}/1 is not defined"
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_mf!(_), do: :ok
 
   @doc """
   Defines a type-safe ObjectId module.
@@ -93,13 +125,37 @@ defmodule Trogon.Commanded.ObjectId do
       defmodule MyApp.AccountId do
         use Trogon.Commanded.ObjectId, object_type: "acct", storage_format: :drop_prefix
       end
+
+      # With UUID validation
+      defmodule MyApp.ProductId do
+        use Trogon.Commanded.ObjectId, object_type: "product", validate: :uuid
+      end
+
+      # With integer validation
+      defmodule MyApp.SequenceId do
+        use Trogon.Commanded.ObjectId, object_type: "seq", validate: :integer
+      end
+
+      # With custom validator (compile-time optimized)
+      defmodule MyApp.CustomId do
+        use Trogon.Commanded.ObjectId,
+          object_type: "custom",
+          validate: {MyValidator, :check}
+      end
   """
   defmacro __using__(opts) do
-    opts = NimbleOptions.validate!(opts, @using_opts_schema)
+    opts =
+      opts
+      |> Keyword.update(:validate, nil, &expand_validate(&1, __CALLER__))
+      |> NimbleOptions.validate!(@using_opts_schema)
+
     object_type = Keyword.fetch!(opts, :object_type)
     separator = Keyword.fetch!(opts, :separator)
     storage_format = Keyword.fetch!(opts, :storage_format)
     json_format = Keyword.fetch!(opts, :json_format)
+    validate = Keyword.get(opts, :validate)
+
+    :ok = validate_mf!(validate)
 
     # Precompute at compile time
     prefix = object_type <> separator
@@ -110,7 +166,8 @@ defmodule Trogon.Commanded.ObjectId do
 
       unquote(__generated_struct_and_metadata__(object_type, prefix))
       unquote(__generated_new_function__())
-      unquote(__generated_parse_functions__(prefix, prefix_len, separator))
+      unquote(__build_validator__(validate))
+      unquote(__generated_parse_functions__(prefix, prefix_len, separator, validate))
       unquote(__generated_ecto_cast__())
       unquote(__generated_ecto_load__(storage_format, prefix))
       unquote(__generated_storage_functions__(storage_format, prefix))
@@ -155,7 +212,7 @@ defmodule Trogon.Commanded.ObjectId do
     end
   end
 
-  defp __generated_parse_functions__(prefix, prefix_len, separator) do
+  defp __generated_parse_functions__(prefix, prefix_len, separator, validate) do
     quote location: :keep do
       @doc """
       Parses an ObjectId string.
@@ -173,13 +230,14 @@ defmodule Trogon.Commanded.ObjectId do
           iex> #{inspect(__MODULE__)}.parse("wrong#{unquote(separator)}abc-123")
           {:error, :invalid_format}
       """
-      @spec parse(String.t()) :: {:ok, t()} | {:error, :invalid_format}
+      @spec parse(String.t()) :: {:ok, t()} | {:error, atom()}
       def parse(string) when is_binary(string) do
         Trogon.Commanded.ObjectId.parse(
           __MODULE__,
           unquote(prefix),
           unquote(prefix_len),
-          string
+          string,
+          unquote(__validator_ref__(validate))
         )
       end
 
@@ -203,6 +261,42 @@ defmodule Trogon.Commanded.ObjectId do
           {:error, _} -> raise ArgumentError, "invalid #{inspect(__MODULE__)}: #{inspect(string)}"
         end
       end
+    end
+  end
+
+  # Returns nil when no format, function reference when format is specified
+  defp __validator_ref__(nil), do: nil
+  defp __validator_ref__(_format), do: quote(do: &validate_format/1)
+
+  # No format specified - no validator function generated
+  defp __build_validator__(nil), do: nil
+
+  defp __build_validator__(:uuid) do
+    quote location: :keep do
+      defp validate_format(value) do
+        case Uniq.UUID.parse(value) do
+          {:ok, _} -> :ok
+          {:error, _} -> {:error, :invalid_uuid}
+        end
+      end
+    end
+  end
+
+  defp __build_validator__(:integer) do
+    quote location: :keep do
+      defp validate_format(value) do
+        case Integer.parse(value) do
+          {_, ""} -> :ok
+          _ -> {:error, :invalid_integer}
+        end
+      end
+    end
+  end
+
+  # MF tuple - generate direct function call (compile-time optimized)
+  defp __build_validator__({module, function}) do
+    quote location: :keep do
+      defp validate_format(value), do: unquote(module).unquote(function)(value)
     end
   end
 
@@ -311,15 +405,24 @@ defmodule Trogon.Commanded.ObjectId do
   end
 
   @doc false
-  @spec parse(module(), String.t(), non_neg_integer(), String.t()) ::
-          {:ok, struct()} | {:error, :invalid_format}
-  def parse(module, prefix, prefix_len, string) do
+  @spec parse(module(), String.t(), non_neg_integer(), String.t(), nil | (String.t() -> :ok | {:error, atom()})) ::
+          {:ok, struct()} | {:error, atom()}
+  def parse(module, prefix, prefix_len, string, validate_format) do
     case string do
       <<^prefix::binary-size(prefix_len), suffix::binary>> when suffix != "" ->
-        {:ok, struct(module, id: suffix)}
+        validate_and_build(module, suffix, validate_format)
 
       _ ->
         {:error, :invalid_format}
+    end
+  end
+
+  defp validate_and_build(module, id, nil), do: {:ok, struct(module, id: id)}
+
+  defp validate_and_build(module, id, validate_format) do
+    case validate_format.(id) do
+      :ok -> {:ok, struct(module, id: id)}
+      {:error, reason} -> {:error, reason}
     end
   end
 
