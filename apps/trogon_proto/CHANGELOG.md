@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.1.1...trogon_proto@v0.2.0) (2026-01-27)
+
+
+### Features
+
+* **trogon_proto:** Update protobuf module and add new options ([#302](https://github.com/straw-hat-team/beam-monorepo/issues/302)) ([fc8c498](https://github.com/straw-hat-team/beam-monorepo/commit/fc8c498f2576d181f1f26b3b53063d7ba6559fed))
+
 ## [0.1.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.1.0...trogon_proto@v0.1.1) (2026-01-14)
 
 
