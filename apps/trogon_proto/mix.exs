@@ -41,7 +41,7 @@ defmodule Trogon.Proto.MixProject do
   defp deps do
     [
       # Dependencies
-      {:protobuf, "~> 0.12"},
+      {:protobuf, "~> 0.16"},
       {:uniq, "~> 0.6"},
       {:nimble_options, "~> 1.0"},
 
