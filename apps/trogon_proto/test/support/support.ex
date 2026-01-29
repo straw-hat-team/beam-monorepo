@@ -118,20 +118,28 @@ defmodule Trogon.Proto.TestSupport do
   end
 
   @doc """
-  Expects System.get_env/1 to be called with the specified env var.
+  Expects System.get_env to be called with the specified env var.
+
+  When `default` is provided, expects get_env/2 call, otherwise get_env/1.
 
   ## Options
 
     - `times`: Number of times the call is expected (default: 1)
-    - `returns`: Value to return from the call
+    - `returns`: Value to return from the call (required)
 
   ## Example
 
+      # Expects get_env/1
       expect_system_get_env("DATABASE_URL", times: 1, returns: "postgres://localhost")
-      expect_system_get_env("PORT", times: 2, returns: "5432")
+
+      # Expects get_env/2
+      expect_system_get_env("PORT", "8080", times: 2, returns: "5432")
   """
   @spec expect_system_get_env(String.t(), keyword()) :: :ok
-  def expect_system_get_env(env_var, opts \\ []) do
+  @spec expect_system_get_env(String.t(), String.t(), keyword()) :: :ok
+  def expect_system_get_env(env_var, default_or_opts, opts \\ [])
+
+  def expect_system_get_env(env_var, opts, []) when is_list(opts) do
     times = Keyword.get(opts, :times, 1)
     returns = Keyword.fetch!(opts, :returns)
 
@@ -140,21 +148,7 @@ defmodule Trogon.Proto.TestSupport do
     end)
   end
 
-  @doc """
-  Expects System.get_env/2 to be called with the specified env var and default.
-
-  ## Options
-
-    - `times`: Number of times the call is expected (default: 1)
-    - `returns`: Value to return from the call
-
-  ## Example
-
-      expect_system_get_env_with_default("PORT", "8080", times: 1, returns: "5432")
-      expect_system_get_env_with_default("HOST", "0.0.0.0", times: 2, returns: "localhost")
-  """
-  @spec expect_system_get_env_with_default(String.t(), String.t(), keyword()) :: :ok
-  def expect_system_get_env_with_default(env_var, default, opts \\ []) do
+  def expect_system_get_env(env_var, default, opts) when is_binary(default) and is_list(opts) do
     times = Keyword.get(opts, :times, 1)
     returns = Keyword.fetch!(opts, :returns)
 
@@ -164,28 +158,29 @@ defmodule Trogon.Proto.TestSupport do
   end
 
   @doc """
-  Asserts that System.get_env/1 was called with the specified env var.
+  Asserts that System.get_env was called with the specified env var.
+
+  When `default` is provided, verifies get_env/2 call, otherwise get_env/1.
 
   ## Example
 
+      # Verify get_env/1
       assert_received_system_get_env("DATABASE_URL")
+
+      # Verify get_env/2
+      assert_received_system_get_env("PORT", "8080")
   """
   @spec assert_received_system_get_env(String.t()) :: :ok
-  def assert_received_system_get_env(env_var) do
+  @spec assert_received_system_get_env(String.t(), String.t()) :: :ok
+  def assert_received_system_get_env(env_var, default \\ nil)
+
+  def assert_received_system_get_env(env_var, nil) do
     Mox.assert_called(Trogon.Proto.SystemAdapter.Mock, :get_env, fn var ->
       var == env_var
     end)
   end
 
-  @doc """
-  Asserts that System.get_env/2 was called with the specified env var and default.
-
-  ## Example
-
-      assert_received_system_get_env_with_default("PORT", "5432")
-  """
-  @spec assert_received_system_get_env_with_default(String.t(), String.t()) :: :ok
-  def assert_received_system_get_env_with_default(env_var, default) do
+  def assert_received_system_get_env(env_var, default) when is_binary(default) do
     Mox.assert_called(Trogon.Proto.SystemAdapter.Mock, :get_env, fn var, def ->
       var == env_var and def == default
     end)
