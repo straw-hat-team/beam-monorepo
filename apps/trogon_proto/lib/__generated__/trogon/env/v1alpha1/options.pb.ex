@@ -1,3 +1,70 @@
+defmodule TrogonProto.Env.V1Alpha1.Trim do
+  @moduledoc false
+
+  use Protobuf,
+    full_name: "trogon.env.v1alpha1.Trim",
+    protoc_gen_elixir_version: "0.16.0",
+    syntax: :proto3
+
+  def descriptor do
+    # credo:disable-for-next-line
+    %Google.Protobuf.DescriptorProto{
+      name: "Trim",
+      field: [
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "unicode_whitespace",
+          extendee: nil,
+          number: 1,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_MESSAGE,
+          type_name: ".google.protobuf.Empty",
+          default_value: nil,
+          options: nil,
+          oneof_index: 0,
+          json_name: "unicodeWhitespace",
+          proto3_optional: nil,
+          __unknown_fields__: []
+        },
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "chars",
+          extendee: nil,
+          number: 2,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_STRING,
+          type_name: nil,
+          default_value: nil,
+          options: nil,
+          oneof_index: 0,
+          json_name: "chars",
+          proto3_optional: nil,
+          __unknown_fields__: []
+        }
+      ],
+      nested_type: [],
+      enum_type: [],
+      extension_range: [],
+      extension: [],
+      options: nil,
+      oneof_decl: [
+        %Google.Protobuf.OneofDescriptorProto{name: "spec", options: nil, __unknown_fields__: []}
+      ],
+      reserved_range: [],
+      reserved_name: [],
+      __unknown_fields__: []
+    }
+  end
+
+  oneof(:spec, 0)
+
+  field(:unicode_whitespace, 1,
+    type: Google.Protobuf.Empty,
+    json_name: "unicodeWhitespace",
+    oneof: 0
+  )
+
+  field(:chars, 2, type: :string, oneof: 0)
+end
+
 defmodule TrogonProto.Env.V1Alpha1.EnvVarOption.TagsEntry do
   @moduledoc false
 
@@ -109,6 +176,34 @@ defmodule TrogonProto.Env.V1Alpha1.EnvVarOption do
           __unknown_fields__: []
         },
         %Google.Protobuf.FieldDescriptorProto{
+          name: "split_delimiter",
+          extendee: nil,
+          number: 4,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_STRING,
+          type_name: nil,
+          default_value: nil,
+          options: nil,
+          oneof_index: 0,
+          json_name: "splitDelimiter",
+          proto3_optional: true,
+          __unknown_fields__: []
+        },
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "trim",
+          extendee: nil,
+          number: 5,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_MESSAGE,
+          type_name: ".trogon.env.v1alpha1.Trim",
+          default_value: nil,
+          options: nil,
+          oneof_index: 1,
+          json_name: "trim",
+          proto3_optional: true,
+          __unknown_fields__: []
+        },
+        %Google.Protobuf.FieldDescriptorProto{
           name: "tags",
           extendee: nil,
           number: 3,
@@ -181,7 +276,14 @@ defmodule TrogonProto.Env.V1Alpha1.EnvVarOption do
       extension_range: [],
       extension: [],
       options: nil,
-      oneof_decl: [],
+      oneof_decl: [
+        %Google.Protobuf.OneofDescriptorProto{
+          name: "_split_delimiter",
+          options: nil,
+          __unknown_fields__: []
+        },
+        %Google.Protobuf.OneofDescriptorProto{name: "_trim", options: nil, __unknown_fields__: []}
+      ],
       reserved_range: [],
       reserved_name: [],
       __unknown_fields__: []
@@ -190,6 +292,8 @@ defmodule TrogonProto.Env.V1Alpha1.EnvVarOption do
 
   field(:visibility, 1, type: TrogonProto.Env.V1Alpha1.Visibility, enum: true)
   field(:default_value, 2, type: :string, json_name: "defaultValue")
+  field(:split_delimiter, 4, proto3_optional: true, type: :string, json_name: "splitDelimiter")
+  field(:trim, 5, proto3_optional: true, type: TrogonProto.Env.V1Alpha1.Trim)
   field(:tags, 3, repeated: true, type: TrogonProto.Env.V1Alpha1.EnvVarOption.TagsEntry, map: true)
 end
 
