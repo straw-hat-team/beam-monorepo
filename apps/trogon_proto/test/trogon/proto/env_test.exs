@@ -3,12 +3,7 @@ defmodule Trogon.Proto.EnvTest do
 
   alias Trogon.Proto.EnvTestSupport.AllTypesConfig
 
-  setup :set_mox_from_context
-
-  def set_mox_from_context(context) do
-    Mox.set_mox_from_context(context)
-    context
-  end
+  setup {Mox, :set_mox_from_context}
 
   describe "struct generation" do
     test "generates struct with all fields" do
