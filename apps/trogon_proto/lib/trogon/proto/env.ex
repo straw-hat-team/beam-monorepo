@@ -45,6 +45,8 @@ defmodule Trogon.Proto.Env do
 
   @default_options_module TrogonProto.Env.V1Alpha1
   @extension_tag 870_003
+  @system_adapter Application.compile_env(:trogon_proto, :system_adapter,
+                                          Trogon.Proto.SystemAdapter.Default)
 
   defmacro __using__(opts) do
     message_module =
@@ -211,6 +213,8 @@ defmodule Trogon.Proto.Env do
   end
 
   defp generate_load_function(field_configs) do
+    system_adapter = @system_adapter
+
     field_loaders =
       for {field_name, config} <- field_configs do
         env_var_name = config.env_var_name
@@ -223,7 +227,7 @@ defmodule Trogon.Proto.Env do
         raw_value =
           if default == "" do
             quote do
-              System.get_env(unquote(env_var_name)) ||
+              unquote(system_adapter).get_env(unquote(env_var_name)) ||
                 raise(
                   ArgumentError,
                   "Required environment variable #{unquote(env_var_name)} is not set"
@@ -231,7 +235,7 @@ defmodule Trogon.Proto.Env do
             end
           else
             quote do
-              System.get_env(unquote(env_var_name), unquote(default))
+              unquote(system_adapter).get_env(unquote(env_var_name), unquote(default))
             end
           end
 
