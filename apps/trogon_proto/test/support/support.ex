@@ -157,32 +157,4 @@ defmodule Trogon.Proto.TestSupport do
     end)
   end
 
-  @doc """
-  Asserts that System.get_env was called with the specified env var.
-
-  When `default` is provided, verifies get_env/2 call, otherwise get_env/1.
-
-  ## Example
-
-      # Verify get_env/1
-      assert_received_system_get_env("DATABASE_URL")
-
-      # Verify get_env/2
-      assert_received_system_get_env("PORT", "8080")
-  """
-  @spec assert_received_system_get_env(String.t()) :: :ok
-  @spec assert_received_system_get_env(String.t(), String.t()) :: :ok
-  def assert_received_system_get_env(env_var, default \\ nil)
-
-  def assert_received_system_get_env(env_var, nil) do
-    Mox.assert_called(Trogon.Proto.SystemAdapter.Mock, :get_env, fn var ->
-      var == env_var
-    end)
-  end
-
-  def assert_received_system_get_env(env_var, default) when is_binary(default) do
-    Mox.assert_called(Trogon.Proto.SystemAdapter.Mock, :get_env, fn var, def ->
-      var == env_var and def == default
-    end)
-  end
 end
