@@ -118,51 +118,53 @@ defmodule Trogon.Proto.TestSupport do
   end
 
   @doc """
-  Expects System.get_env/1 to be called with the specified env var and return value.
+  Expects System.get_env/1 to be called with the specified env var.
 
   ## Options
 
     - `times`: Number of times the call is expected (default: 1)
+    - `returns`: Value to return from the call
 
   ## Example
 
-      expect_system_get_env("DATABASE_URL", "postgres://localhost")
-      expect_system_get_env("PORT", "5432", times: 2)
+      expect_system_get_env("DATABASE_URL", times: 1, returns: "postgres://localhost")
+      expect_system_get_env("PORT", times: 2, returns: "5432")
   """
-  @spec expect_system_get_env(String.t(), String.t() | nil, keyword()) :: :ok
-  def expect_system_get_env(env_var, value, opts \\ []) do
+  @spec expect_system_get_env(String.t(), keyword()) :: :ok
+  def expect_system_get_env(env_var, opts \\ []) do
     times = Keyword.get(opts, :times, 1)
+    returns = Keyword.fetch!(opts, :returns)
 
     Mox.expect(Trogon.Proto.SystemAdapter.Mock, :get_env, times, fn var ->
-      if var == env_var, do: value, else: nil
+      if var == env_var, do: returns, else: nil
     end)
   end
 
   @doc """
-  Expects System.get_env/2 to be called with the specified env var, default, and return value.
+  Expects System.get_env/2 to be called with the specified env var and default.
 
   ## Options
 
     - `times`: Number of times the call is expected (default: 1)
+    - `returns`: Value to return from the call
 
   ## Example
 
-      expect_system_get_env_with_default("PORT", "5432", "8080")
-      expect_system_get_env_with_default("HOST", "localhost", "0.0.0.0", times: 2)
+      expect_system_get_env_with_default("PORT", "8080", times: 1, returns: "5432")
+      expect_system_get_env_with_default("HOST", "0.0.0.0", times: 2, returns: "localhost")
   """
-  @spec expect_system_get_env_with_default(String.t(), String.t(), String.t(), keyword()) :: :ok
-  def expect_system_get_env_with_default(env_var, value, default, opts \\ []) do
+  @spec expect_system_get_env_with_default(String.t(), String.t(), keyword()) :: :ok
+  def expect_system_get_env_with_default(env_var, default, opts \\ []) do
     times = Keyword.get(opts, :times, 1)
+    returns = Keyword.fetch!(opts, :returns)
 
     Mox.expect(Trogon.Proto.SystemAdapter.Mock, :get_env, times, fn var, def ->
-      if var == env_var, do: value, else: def
+      if var == env_var, do: returns, else: def
     end)
   end
 
   @doc """
   Asserts that System.get_env/1 was called with the specified env var.
-
-  Uses Mox.assert_called/1 under the hood to verify the mock received the expected call.
 
   ## Example
 
@@ -186,37 +188,6 @@ defmodule Trogon.Proto.TestSupport do
   def assert_received_system_get_env_with_default(env_var, default) do
     Mox.assert_called(Trogon.Proto.SystemAdapter.Mock, :get_env, fn var, def ->
       var == env_var and def == default
-    end)
-  end
-
-  @doc """
-  Stubs System.get_env calls with a handler function.
-
-  Useful for testing multiple env vars with different values.
-
-  ## Example
-
-      stub_system_get_env(fn
-        "DATABASE_URL" -> "postgres://localhost"
-        "PORT" -> "5432"
-        _ -> nil
-      end)
-
-      stub_system_get_env_with_default(fn
-        {"DATABASE_URL", _default} -> "postgres://localhost"
-        {"PORT", default} -> default
-        {_var, default} -> default
-      end)
-  """
-  @spec stub_system_get_env((String.t() -> String.t() | nil)) :: :ok
-  def stub_system_get_env(handler_fn) do
-    Mox.stub(Trogon.Proto.SystemAdapter.Mock, :get_env, handler_fn)
-  end
-
-  @spec stub_system_get_env_with_default(({String.t(), String.t()} -> String.t() | nil)) :: :ok
-  def stub_system_get_env_with_default(handler_fn) do
-    Mox.stub(Trogon.Proto.SystemAdapter.Mock, :get_env, fn var, default ->
-      handler_fn.({var, default})
     end)
   end
 end
