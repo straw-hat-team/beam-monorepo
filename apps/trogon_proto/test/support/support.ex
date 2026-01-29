@@ -1,63 +1,31 @@
 defmodule Trogon.Proto.TestSupport do
-  @moduledoc """
-  Test support modules using UuidTemplate with proto-generated enums.
+  @moduledoc false
+
+  @doc """
+  Stubs system environment adapter to return values from the provided map.
+
+  Stubs all three SystemAdapter functions: get_env/1, get_env/2, and fetch_env!/1.
+
+  ## Example
+
+      Trogon.Proto.TestSupport.stub_system_env(%{
+        "DATABASE_URL" => "postgres://localhost",
+        "API_KEY" => "secret"
+      })
   """
+  @spec stub_system_env(map()) :: :ok
+  def stub_system_env(vars) when is_map(vars) do
+    Mox.stub(Trogon.Proto.TestSupport.SystemAdapter.Mock, :get_env, &Map.get(vars, &1))
+    Mox.stub(Trogon.Proto.TestSupport.SystemAdapter.Mock, :get_env, &Map.get(vars, &1, &2))
 
-  alias Acme.Order.V1.OrderId
-  alias Acme.Singleton.V1.SingletonId
-  alias Acme.Resource.V1.ResourceId
-  alias Acme.Entity.V1.EntityId
-  alias Acme.ValueNamespace.V1.ValueNamespaceId
-  alias Trogon.Proto.Uuid.V1.UuidTemplate
+    Mox.stub(Trogon.Proto.TestSupport.SystemAdapter.Mock, :fetch_env!, fn name ->
+      case Map.fetch(vars, name) do
+        {:ok, value} ->
+          value
 
-  defmodule AcmeOrderId do
-    @moduledoc "Dynamic template with DNS namespace and multi-key template."
-    use UuidTemplate,
-      enum: OrderId.IdentityVersion,
-      version: :IDENTITY_VERSION_V1
-  end
-
-  defmodule StaticSingletonId do
-    @moduledoc "Static template with no placeholders."
-    use UuidTemplate,
-      enum: SingletonId.IdentityVersion,
-      version: :IDENTITY_VERSION_V1
-  end
-
-  defmodule DnsNamespaceId do
-    @moduledoc "DNS namespace example."
-    use UuidTemplate,
-      enum: OrderId.IdentityVersion,
-      version: :IDENTITY_VERSION_V1
-  end
-
-  defmodule UrlNamespaceId do
-    @moduledoc "URL namespace example."
-    use UuidTemplate,
-      enum: ResourceId.IdentityVersion,
-      version: :IDENTITY_VERSION_V1
-  end
-
-  defmodule UuidNamespaceId do
-    @moduledoc "Custom UUID namespace example."
-    use UuidTemplate,
-      enum: EntityId.IdentityVersion,
-      version: :IDENTITY_VERSION_V1
-  end
-
-  # Namespace resolution tests
-
-  defmodule ValueNamespaceV1Id do
-    @moduledoc "V1 uses enum-level namespace (no value-level override)."
-    use UuidTemplate,
-      enum: ValueNamespaceId.IdentityVersion,
-      version: :IDENTITY_VERSION_V1
-  end
-
-  defmodule ValueNamespaceV2Id do
-    @moduledoc "V2 overrides with value-level namespace."
-    use UuidTemplate,
-      enum: ValueNamespaceId.IdentityVersion,
-      version: :IDENTITY_VERSION_V2
+        :error ->
+          raise System.EnvError, env: name
+      end
+    end)
   end
 end

@@ -7,13 +7,13 @@ defmodule Trogon.Proto.Uuid.V1.UuidTemplateTest do
   alias Invalid.NoNamespace.V1.NoNamespaceId
 
   # Test support modules using UuidTemplate
-  alias Trogon.Proto.TestSupport.AcmeOrderId
-  alias Trogon.Proto.TestSupport.StaticSingletonId
-  alias Trogon.Proto.TestSupport.DnsNamespaceId
-  alias Trogon.Proto.TestSupport.UrlNamespaceId
-  alias Trogon.Proto.TestSupport.UuidNamespaceId
-  alias Trogon.Proto.TestSupport.ValueNamespaceV1Id
-  alias Trogon.Proto.TestSupport.ValueNamespaceV2Id
+  alias Trogon.Proto.TestSupport.UuidTemplate.AcmeOrderId
+  alias Trogon.Proto.TestSupport.UuidTemplate.StaticSingletonId
+  alias Trogon.Proto.TestSupport.UuidTemplate.DnsNamespaceId
+  alias Trogon.Proto.TestSupport.UuidTemplate.UrlNamespaceId
+  alias Trogon.Proto.TestSupport.UuidTemplate.UuidNamespaceId
+  alias Trogon.Proto.TestSupport.UuidTemplate.ValueNamespaceV1Id
+  alias Trogon.Proto.TestSupport.UuidTemplate.ValueNamespaceV2Id
 
   alias Trogon.Proto.Uuid.V1.UuidTemplate
 

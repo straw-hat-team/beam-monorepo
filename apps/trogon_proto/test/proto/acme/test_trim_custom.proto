@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package acme.test.v1;
+
+import "trogon/env/v1alpha1/options.proto";
+
+message TestTrimCustom {
+  string database_url = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET
+  }];
+
+  repeated string tags = 2 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    split_delimiter: ", ",
+    trim: {
+      by: {
+        chars: "*"
+      }
+    }
+  }];
+}
