@@ -43,10 +43,22 @@ defmodule Trogon.Proto.Env do
       Logger.info(inspect(config))
   """
 
-  @default_options_module TrogonProto.Env.V1Alpha1
   @extension_tag 870_003
+  @field_options_module TrogonProto.Env.V1Alpha1.FieldOptions
+  @visibility_module TrogonProto.Env.V1Alpha1.Visibility
   @system_adapter Application.compile_env(:trogon_proto, :system_adapter,
                                           Trogon.Proto.SystemAdapter.Default)
+
+  # Proto type codes
+  @type_string 9
+  @type_int32 5
+  @type_int64 3
+  @type_float 2
+  @type_double 1
+  @type_bool 8
+
+  # Visibility codes
+  @visibility_secret 2
 
   defmacro __using__(opts) do
     message_module =
@@ -65,8 +77,6 @@ defmodule Trogon.Proto.Env do
 
   defp extract_field_options(message_module) do
     desc = message_module.descriptor()
-    field_options_module = Module.concat(@default_options_module, FieldOptions)
-    visibility_module = Module.concat(@default_options_module, Visibility)
 
     for field_desc <- desc.field do
       field_name = String.to_atom(field_desc.name)
@@ -76,7 +86,7 @@ defmodule Trogon.Proto.Env do
           nil
 
         binary ->
-          %{env_var: env_var_option} = field_options_module.decode(binary)
+          %{env_var: env_var_option} = @field_options_module.decode(binary)
           is_repeated = field_desc.label == :LABEL_REPEATED
           has_split_delimiter = env_var_option.split_delimiter && env_var_option.split_delimiter != ""
 
@@ -84,7 +94,7 @@ defmodule Trogon.Proto.Env do
                (not is_repeated || has_split_delimiter) do
             visibility =
               case env_var_option.visibility do
-                atom when is_atom(atom) -> visibility_module.value(atom)
+                atom when is_atom(atom) -> @visibility_module.value(atom)
                 int when is_integer(int) -> int
                 nil -> 0
               end
@@ -143,18 +153,12 @@ defmodule Trogon.Proto.Env do
 
   defp is_supported_scalar_type?(type) when is_integer(type) do
     type in [
-      # TYPE_STRING
-      9,
-      # TYPE_INT32
-      5,
-      # TYPE_INT64
-      3,
-      # TYPE_FLOAT
-      2,
-      # TYPE_DOUBLE
-      1,
-      # TYPE_BOOL
-      8
+      @type_string,
+      @type_int32,
+      @type_int64,
+      @type_float,
+      @type_double,
+      @type_bool
     ]
   end
 
@@ -372,18 +376,12 @@ defmodule Trogon.Proto.Env do
 
   defp normalize_type(type) when is_integer(type) do
     case type do
-      # TYPE_STRING
-      9 -> :string
-      # TYPE_INT32
-      5 -> :int32
-      # TYPE_INT64
-      3 -> :int64
-      # TYPE_FLOAT
-      2 -> :float
-      # TYPE_DOUBLE
-      1 -> :double
-      # TYPE_BOOL
-      8 -> :bool
+      @type_string -> :string
+      @type_int32 -> :int32
+      @type_int64 -> :int64
+      @type_float -> :float
+      @type_double -> :double
+      @type_bool -> :bool
       _ -> :string
     end
   end
@@ -392,7 +390,7 @@ defmodule Trogon.Proto.Env do
 
   defp generate_inspect_implementation(field_configs) do
     secret_fields =
-      for {name, %{visibility: 2}} <- field_configs do
+      for {name, %{visibility: @visibility_secret}} <- field_configs do
         name
       end
 
