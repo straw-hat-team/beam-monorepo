@@ -66,8 +66,6 @@ defmodule Trogon.Proto.TestSupport do
       version: :IDENTITY_VERSION_V2
   end
 
-  # System Environment Adapter Test Helpers
-
   @doc """
   Sets environment variables from a map and returns a cleanup function.
 
