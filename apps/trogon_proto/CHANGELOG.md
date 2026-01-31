@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.1.1...trogon_proto@v0.2.0) (2026-01-31)
+
+
+### Features
+
+* **trogon_proto:** Implement Trogon.Proto.Env macro for environment variable loading ([#305](https://github.com/straw-hat-team/beam-monorepo/issues/305)) ([b1b3a22](https://github.com/straw-hat-team/beam-monorepo/commit/b1b3a22d6137e8f7e05922e3c6902e86a86ff137))
+* **trogon_proto:** Update protobuf module and add new options ([#302](https://github.com/straw-hat-team/beam-monorepo/issues/302)) ([fc8c498](https://github.com/straw-hat-team/beam-monorepo/commit/fc8c498f2576d181f1f26b3b53063d7ba6559fed))
+
 ## [0.1.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.1.0...trogon_proto@v0.1.1) (2026-01-14)
 
 
