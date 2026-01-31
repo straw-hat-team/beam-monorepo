@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package acme.test.v1;
+
+import "trogon/env/v1alpha1/options.proto";
+
+message TestUnsupported {
+  string database_url = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET
+  }];
+
+  // Unsupported: repeated field without split_delimiter
+  repeated string tags = 2 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT
+  }];
+}

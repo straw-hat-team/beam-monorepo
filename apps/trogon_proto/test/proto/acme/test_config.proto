@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package acme.test.v1;
+
+import "trogon/env/v1alpha1/options.proto";
+
+message TestConfig {
+  // String fields
+  string database_url = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET
+  }];
+
+  string host = 2 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "localhost"
+  }];
+
+  string api_key = 3 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET
+  }];
+
+  // Int fields
+  int32 port = 4 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "5432"
+  }];
+
+  int64 timeout_ms = 5 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "30000"
+  }];
+
+  // Float fields
+  float max_memory_mb = 6 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "512.5"
+  }];
+
+  double cpu_limit = 7 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "0.5"
+  }];
+
+  // Boolean field
+  bool debug_mode = 8 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "false"
+  }];
+}
