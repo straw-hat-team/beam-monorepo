@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.2.0...trogon_proto@v0.2.1) (2026-02-04)
+
+
+### Bug Fixes
+
+* **trogon_proto:** Fix dialyzer typing ([#307](https://github.com/straw-hat-team/beam-monorepo/issues/307)) ([b4caf9e](https://github.com/straw-hat-team/beam-monorepo/commit/b4caf9ea400787c50a995e3996861651e6d4e9c7))
+
 ## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.1.1...trogon_proto@v0.2.0) (2026-01-31)
 
 
