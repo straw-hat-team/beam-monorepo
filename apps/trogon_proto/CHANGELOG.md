@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.2.1...trogon_proto@v0.3.0) (2026-02-09)
+
+
+### Features
+
+* **trogon_proto:** Update protobuf version and add cursor pagination and page info modules ([#309](https://github.com/straw-hat-team/beam-monorepo/issues/309)) ([2f64b56](https://github.com/straw-hat-team/beam-monorepo/commit/2f64b562cc4489b476adf26fa10cfdc0282b9c6a))
+
 ## [0.2.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.2.0...trogon_proto@v0.2.1) (2026-02-04)
 
 
