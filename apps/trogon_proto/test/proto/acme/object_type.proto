@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package acme.type.v1;
+
+import "trogon/object_id/v1alpha1/options.proto";
+
+enum ObjectType {
+  OBJECT_TYPE_UNSPECIFIED = 0;
+  OBJECT_TYPE_TICKET = 1 [(trogon.object_id.v1alpha1.enum_value).object_type = "ticket"];
+  OBJECT_TYPE_WORKSPACE = 2 [(trogon.object_id.v1alpha1.enum_value) = {
+    object_type: "workspace",
+    separator: "#"
+  }];
+}

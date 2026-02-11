@@ -371,6 +371,19 @@ defmodule TestSupport do
       validate: :uuid
   end
 
+  defmodule ProtoTicketId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId,
+      proto: {Acme.Type.V1.ObjectType, :OBJECT_TYPE_TICKET}
+  end
+
+  defmodule ProtoWorkspaceId do
+    @moduledoc false
+    use Trogon.Commanded.ObjectId,
+      proto: {Acme.Type.V1.ObjectType, :OBJECT_TYPE_WORKSPACE},
+      storage_format: :drop_prefix
+  end
+
   defmodule CustomValidator do
     @moduledoc false
 
