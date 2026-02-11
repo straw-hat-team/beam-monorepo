@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.3.0...trogon_proto@v0.4.0) (2026-02-11)
+
+
+### Features
+
+* **trogon_proto:** Upgrade trogon-proto to v0.6.0 and regenerate ([#311](https://github.com/straw-hat-team/beam-monorepo/issues/311)) ([0235919](https://github.com/straw-hat-team/beam-monorepo/commit/0235919078ad1b8f1292387399db85f836242d25))
+
 ## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.2.1...trogon_proto@v0.3.0) (2026-02-09)
 
 
