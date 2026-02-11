@@ -13,9 +13,7 @@ message TestTrimUnicode {
     visibility: VISIBILITY_PLAINTEXT,
     split_delimiter: ", ",
     trim: {
-      by: {
-        unicode_whitespace: true
-      }
+      unicode_whitespace: {}
     }
   }];
 }
