@@ -574,4 +574,32 @@ defmodule Trogon.Commanded.ObjectIdTest do
       end
     end
   end
+
+  describe "proto: option" do
+    test "derives object_type from proto enum value" do
+      assert TestSupport.ProtoTicketId.object_type() == "ticket"
+    end
+
+    test "uses default separator when proto does not specify one" do
+      assert TestSupport.ProtoTicketId.prefix() == "ticket_"
+    end
+
+    test "derives custom separator from proto enum value" do
+      assert TestSupport.ProtoWorkspaceId.object_type() == "workspace"
+      assert TestSupport.ProtoWorkspaceId.prefix() == "workspace#"
+    end
+
+    test "forwards additional options like storage_format" do
+      typeid = TestSupport.ProtoWorkspaceId.new("abc-123")
+      assert {:ok, dumped} = TestSupport.ProtoWorkspaceId.dump(typeid)
+      assert dumped == "abc-123"
+    end
+
+    test "round-trips: new -> to_string -> parse" do
+      typeid = TestSupport.ProtoTicketId.new("abc-123")
+      assert to_string(typeid) == "ticket_abc-123"
+      assert {:ok, parsed} = TestSupport.ProtoTicketId.parse("ticket_abc-123")
+      assert parsed.id == "abc-123"
+    end
+  end
 end
