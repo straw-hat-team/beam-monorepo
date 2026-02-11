@@ -47,6 +47,7 @@ defmodule Trogon.Commanded.MixProject do
       {:polymorphic_embed, "~> 5.0"},
       {:nimble_options, "~> 1.0"},
       {:protobuf, "~> 0.16", optional: true},
+      trogon_proto_dep(),
 
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
@@ -54,6 +55,14 @@ defmodule Trogon.Commanded.MixProject do
       {:excoveralls, ">= 0.0.0", only: [:test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: [:dev], runtime: false}
     ]
+  end
+
+  defp trogon_proto_dep do
+    if System.get_env("MIX_IN_UMBRELLA_DEPS") == "false" do
+      {:trogon_proto, "~> 0.4", optional: true}
+    else
+      {:trogon_proto, in_umbrella: true}
+    end
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
