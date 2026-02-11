@@ -22,3 +22,5 @@ jobs:
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
           ref-name: ${{ github.ref_name }}
+        env:
+          MIX_IN_UMBRELLA_DEPS: "false"
