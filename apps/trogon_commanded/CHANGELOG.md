@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.35.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.34.0...trogon_commanded@v0.35.0) (2026-02-11)
+
+
+### Features
+
+* **trogon_commanded:** Add proto: option to ObjectId ([#313](https://github.com/straw-hat-team/beam-monorepo/issues/313)) ([89297e6](https://github.com/straw-hat-team/beam-monorepo/commit/89297e6b822c84731c3ef43b5c454205cdcd4290))
+
 ## [0.34.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.33.0...trogon_commanded@v0.34.0) (2026-01-22)
 
 
