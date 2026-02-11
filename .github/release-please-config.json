@@ -16,9 +16,6 @@
     "apps/trogon_commanded": {
       "component": "trogon_commanded"
     },
-    "apps/one_piece_graceful_shutdown": {
-      "component": "one_piece_graceful_shutdown"
-    },
     "apps/trogon_result": {
       "component": "trogon_result"
     },
