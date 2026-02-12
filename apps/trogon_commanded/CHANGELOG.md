@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.35.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.35.0...trogon_commanded@v0.35.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* **trogon_commanded:** Validate ObjectId values in new/1 and add new!/1 ([#321](https://github.com/straw-hat-team/beam-monorepo/issues/321)) ([d74213e](https://github.com/straw-hat-team/beam-monorepo/commit/d74213e3a6710414a57bb5347f076133a755f349))
+
 ## [0.35.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.34.0...trogon_commanded@v0.35.0) (2026-02-11)
 
 

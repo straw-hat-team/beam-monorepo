@@ -1,5 +1,5 @@
 {
-  "apps/trogon_commanded": "0.35.0",
+  "apps/trogon_commanded": "0.35.1",
   "apps/trogon_result": "1.0.1",
   "apps/trogon_error": "0.5.4",
   "apps/trogon_typeprovider": "0.3.0",
