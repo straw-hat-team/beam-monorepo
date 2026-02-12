@@ -9,23 +9,23 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "new/1" do
     test "wraps a TenantId" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.PrincipalId.new(tenant_id)
 
       assert union == %TestSupport.PrincipalId{id: tenant_id}
     end
 
     test "wraps a SystemId" do
-      system_id = TestSupport.SystemId.new(@system_id_value)
+      system_id = TestSupport.SystemId.new!(@system_id_value)
       union = TestSupport.ContextId.new(system_id)
 
       assert union == %TestSupport.ContextId{id: system_id}
     end
 
     test "supports unions with more than two types" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
-      system_id = TestSupport.SystemId.new(@system_id_value)
-      service_id = TestSupport.ServiceId.new(@service_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
+      system_id = TestSupport.SystemId.new!(@system_id_value)
+      service_id = TestSupport.ServiceId.new!(@service_id_value)
 
       assert TestSupport.PrincipalId.new(tenant_id) == %TestSupport.PrincipalId{id: tenant_id}
       assert TestSupport.PrincipalId.new(system_id) == %TestSupport.PrincipalId{id: system_id}
@@ -33,7 +33,7 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "distinguishes between different unions" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       mod_union = TestSupport.ContextId.new(tenant_id)
       actor_union = TestSupport.PrincipalId.new(tenant_id)
 
@@ -44,21 +44,21 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "parse/1" do
     test "parses a TenantId string" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
 
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.TenantId{id: @tenant_id_value}}} =
                TestSupport.ContextId.parse(tenant_string)
     end
 
     test "parses a SystemId string" do
-      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
+      system_string = to_string(TestSupport.SystemId.new!(@system_id_value))
 
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.SystemId{id: @system_id_value}}} =
                TestSupport.ContextId.parse(system_string)
     end
 
     test "tries each type in order and returns first match" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
 
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.TenantId{}}} = TestSupport.ContextId.parse(tenant_string)
     end
@@ -76,9 +76,9 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "handles three-type unions" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
-      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
-      service_string = to_string(TestSupport.ServiceId.new(@service_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
+      system_string = to_string(TestSupport.SystemId.new!(@system_id_value))
+      service_string = to_string(TestSupport.ServiceId.new!(@service_id_value))
 
       assert {:ok, %TestSupport.PrincipalId{id: %TestSupport.TenantId{id: @tenant_id_value}}} =
                TestSupport.PrincipalId.parse(tenant_string)
@@ -93,7 +93,7 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "parse!/1" do
     test "parses a TenantId string" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
 
       result = TestSupport.ContextId.parse!(tenant_string)
 
@@ -101,46 +101,46 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "parses a SystemId string" do
-      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
+      system_string = to_string(TestSupport.SystemId.new!(@system_id_value))
 
       result = TestSupport.ContextId.parse!(system_string)
 
       assert result == %TestSupport.ContextId{id: %TestSupport.SystemId{id: @system_id_value}}
     end
 
-    test "raises ArgumentError for invalid string" do
-      assert_raise ArgumentError, ~r/invalid TestSupport.ContextId: "invalid"/, fn ->
+    test "raises ValidationError for invalid string" do
+      assert_raise Trogon.Commanded.ObjectId.ValidationError, ~r/invalid_format/, fn ->
         TestSupport.ContextId.parse!("invalid")
       end
     end
 
-    test "raises ArgumentError for empty string" do
-      assert_raise ArgumentError, ~r/invalid TestSupport.ContextId: ""/, fn ->
+    test "raises ValidationError for empty string" do
+      assert_raise Trogon.Commanded.ObjectId.ValidationError, ~r/invalid_format/, fn ->
         TestSupport.ContextId.parse!("")
       end
     end
 
-    test "raises ArgumentError when string doesn't match any type" do
-      assert_raise ArgumentError, ~r/invalid TestSupport.ContextId: "unknown_abc-123"/, fn ->
+    test "raises ValidationError when string doesn't match any type" do
+      assert_raise Trogon.Commanded.ObjectId.ValidationError, ~r/invalid_format/, fn ->
         TestSupport.ContextId.parse!("unknown_abc-123")
       end
     end
 
-    test "error message includes the invalid value" do
+    test "error includes the invalid value" do
       invalid_value = "some_bad_value_123"
 
       error =
-        assert_raise ArgumentError, fn ->
+        assert_raise Trogon.Commanded.ObjectId.ValidationError, fn ->
           TestSupport.ContextId.parse!(invalid_value)
         end
 
-      assert error.message =~ invalid_value
+      assert error.value == invalid_value
     end
 
     test "handles three-type unions" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
-      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
-      service_string = to_string(TestSupport.ServiceId.new(@service_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
+      system_string = to_string(TestSupport.SystemId.new!(@system_id_value))
+      service_string = to_string(TestSupport.ServiceId.new!(@service_id_value))
 
       assert TestSupport.PrincipalId.parse!(tenant_string) ==
                %TestSupport.PrincipalId{id: %TestSupport.TenantId{id: @tenant_id_value}}
@@ -155,21 +155,21 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "to_storage/1" do
     test "converts TenantId to storage string with prefix" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       assert TestSupport.ContextId.to_storage(union) == "tenant_#{@tenant_id_value}"
     end
 
     test "converts SystemId to storage string with prefix" do
-      system_id = TestSupport.SystemId.new(@system_id_value)
+      system_id = TestSupport.SystemId.new!(@system_id_value)
       union = TestSupport.ContextId.new(system_id)
 
       assert TestSupport.ContextId.to_storage(union) == "system_#{@system_id_value}"
     end
 
     test "storage string is the same as to_string output" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       assert TestSupport.ContextId.to_storage(union) == to_string(union)
@@ -190,21 +190,21 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "String.Chars protocol" do
     test "converts TenantId to string with prefix" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       assert to_string(union) == "tenant_#{@tenant_id_value}"
     end
 
     test "converts SystemId to string with prefix" do
-      system_id = TestSupport.SystemId.new(@system_id_value)
+      system_id = TestSupport.SystemId.new!(@system_id_value)
       union = TestSupport.ContextId.new(system_id)
 
       assert to_string(union) == "system_#{@system_id_value}"
     end
 
     test "can be used in string interpolation" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       result = "Context: #{union}"
@@ -224,18 +224,18 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
     test "casts a union struct" do
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.TenantId{id: @tenant_id_value}}} =
-               TestSupport.ContextId.cast(%TestSupport.ContextId{id: TestSupport.TenantId.new(@tenant_id_value)})
+               TestSupport.ContextId.cast(%TestSupport.ContextId{id: TestSupport.TenantId.new!(@tenant_id_value)})
     end
 
     test "casts a valid string to TenantId" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
 
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.TenantId{id: @tenant_id_value}}} =
                TestSupport.ContextId.cast(tenant_string)
     end
 
     test "casts a valid string to SystemId" do
-      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
+      system_string = to_string(TestSupport.SystemId.new!(@system_id_value))
 
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.SystemId{id: @system_id_value}}} =
                TestSupport.ContextId.cast(system_string)
@@ -262,14 +262,14 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "loads a valid TenantId string" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
 
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.TenantId{id: @tenant_id_value}}} =
                TestSupport.ContextId.load(tenant_string)
     end
 
     test "loads a valid SystemId string" do
-      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
+      system_string = to_string(TestSupport.SystemId.new!(@system_id_value))
 
       assert {:ok, %TestSupport.ContextId{id: %TestSupport.SystemId{id: @system_id_value}}} =
                TestSupport.ContextId.load(system_string)
@@ -291,14 +291,14 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "dumps a union with TenantId" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       assert {:ok, "tenant_#{@tenant_id_value}"} = TestSupport.ContextId.dump(union)
     end
 
     test "dumps a union with SystemId" do
-      system_id = TestSupport.SystemId.new(@system_id_value)
+      system_id = TestSupport.SystemId.new!(@system_id_value)
       union = TestSupport.ContextId.new(system_id)
 
       assert {:ok, "system_#{@system_id_value}"} = TestSupport.ContextId.dump(union)
@@ -327,7 +327,7 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "equal?/2" do
     test "returns true for equal unions with TenantId" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union1 = TestSupport.ContextId.new(tenant_id)
       union2 = TestSupport.ContextId.new(tenant_id)
 
@@ -335,8 +335,8 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "returns false for unions with different inner values" do
-      tenant_id1 = TestSupport.TenantId.new(@tenant_id_value)
-      tenant_id2 = TestSupport.TenantId.new("different")
+      tenant_id1 = TestSupport.TenantId.new!(@tenant_id_value)
+      tenant_id2 = TestSupport.TenantId.new!("different")
       union1 = TestSupport.ContextId.new(tenant_id1)
       union2 = TestSupport.ContextId.new(tenant_id2)
 
@@ -344,8 +344,8 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "returns false for unions with different inner types" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
-      system_id = TestSupport.SystemId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
+      system_id = TestSupport.SystemId.new!(@tenant_id_value)
       tenant_union = TestSupport.ContextId.new(tenant_id)
       system_union = TestSupport.ContextId.new(system_id)
 
@@ -353,7 +353,7 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "returns false when comparing with non-union" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       assert not TestSupport.ContextId.equal?(union, nil)
@@ -370,7 +370,7 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "Jason.Encoder protocol" do
     test "encodes TenantId union to JSON" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       json = Jason.encode!(union)
@@ -379,7 +379,7 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "encodes SystemId union to JSON" do
-      system_id = TestSupport.SystemId.new(@system_id_value)
+      system_id = TestSupport.SystemId.new!(@system_id_value)
       union = TestSupport.ContextId.new(system_id)
 
       json = Jason.encode!(union)
@@ -388,7 +388,7 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
     end
 
     test "decodes JSON to union via cast" do
-      tenant_id = TestSupport.TenantId.new(@tenant_id_value)
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
       union = TestSupport.ContextId.new(tenant_id)
 
       json = Jason.encode!(union)
@@ -434,21 +434,21 @@ defmodule Trogon.Commanded.UnionObjectIdTest do
 
   describe "Union with multiple types" do
     test "correctly identifies TenantId variant" do
-      tenant_string = to_string(TestSupport.TenantId.new(@tenant_id_value))
+      tenant_string = to_string(TestSupport.TenantId.new!(@tenant_id_value))
 
       assert {:ok, %TestSupport.PrincipalId{id: %TestSupport.TenantId{id: @tenant_id_value}}} =
                TestSupport.PrincipalId.parse(tenant_string)
     end
 
     test "correctly identifies SystemId variant" do
-      system_string = to_string(TestSupport.SystemId.new(@system_id_value))
+      system_string = to_string(TestSupport.SystemId.new!(@system_id_value))
 
       assert {:ok, %TestSupport.PrincipalId{id: %TestSupport.SystemId{id: @system_id_value}}} =
                TestSupport.PrincipalId.parse(system_string)
     end
 
     test "correctly identifies ServiceId variant" do
-      service_string = to_string(TestSupport.ServiceId.new(@service_id_value))
+      service_string = to_string(TestSupport.ServiceId.new!(@service_id_value))
 
       assert {:ok, %TestSupport.PrincipalId{id: %TestSupport.ServiceId{id: @service_id_value}}} =
                TestSupport.PrincipalId.parse(service_string)

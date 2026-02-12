@@ -236,8 +236,11 @@ defmodule Trogon.Commanded.UnionObjectId do
       @spec parse!(String.t()) :: t()
       def parse!(string) when is_binary(string) do
         case parse(string) do
-          {:ok, union} -> union
-          {:error, _} -> raise ArgumentError, "invalid #{inspect(__MODULE__)}: #{inspect(string)}"
+          {:ok, union} ->
+            union
+
+          {:error, reason} ->
+            raise Trogon.Commanded.ObjectId.ValidationError, module: __MODULE__, value: string, reason: reason
         end
       end
     end
