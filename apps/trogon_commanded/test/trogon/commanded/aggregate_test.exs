@@ -15,4 +15,14 @@ defmodule Trogon.Commanded.AggregateTest do
                TestSupport.MyAggregateOne.apply(%TestSupport.MyAggregateOne{}, %TestSupport.MyEventTwo{})
     end
   end
+
+  describe "proto-driven identity_prefix" do
+    test "resolves prefix with default separator" do
+      assert TestSupport.ProtoStreamAggregate.identity_prefix() == "bank-account:"
+    end
+
+    test "resolves prefix with custom separator" do
+      assert TestSupport.ProtoStreamOrderAggregate.identity_prefix() == "order#"
+    end
+  end
 end

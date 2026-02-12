@@ -57,7 +57,11 @@ defmodule Trogon.Commanded.ObjectId do
       end
   """
 
+  alias Trogon.Commanded.ProtoExtension
+  alias TrogonProto.ObjectId.V1Alpha1.EnumValueOptions, as: ObjectIdEnumValueOptions
+
   @proto_extension_tag 870_010
+  @proto_extension_name "trogon.object_id.v1alpha1.enum_value"
   @default_separator "_"
 
   @using_opts_schema NimbleOptions.new!(
@@ -533,52 +537,23 @@ defmodule Trogon.Commanded.ObjectId do
   end
 
   defp extract_proto_options(enum_module, version) do
-    desc = enum_module.descriptor()
-    version_name = Atom.to_string(version)
-    value_desc = Enum.find(desc.value, &(&1.name == version_name))
+    binary =
+      ProtoExtension.find_enum_value_extension!(
+        enum_module,
+        version,
+        @proto_extension_tag,
+        @proto_extension_name
+      )
 
-    case value_desc do
-      nil ->
-        available = Enum.map(desc.value, &String.to_atom(&1.name))
+    opts = ObjectIdEnumValueOptions.decode(binary)
 
-        raise ArgumentError,
-              "Enum value #{inspect(version)} not found. Available values: #{inspect(available)}"
-
-      %{options: nil} ->
-        raise ArgumentError,
-              "No options found for #{inspect(version)}. " <>
-                "Add (trogon.object_id.v1alpha1.enum_value) to the proto enum value."
-
-      %{options: %{__unknown_fields__: fields}} ->
-        decode_proto_extension(fields, version)
+    if opts.object_type == "" do
+      raise ArgumentError,
+            "object_type is required for #{inspect(version)} but was empty."
     end
-  end
 
-  defp decode_proto_extension(fields, version) do
-    case find_proto_field(fields, @proto_extension_tag) do
-      nil ->
-        raise ArgumentError,
-              "No object_id extension found for #{inspect(version)}. " <>
-                "Add (trogon.object_id.v1alpha1.enum_value) to the proto enum value."
+    separator = if opts.separator, do: opts.separator, else: @default_separator
 
-      binary ->
-        opts = TrogonProto.ObjectId.V1Alpha1.EnumValueOptions.decode(binary)
-
-        if opts.object_type == "" do
-          raise ArgumentError,
-                "object_type is required for #{inspect(version)} but was empty."
-        end
-
-        separator = if opts.separator, do: opts.separator, else: @default_separator
-
-        {opts.object_type, separator}
-    end
-  end
-
-  defp find_proto_field(fields, tag) do
-    case Enum.find(fields, &(elem(&1, 0) == tag)) do
-      {_, _, binary} -> binary
-      nil -> nil
-    end
+    {opts.object_type, separator}
   end
 end
