@@ -65,11 +65,15 @@ defmodule Trogon.Commanded.Aggregate do
   @spec __using__(
           opts ::
             Trogon.Commanded.Entity.using_opts()
-            | [identity_prefix: String.t() | nil]
+            | [identity_prefix: String.t() | nil | {module(), atom()}]
         ) :: any()
   defmacro __using__(opts \\ []) do
     {opts, entity_opts} = Keyword.split(opts, [:identity_prefix])
-    identity_prefix = Keyword.get(opts, :identity_prefix)
+
+    identity_prefix =
+      opts
+      |> Keyword.get(:identity_prefix)
+      |> Trogon.Commanded.StreamPrefix.resolve(__CALLER__)
 
     quote generated: true do
       use Trogon.Commanded.Entity, unquote(entity_opts)

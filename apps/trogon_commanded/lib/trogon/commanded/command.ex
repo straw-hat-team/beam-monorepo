@@ -67,14 +67,21 @@ defmodule Trogon.Commanded.Command do
         end
       end
   """
-  @spec __using__(opts :: [aggregate_identifier: aggregate_identifier_opt(), identity_prefix: String.t() | nil]) ::
-          any()
+  @spec __using__(
+          opts :: [
+            aggregate_identifier: aggregate_identifier_opt(),
+            identity_prefix: String.t() | nil | {module(), atom()}
+          ]
+        ) :: any()
   defmacro __using__(opts \\ []) do
     unless Keyword.has_key?(opts, :aggregate_identifier) do
       raise ArgumentError, "missing :aggregate_identifier key"
     end
 
-    identity_prefix = Keyword.get(opts, :identity_prefix)
+    identity_prefix =
+      opts
+      |> Keyword.get(:identity_prefix)
+      |> Trogon.Commanded.StreamPrefix.resolve(__CALLER__)
 
     {aggregate_identifier, aggregate_identifier_type} =
       opts

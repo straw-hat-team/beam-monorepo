@@ -384,6 +384,50 @@ defmodule TestSupport do
       storage_format: :drop_prefix
   end
 
+  defmodule ProtoStreamCommand do
+    @moduledoc false
+
+    use Trogon.Commanded.Command,
+      aggregate_identifier: :uuid,
+      identity_prefix: {Acme.Type.V1.StreamType, :STREAM_TYPE_BANK_ACCOUNT}
+
+    embedded_schema do
+    end
+  end
+
+  defmodule ProtoStreamOrderCommand do
+    @moduledoc false
+
+    use Trogon.Commanded.Command,
+      aggregate_identifier: :uuid,
+      identity_prefix: {Acme.Type.V1.StreamType, :STREAM_TYPE_ORDER}
+
+    embedded_schema do
+    end
+  end
+
+  defmodule ProtoStreamAggregate do
+    @moduledoc false
+
+    use Trogon.Commanded.Aggregate,
+      identifier: :uuid,
+      identity_prefix: {Acme.Type.V1.StreamType, :STREAM_TYPE_BANK_ACCOUNT}
+
+    embedded_schema do
+    end
+  end
+
+  defmodule ProtoStreamOrderAggregate do
+    @moduledoc false
+
+    use Trogon.Commanded.Aggregate,
+      identifier: :uuid,
+      identity_prefix: {Acme.Type.V1.StreamType, :STREAM_TYPE_ORDER}
+
+    embedded_schema do
+    end
+  end
+
   defmodule CustomValidator do
     @moduledoc false
 
