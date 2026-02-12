@@ -184,8 +184,8 @@ defmodule Trogon.Commanded.ObjectId do
       @behaviour Ecto.Type
 
       unquote(__generated_struct_and_metadata__(object_type, prefix))
-      unquote(__generated_new_function__())
       unquote(__build_validator__(validate))
+      unquote(__generated_new_function__(validate))
       unquote(__generated_parse_functions__(prefix, prefix_len, separator, validate))
       unquote(__generated_ecto_cast__())
       unquote(__generated_ecto_load__(storage_format, prefix))
@@ -212,21 +212,80 @@ defmodule Trogon.Commanded.ObjectId do
     end
   end
 
-  defp __generated_new_function__ do
+  defp __generated_new_function__(nil) do
     quote location: :keep do
       @doc """
-      Wraps a value in an ObjectId struct.
-
-      Raises `FunctionClauseError` if value is empty.
+      Creates a new ObjectId with the given value.
 
       ## Examples
 
           iex> #{inspect(__MODULE__)}.new("abc-123")
+          {:ok, %#{inspect(__MODULE__)}{id: "abc-123"}}
+
+          iex> #{inspect(__MODULE__)}.new("")
+          {:error, :empty_value}
+      """
+      @spec new(binary()) :: {:ok, t()} | {:error, atom()}
+      def new(value) when is_binary(value) and value != "" do
+        {:ok, %__MODULE__{id: value}}
+      end
+
+      def new(value) when is_binary(value), do: {:error, :empty_value}
+
+      @doc """
+      Creates a new ObjectId with the given value, raising on failure.
+
+      ## Examples
+
+          iex> #{inspect(__MODULE__)}.new!("abc-123")
           %#{inspect(__MODULE__)}{id: "abc-123"}
       """
-      @spec new(binary()) :: t()
+      @spec new!(binary()) :: t()
+      def new!(value) when is_binary(value) do
+        case new(value) do
+          {:ok, id} ->
+            id
+
+          {:error, reason} ->
+            raise Trogon.Commanded.ObjectId.ValidationError, module: __MODULE__, value: value, reason: reason
+        end
+      end
+    end
+  end
+
+  defp __generated_new_function__(_validate) do
+    quote location: :keep do
+      @doc """
+      Creates a new ObjectId with the given value.
+
+      Validates the value against the configured format.
+      Returns `{:ok, t()}` if valid, `{:error, reason}` otherwise.
+      """
+      @spec new(binary()) :: {:ok, t()} | {:error, atom()}
       def new(value) when is_binary(value) and value != "" do
-        %__MODULE__{id: value}
+        case validate_format(value) do
+          :ok -> {:ok, %__MODULE__{id: value}}
+          {:error, _} = error -> error
+        end
+      end
+
+      def new(value) when is_binary(value), do: {:error, :empty_value}
+
+      @doc """
+      Creates a new ObjectId with the given value, raising on failure.
+
+      Validates the value against the configured format.
+      Raises `Trogon.Commanded.ObjectId.ValidationError` if invalid.
+      """
+      @spec new!(binary()) :: t()
+      def new!(value) when is_binary(value) do
+        case new(value) do
+          {:ok, id} ->
+            id
+
+          {:error, reason} ->
+            raise Trogon.Commanded.ObjectId.ValidationError, module: __MODULE__, value: value, reason: reason
+        end
       end
     end
   end
@@ -276,8 +335,11 @@ defmodule Trogon.Commanded.ObjectId do
       @spec parse!(String.t()) :: t()
       def parse!(string) when is_binary(string) do
         case parse(string) do
-          {:ok, id} -> id
-          {:error, _} -> raise ArgumentError, "invalid #{inspect(__MODULE__)}: #{inspect(string)}"
+          {:ok, id} ->
+            id
+
+          {:error, reason} ->
+            raise Trogon.Commanded.ObjectId.ValidationError, module: __MODULE__, value: string, reason: reason
         end
       end
     end
