@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.36.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.35.1...trogon_commanded@v0.36.0) (2026-02-12)
+
+
+### Features
+
+* **trogon_commanded:** Support proto-driven identity_prefix ([#324](https://github.com/straw-hat-team/beam-monorepo/issues/324)) ([df7bc76](https://github.com/straw-hat-team/beam-monorepo/commit/df7bc76013d314aaf63e8074e62d0ec96a1411e7))
+* **trogon_proto:** Bump trogon-proto BSR module to v0.7.0 ([#323](https://github.com/straw-hat-team/beam-monorepo/issues/323)) ([caf9eea](https://github.com/straw-hat-team/beam-monorepo/commit/caf9eea94ae284e653e934d3ae98cd7afeea114a))
+
 ## [0.35.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.35.0...trogon_commanded@v0.35.1) (2026-02-12)
 
 
