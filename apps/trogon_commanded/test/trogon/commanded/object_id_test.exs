@@ -213,7 +213,7 @@ defmodule Trogon.Commanded.ObjectIdTest do
     end
 
     test "returns error for invalid string" do
-      assert {:error, :invalid_format} = TestSupport.UserId.cast("invalid")
+      assert :error = TestSupport.UserId.cast("invalid")
     end
 
     test "returns error for non-binary input" do
@@ -233,7 +233,7 @@ defmodule Trogon.Commanded.ObjectIdTest do
     end
 
     test "rejects prefix with empty suffix" do
-      assert {:error, :invalid_format} = TestSupport.UserId.cast("user_")
+      assert :error = TestSupport.UserId.cast("user_")
     end
 
     test "rejects struct with empty id" do
@@ -513,7 +513,7 @@ defmodule Trogon.Commanded.ObjectIdTest do
       assert {:ok, %TestSupport.UuidFormatId{}} =
                TestSupport.UuidFormatId.cast("uuid_#{@valid_uuid}")
 
-      assert {:error, :invalid_uuid} = TestSupport.UuidFormatId.cast("uuid_invalid")
+      assert :error = TestSupport.UuidFormatId.cast("uuid_invalid")
     end
   end
 

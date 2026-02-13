@@ -191,7 +191,9 @@ defmodule Trogon.Commanded.ObjectId do
       unquote(__build_validator__(validate))
       unquote(__generated_new_function__(validate))
       unquote(__generated_parse_functions__(prefix, prefix_len, separator, validate))
+      unquote(__generated_ecto_type__())
       unquote(__generated_ecto_cast__())
+      unquote(__generated_ecto_cast_binary__())
       unquote(__generated_ecto_load__(storage_format, prefix))
       unquote(__generated_storage_functions__(storage_format, prefix))
       unquote(__generated_ecto_dump__())
@@ -385,21 +387,37 @@ defmodule Trogon.Commanded.ObjectId do
     end
   end
 
-  defp __generated_ecto_cast__ do
+  defp __generated_ecto_type__ do
     quote location: :keep do
       @impl Ecto.Type
       @spec type() :: :string
       def type, do: :string
+    end
+  end
 
+  defp __generated_ecto_cast__ do
+    quote location: :keep do
       @impl Ecto.Type
-      @spec cast(any()) :: {:ok, t() | nil} | :error | {:error, atom()}
+      @spec cast(any()) :: {:ok, t() | nil} | :error
       def cast(nil), do: {:ok, nil}
       def cast(""), do: {:ok, nil}
       def cast(%__MODULE__{id: ""}), do: :error
       def cast(%__MODULE__{id: nil}), do: :error
       def cast(%__MODULE__{id: id} = value) when is_binary(id), do: {:ok, value}
-      def cast(value) when is_binary(value), do: parse(value)
+      def cast(value) when is_binary(value), do: cast_binary(value)
       def cast(_), do: :error
+    end
+  end
+
+  defp __generated_ecto_cast_binary__ do
+    quote location: :keep do
+      @spec cast_binary(binary()) :: {:ok, t()} | :error
+      defp cast_binary(value) do
+        case parse(value) do
+          {:ok, _} = ok -> ok
+          {:error, _} -> :error
+        end
+      end
     end
   end
 
