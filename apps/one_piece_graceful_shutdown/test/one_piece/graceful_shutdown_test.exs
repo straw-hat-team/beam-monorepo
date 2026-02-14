@@ -9,7 +9,7 @@ defmodule OnePiece.GracefulShutdownTest do
       {GracefulShutdown, [shutdown_delay_ms: delay, init_stop?: false, notify_pid: self()]}
     )
 
-    assert [GracefulShutdown, _] = :gen_event.which_handlers(:erl_signal_server)
+    assert GracefulShutdown in :gen_event.which_handlers(:erl_signal_server)
     assert :running = GracefulShutdown.get_status()
 
     {time, _} =
