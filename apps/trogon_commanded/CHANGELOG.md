@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.36.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.36.0...trogon_commanded@v0.36.1) (2026-02-14)
+
+
+### Bug Fixes
+
+* **trogon_commanded:** Error handling in ObjectId cast function ([#327](https://github.com/straw-hat-team/beam-monorepo/issues/327)) ([0c8a771](https://github.com/straw-hat-team/beam-monorepo/commit/0c8a7711d77c66850631858caff6314c172f701d))
+
 ## [0.36.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.35.1...trogon_commanded@v0.36.0) (2026-02-12)
 
 
