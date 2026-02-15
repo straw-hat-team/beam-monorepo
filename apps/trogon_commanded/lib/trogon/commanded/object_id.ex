@@ -60,6 +60,23 @@ defmodule Trogon.Commanded.ObjectId do
   alias Trogon.Commanded.ProtoExtension
   alias TrogonProto.ObjectId.V1Alpha1.EnumValueOptions, as: ObjectIdEnumValueOptions
 
+  @doc """
+  Returns true if `term` is an ObjectId struct; otherwise returns false.
+
+  Allowed in guard tests.
+
+  ## Examples
+
+      iex> is_object_id(%MyApp.UserId{id: "abc-123"})
+      true
+
+      iex> is_object_id(%{id: "abc-123"})
+      false
+  """
+  defguard is_object_id(term)
+           when is_map(term) and :erlang.is_map_key(:__object_id__, term) and
+                  :erlang.map_get(:__object_id__, term) == true
+
   @proto_extension_tag 870_010
   @proto_extension_name "trogon.object_id.v1alpha1.enum_value"
   @default_separator "_"
@@ -204,9 +221,9 @@ defmodule Trogon.Commanded.ObjectId do
 
   defp __generated_struct_and_metadata__(object_type, prefix) do
     quote location: :keep do
-      @type t :: %__MODULE__{id: binary()}
+      @type t :: %__MODULE__{id: binary(), __object_id__: true}
 
-      defstruct [:id]
+      defstruct id: nil, __object_id__: true
 
       @doc false
       @spec object_type() :: String.t()
