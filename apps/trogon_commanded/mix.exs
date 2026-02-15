@@ -2,7 +2,7 @@ defmodule Trogon.Commanded.MixProject do
   use Mix.Project
 
   @app :trogon_commanded
-  @version "0.36.1"
+  @version "0.37.0"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
