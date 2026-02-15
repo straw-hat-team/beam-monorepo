@@ -1,6 +1,8 @@
 defmodule Trogon.Commanded.ObjectIdTest do
   use ExUnit.Case
 
+  import Trogon.Commanded.ObjectId
+
   alias TestSupport
 
   @test_uuid "test-value-1"
@@ -624,6 +626,49 @@ defmodule Trogon.Commanded.ObjectIdTest do
       assert to_string(typeid) == "ticket_abc-123"
       assert {:ok, parsed} = TestSupport.ProtoTicketId.parse("ticket_abc-123")
       assert parsed.id == "abc-123"
+    end
+  end
+
+  describe "is_object_id/1" do
+    test "returns true for an ObjectId struct" do
+      user_id = TestSupport.UserId.new!("abc-123")
+      assert is_object_id(user_id)
+    end
+
+    test "returns false for a plain map" do
+      refute is_object_id(%{id: "abc-123"})
+    end
+
+    test "returns false for a non-ObjectId struct" do
+      refute is_object_id(%URI{path: "/"})
+    end
+
+    test "returns false for non-map values" do
+      refute is_object_id("user_abc-123")
+      refute is_object_id(123)
+      refute is_object_id(nil)
+    end
+
+    test "works in guard clauses" do
+      user_id = TestSupport.UserId.new!("abc-123")
+
+      result =
+        case user_id do
+          x when is_object_id(x) -> :object_id
+          _ -> :other
+        end
+
+      assert result == :object_id
+    end
+
+    test "rejects non-ObjectId in guard clauses" do
+      result =
+        case %{id: "abc-123"} do
+          x when is_object_id(x) -> :object_id
+          _ -> :other
+        end
+
+      assert result == :other
     end
   end
 end
