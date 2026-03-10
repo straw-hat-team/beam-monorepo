@@ -1,4 +1,4 @@
-# Trogon.ExunitReporter
+# Trogon.ExUnitReporter
 
 An ExUnit formatter that writes a token-optimized test report for AI coding agents.
 
@@ -27,7 +27,7 @@ Add the reporter alongside the default CLI formatter in `test/test_helper.exs`:
 
 ```elixir
 ExUnit.configure(
-  formatters: [ExUnit.CLIFormatter, Trogon.ExunitReporter]
+  formatters: [ExUnit.CLIFormatter, Trogon.ExUnitReporter]
 )
 
 ExUnit.start()
@@ -44,7 +44,7 @@ After running `mix test`, the agent reads `test-report.txt`.
 
 ```elixir
 ExUnit.configure(
-  formatters: [ExUnit.CLIFormatter, Trogon.ExunitReporter],
+  formatters: [ExUnit.CLIFormatter, Trogon.ExUnitReporter],
   trogon_exunit_reporter: [
     file_path: "test-report.txt",
     include_logs: true
@@ -63,22 +63,17 @@ ALL PASSED | 42 tests, 42 passed | 150ms
 When tests fail — only failures appear, followed by the summary:
 
 ```
-FAIL test this assertion fails (ExampleFailingTest)
-  test/example_test.exs:19
-  ** (error)
-  message: Assertion with == failed
-  code:    assert [1, 2, 3] == [1, 2, 4]
-  left:    [1, 2, 3]
-  right:   [1, 2, 4]
-  stacktrace:
-    test/example_test.exs:20 ExampleFailingTest.test this assertion fails/1
+FAIL test comparison fails
+  test/example_test.exs:10
+  assert result == expected
+  left:  [1, 2, 3]
+  right: [1, 2, 4]
+  test/example_test.exs:11 ExampleFailingTest.test comparison fails/1
 
-FAIL test runtime error (ExampleFailingTest)
+FAIL test runtime error
   test/example_test.exs:22
-  ** (error)
   something broke
-  stacktrace:
-    test/example_test.exs:23 ExampleFailingTest.test runtime error/1
+  test/example_test.exs:23 ExampleFailingTest.test runtime error/1
 
-FAILURES | 5 tests, 2 passed, 2 failed, 1 skipped | 5ms
+FAILURES | 5 tests, 3 passed, 2 failed | 5ms
 ```

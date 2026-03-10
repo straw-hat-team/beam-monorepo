@@ -1,4 +1,4 @@
-defmodule Trogon.ExunitReporter.Event do
+defmodule Trogon.ExUnitReporter.Event do
   @moduledoc """
   Formats ExUnit events as compact plain text optimized for AI agent token consumption.
 

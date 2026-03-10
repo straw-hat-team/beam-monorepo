@@ -1,4 +1,4 @@
-defmodule Trogon.ExunitReporter do
+defmodule Trogon.ExUnitReporter do
   @moduledoc """
   An ExUnit formatter that writes a token-optimized test report to a file.
 
@@ -14,7 +14,7 @@ defmodule Trogon.ExunitReporter do
   Add this formatter in your `test/test_helper.exs`:
 
       ExUnit.configure(
-        formatters: [ExUnit.CLIFormatter, Trogon.ExunitReporter]
+        formatters: [ExUnit.CLIFormatter, Trogon.ExUnitReporter]
       )
 
       ExUnit.start()
@@ -24,20 +24,20 @@ defmodule Trogon.ExunitReporter do
   Pass options under the `:trogon_exunit_reporter` key:
 
       ExUnit.configure(
-        formatters: [ExUnit.CLIFormatter, Trogon.ExunitReporter],
+        formatters: [ExUnit.CLIFormatter, Trogon.ExUnitReporter],
         trogon_exunit_reporter: [
           file_path: "test-report.txt",
           include_logs: true
         ]
       )
 
-  See `Trogon.ExunitReporter.Config` for all available options.
+  See `Trogon.ExUnitReporter.Config` for all available options.
   """
 
   use GenServer
 
-  alias Trogon.ExunitReporter.Config
-  alias Trogon.ExunitReporter.Event
+  alias Trogon.ExUnitReporter.Config
+  alias Trogon.ExUnitReporter.Event
 
   defstruct [:config, :io_device, :counters]
 

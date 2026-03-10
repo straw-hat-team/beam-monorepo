@@ -1,4 +1,4 @@
-defmodule Trogon.ExunitReporter.MixProject do
+defmodule Trogon.ExUnitReporter.MixProject do
   use Mix.Project
 
   @app :trogon_exunit_reporter
@@ -12,8 +12,8 @@ defmodule Trogon.ExunitReporter.MixProject do
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
-      name: "Trogon.ExunitReporter",
-      description: "An ExUnit formatter that produces JSONL output optimized for AI agent consumption",
+      name: "Trogon.ExUnitReporter",
+      description: "An ExUnit formatter that writes a token-optimized test report for AI coding agents",
       app: @app,
       version: @version,
       elixir: @elixir_version,

@@ -1,7 +1,7 @@
-defmodule Trogon.ExunitReporterTest do
+defmodule Trogon.ExUnitReporterTest do
   use ExUnit.Case, async: true
 
-  alias Trogon.ExunitReporter
+  alias Trogon.ExUnitReporter
 
   describe "passing tests produce no output" do
     @tag :tmp_dir
@@ -245,7 +245,7 @@ defmodule Trogon.ExunitReporterTest do
       trogon_exunit_reporter: Keyword.merge([file_path: file_path], extra_opts)
     ]
 
-    {:ok, pid} = GenServer.start_link(ExunitReporter, opts)
+    {:ok, pid} = GenServer.start_link(ExUnitReporter, opts)
     pid
   end
 

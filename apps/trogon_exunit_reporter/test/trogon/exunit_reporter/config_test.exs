@@ -1,7 +1,7 @@
-defmodule Trogon.ExunitReporter.ConfigTest do
+defmodule Trogon.ExUnitReporter.ConfigTest do
   use ExUnit.Case, async: true
 
-  alias Trogon.ExunitReporter.Config
+  alias Trogon.ExUnitReporter.Config
 
   describe "from_exunit_opts/1" do
     test "returns defaults when no options given" do

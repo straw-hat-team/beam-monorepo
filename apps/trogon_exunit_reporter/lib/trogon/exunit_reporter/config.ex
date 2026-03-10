@@ -1,4 +1,4 @@
-defmodule Trogon.ExunitReporter.Config do
+defmodule Trogon.ExUnitReporter.Config do
   @moduledoc """
   Configuration parsing and validation for the ExUnit AI agent reporter.
   """
