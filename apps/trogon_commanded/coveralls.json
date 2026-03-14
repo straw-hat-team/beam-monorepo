@@ -2,5 +2,8 @@
   "coverage_options": {
     "treat_no_relevant_lines_as_covered": true
   },
-  "skip_files": ["lib/one_piece/commanded/test_support"]
+  "skip_files": [
+    "lib/one_piece/commanded/test_support",
+    "test/support/proto/"
+  ]
 }
