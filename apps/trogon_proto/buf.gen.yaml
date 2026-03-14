@@ -3,7 +3,7 @@ clean: true
 managed:
   enabled: true
 inputs:
-  - module: buf.build/trogonstack/trogon-proto:v0.7.0
+  - module: buf.build/trogonstack/trogon-proto:v0.8.0
 plugins:
   - local: protoc-gen-elixir
     out: lib/__generated__
