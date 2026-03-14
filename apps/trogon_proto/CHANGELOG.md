@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.5.0...trogon_proto@v0.6.0) (2026-03-14)
+
+
+### Features
+
+* **trogon_proto:** Bump trogon-proto BSR module to v0.8.0 ([#333](https://github.com/straw-hat-team/beam-monorepo/issues/333)) ([ba6ca27](https://github.com/straw-hat-team/beam-monorepo/commit/ba6ca277dcf031642b7beda4f9e79d09bd1fe72f))
+
 ## [0.5.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.4.0...trogon_proto@v0.5.0) (2026-02-12)
 
 
