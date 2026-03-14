@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.38.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.38.0...trogon_commanded@v0.38.1) (2026-03-14)
+
+
+### Bug Fixes
+
+* Make Process module configurable in ConsistencyPolicy ([#337](https://github.com/straw-hat-team/beam-monorepo/issues/337)) ([f52993c](https://github.com/straw-hat-team/beam-monorepo/commit/f52993c9cb8c30f102d6a3f1c216058686b40591))
+
 ## [0.38.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.37.0...trogon_commanded@v0.38.0) (2026-03-14)
 
 
