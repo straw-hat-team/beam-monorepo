@@ -219,6 +219,47 @@ defmodule Trogon.Commanded.Helpers do
   def ignore_error(result, _expected_error), do: result
 
   @doc false
+  @spec ms_to_duration(pos_integer()) :: Duration.t()
+  def ms_to_duration(ms) when is_integer(ms) and ms > 0 do
+    Duration.new!(second: div(ms, 1000), microsecond: {rem(ms, 1000) * 1000, 6})
+  end
+
+  @doc false
+  @spec to_timeout(pos_integer() | Duration.t() | term(), atom()) :: pos_integer()
+  def to_timeout(ms, _field) when is_integer(ms) and ms > 0 do
+    ms
+  end
+
+  def to_timeout(ms, field) when is_integer(ms) do
+    raise ArgumentError, "#{field} must be positive, got: #{ms}"
+  end
+
+  def to_timeout(%Duration{} = d, field) do
+    case Kernel.to_timeout(d) do
+      ms when ms > 0 -> ms
+      ms -> raise ArgumentError, "#{field} must be positive, got: #{ms}ms"
+    end
+  end
+
+  def to_timeout(other, field) do
+    raise ArgumentError,
+          "#{field} must be a positive integer (milliseconds) or Duration struct, got: #{inspect(other)}"
+  end
+
+  if Code.ensure_loaded?(Google.Protobuf) do
+    @doc false
+    @spec to_duration_or(Google.Protobuf.Duration.t() | nil, pos_integer()) ::
+            pos_integer() | Duration.t()
+    def to_duration_or(nil, default_ms) do
+      default_ms
+    end
+
+    def to_duration_or(%Google.Protobuf.Duration{} = d, _default) do
+      Google.Protobuf.to_duration(d)
+    end
+  end
+
+  @doc false
   def get_primary_key({identifier, identifier_type}) do
     {identifier, identifier_type}
   end
