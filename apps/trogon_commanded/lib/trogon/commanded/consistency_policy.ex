@@ -47,6 +47,8 @@ defmodule Trogon.Commanded.ConsistencyPolicy do
     VersionMismatchError
   }
 
+  @process_mod Application.compile_env(:trogon_commanded, [__MODULE__, :process_module], Process)
+
   @typedoc "Event stream version (projection position)."
   @type version :: non_neg_integer()
 
@@ -181,7 +183,7 @@ defmodule Trogon.Commanded.ConsistencyPolicy do
        )}
     else
       remaining_ms = max(deadline - now, 0)
-      Process.sleep(min(delay_ms, remaining_ms))
+      @process_mod.sleep(min(delay_ms, remaining_ms))
       do_retry(policy, callback_fn, deadline, start_time, delay_ms, attempt + 1)
     end
   end
