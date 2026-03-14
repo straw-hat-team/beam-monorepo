@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.38.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.37.0...trogon_commanded@v0.38.0) (2026-03-14)
+
+
+### Features
+
+* **trogon_commanded:** Add ConsistencyPolicy ([#336](https://github.com/straw-hat-team/beam-monorepo/issues/336)) ([dd2992c](https://github.com/straw-hat-team/beam-monorepo/commit/dd2992c08bc4fafbb07dcbaa0c607545d3f01a66))
+* **trogon_proto:** Bump trogon-proto BSR module to v0.8.0 ([#333](https://github.com/straw-hat-team/beam-monorepo/issues/333)) ([ba6ca27](https://github.com/straw-hat-team/beam-monorepo/commit/ba6ca277dcf031642b7beda4f9e79d09bd1fe72f))
+
 ## [0.37.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.36.1...trogon_commanded@v0.37.0) (2026-02-15)
 
 
