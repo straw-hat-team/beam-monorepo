@@ -52,6 +52,7 @@ defmodule Trogon.Proto.Env do
   - `float`, `double` - Parsed via `Float.parse/1` (accepts both "1.5" and "1")
   - `bool` - Case-insensitive, truthy values: `"true"`, `"1"`, `"yes"`, `"on"`;
     all other values are considered `false`
+  - `enum` - Exact enum name match (for example `"LOG_LEVEL_DEBUG"`)
   """
 
   alias TrogonProto.Env.V1Alpha1.FieldOptions
@@ -73,7 +74,7 @@ defmodule Trogon.Proto.Env do
           env_var_name: String.t(),
           visibility: non_neg_integer(),
           default_value: String.t() | nil,
-          field_type: atom(),
+          field_type: atom() | {:enum, module()},
           is_repeated: boolean(),
           split_delimiter: String.t(),
           trim: Trim.t() | nil
@@ -148,6 +149,13 @@ defmodule Trogon.Proto.Env do
   defp to_scalar(value, :double), do: parse_float(value)
   defp to_scalar(value, :bool), do: String.downcase(value) in ["true", "1", "yes", "on"]
 
+  defp to_scalar(value, {:enum, enum_module}) do
+    case parse_enum_value(value, enum_module) do
+      {:ok, enum_value} -> enum_value
+      {:error, reason} -> raise ArgumentError, reason
+    end
+  end
+
   defp parse_float(value) do
     case Float.parse(value) do
       {float, _} -> float
@@ -161,6 +169,13 @@ defmodule Trogon.Proto.Env do
   defp normalize_type(:TYPE_FLOAT), do: :float
   defp normalize_type(:TYPE_DOUBLE), do: :double
   defp normalize_type(:TYPE_BOOL), do: :bool
+  defp normalize_type(:string), do: :string
+  defp normalize_type(:int32), do: :int32
+  defp normalize_type(:int64), do: :int64
+  defp normalize_type(:float), do: :float
+  defp normalize_type(:double), do: :double
+  defp normalize_type(:bool), do: :bool
+  defp normalize_type({:enum, enum_module}) when is_atom(enum_module), do: {:enum, enum_module}
 
   @doc """
   Defines an environment variable loader struct from a protobuf message.
@@ -221,48 +236,50 @@ defmodule Trogon.Proto.Env do
   @spec extract_field_options(module()) :: map()
   defp extract_field_options(message_module) do
     desc = message_module.descriptor()
+    field_props = message_module.__message_props__().field_props
 
     desc.field
-    |> Enum.map(&extract_field_option/1)
+    |> Enum.map(&extract_field_option(&1, Map.fetch!(field_props, &1.number)))
     |> Enum.reject(&is_nil/1)
     |> Map.new()
   end
 
-  defp extract_field_option(field_desc) do
+  defp extract_field_option(field_desc, field_prop) do
     case get_field_extension(field_desc.options, @extension_tag) do
       nil -> nil
-      binary -> process_env_var_extension(field_desc, binary)
+      binary -> process_env_var_extension(field_desc, field_prop, binary)
     end
   end
 
-  defp process_env_var_extension(field_desc, binary) do
+  defp process_env_var_extension(field_desc, field_prop, binary) do
     %{env_var: env_var_option} = FieldOptions.decode(binary)
-    is_repeated = field_desc.label == :LABEL_REPEATED
+    is_repeated = field_prop.repeated?
+    field_type = field_prop.type
 
     cond do
       is_nil(env_var_option) ->
         warn_empty_env_var_extension(field_desc)
         nil
 
-      valid_env_field?(field_desc.type, is_repeated, env_var_option) ->
-        {String.to_atom(field_desc.name), build_field_config(field_desc, env_var_option, is_repeated)}
+      valid_env_field?(field_type, is_repeated, env_var_option) ->
+        {String.to_atom(field_desc.name), build_field_config(field_desc, field_type, env_var_option, is_repeated)}
 
       true ->
-        warn_unsupported_field(field_desc, is_repeated)
+        warn_unsupported_field(field_desc, field_type, is_repeated)
         nil
     end
   end
 
-  defp build_field_config(field_desc, env_var_option, is_repeated) do
+  defp build_field_config(field_desc, field_type, env_var_option, is_repeated) do
     default_value = env_var_option.default_value
 
-    validate_default_value!(field_desc.name, field_desc.type, default_value)
+    validate_default_value!(field_desc.name, field_type, default_value)
 
     %{
       env_var_name: field_name_to_env_var(field_desc.name),
       visibility: visibility_value(env_var_option.visibility),
       default_value: default_value,
-      field_type: field_desc.type,
+      field_type: field_type,
       is_repeated: is_repeated,
       split_delimiter: env_var_option.split_delimiter || "",
       trim: env_var_option.trim
@@ -288,6 +305,7 @@ defmodule Trogon.Proto.Env do
 
   defp validate_parseable(_value, :string), do: :ok
   defp validate_parseable(_value, :bool), do: :ok
+  defp validate_parseable(value, {:enum, enum_module}), do: validate_enum_value(value, enum_module)
 
   defp validate_parseable(value, type) when type in [:int32, :int64] do
     case Integer.parse(value) do
@@ -304,6 +322,13 @@ defmodule Trogon.Proto.Env do
     end
   end
 
+  defp validate_enum_value(value, enum_module) do
+    case parse_enum_value(value, enum_module) do
+      {:ok, _enum_value} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   defp warn_empty_env_var_extension(field_desc) do
     IO.warn(
       "Field #{field_desc.name} has env_var extension but env_var is empty; skipping.",
@@ -315,7 +340,7 @@ defmodule Trogon.Proto.Env do
   defp visibility_value(int) when is_integer(int), do: int
   defp visibility_value(nil), do: Visibility.value(:VISIBILITY_UNSPECIFIED)
 
-  defp warn_unsupported_field(field_desc, is_repeated) do
+  defp warn_unsupported_field(field_desc, field_type, is_repeated) do
     label_str =
       case field_desc.label do
         :LABEL_REPEATED -> "repeated "
@@ -324,8 +349,8 @@ defmodule Trogon.Proto.Env do
       end
 
     message =
-      "Field #{field_desc.name} has env_var extension but unsupported type #{label_str}#{inspect(field_desc.type)}. " <>
-        "Only scalar string, int32, int64, float, double, and bool fields are supported" <>
+      "Field #{field_desc.name} has env_var extension but unsupported type #{label_str}#{inspect(field_type)}. " <>
+        "Only scalar string, int32, int64, float, double, bool, and enum fields are supported" <>
         if is_repeated do
           " (repeated fields require split_delimiter)"
         else
@@ -340,20 +365,27 @@ defmodule Trogon.Proto.Env do
   end
 
   defp valid_env_field?(field_type, is_repeated, env_var_option) when not is_nil(env_var_option) do
-    scalar_supported = supported_scalar_type?(field_type)
+    scalar_supported = supported_env_type?(field_type)
     repeated_ok = not is_repeated || has_split_delimiter?(env_var_option)
     scalar_supported && repeated_ok
   end
 
   defp valid_env_field?(_, _, _), do: false
 
-  defp supported_scalar_type?(:TYPE_STRING), do: true
-  defp supported_scalar_type?(:TYPE_INT32), do: true
-  defp supported_scalar_type?(:TYPE_INT64), do: true
-  defp supported_scalar_type?(:TYPE_FLOAT), do: true
-  defp supported_scalar_type?(:TYPE_DOUBLE), do: true
-  defp supported_scalar_type?(:TYPE_BOOL), do: true
-  defp supported_scalar_type?(_), do: false
+  defp supported_env_type?(:TYPE_STRING), do: true
+  defp supported_env_type?(:TYPE_INT32), do: true
+  defp supported_env_type?(:TYPE_INT64), do: true
+  defp supported_env_type?(:TYPE_FLOAT), do: true
+  defp supported_env_type?(:TYPE_DOUBLE), do: true
+  defp supported_env_type?(:TYPE_BOOL), do: true
+  defp supported_env_type?(:string), do: true
+  defp supported_env_type?(:int32), do: true
+  defp supported_env_type?(:int64), do: true
+  defp supported_env_type?(:float), do: true
+  defp supported_env_type?(:double), do: true
+  defp supported_env_type?(:bool), do: true
+  defp supported_env_type?({:enum, enum_module}) when is_atom(enum_module), do: true
+  defp supported_env_type?(_), do: false
 
   defp get_field_extension(nil, _tag), do: nil
 
@@ -366,5 +398,32 @@ defmodule Trogon.Proto.Env do
 
   defp field_name_to_env_var(field_name) when is_binary(field_name) do
     String.upcase(field_name)
+  end
+
+  defp parse_enum_value(value, enum_module) when is_binary(value) do
+    case Map.fetch(enum_module.__reverse_mapping__(), value) do
+      {:ok, enum_value} ->
+        {:ok, enum_value}
+
+      :error ->
+        {:error, invalid_enum_value_reason(value, enum_module)}
+    end
+  end
+
+  defp invalid_enum_value_reason(value, enum_module) do
+    available =
+      enum_module
+      |> enum_names()
+      |> Enum.join(", ")
+
+    "not a valid enum name #{inspect(value)} for #{inspect(enum_module)}. Expected one of: #{available}"
+  end
+
+  defp enum_names(enum_module) do
+    enum_module
+    |> apply(:mapping, [])
+    |> Map.keys()
+    |> Enum.map(&Atom.to_string/1)
+    |> Enum.sort()
   end
 end

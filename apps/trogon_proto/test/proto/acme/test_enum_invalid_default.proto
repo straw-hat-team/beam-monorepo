@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package acme.test.v1;
+
+import "trogon/env/v1alpha1/options.proto";
+import "acme/test_enum.proto";
+
+message TestEnumInvalidDefault {
+  LogLevel log_level = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "debug"
+  }];
+}
