@@ -4,6 +4,7 @@ defmodule Trogon.Proto.EnvTest do
   alias Trogon.Proto.Env
   alias Trogon.Proto.TestSupport
   alias Trogon.Proto.TestSupport.AllTypesConfig
+  alias Trogon.Proto.TestSupport.ConfigWithEnum
   alias Trogon.Proto.TestSupport.ConfigWithRepeated
   alias Trogon.Proto.TestSupport.ConfigWithTrimCustom
   alias Trogon.Proto.TestSupport.ConfigWithTrimUnicode
@@ -113,6 +114,28 @@ defmodule Trogon.Proto.EnvTest do
 
       assert_raise ArgumentError, ~r/not a valid float/, fn ->
         Env.convert_field("not_a_number", config)
+      end
+    end
+
+    test "converts enum names to protobuf enum atoms" do
+      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
+
+      assert Env.convert_field("LOG_LEVEL_DEBUG", config) == :LOG_LEVEL_DEBUG
+    end
+
+    test "raises ArgumentError for invalid enum names" do
+      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
+
+      assert_raise ArgumentError, ~r/not a valid enum name "debug"/, fn ->
+        Env.convert_field("debug", config)
+      end
+    end
+
+    test "does not treat numeric strings as enum values" do
+      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
+
+      assert_raise ArgumentError, ~r/not a valid enum name "1"/, fn ->
+        Env.convert_field("1", config)
       end
     end
   end
@@ -532,6 +555,82 @@ defmodule Trogon.Proto.EnvTest do
 
       assert config.env.tags == ["foo", "bar"]
       assert config.env.port_list == [8080, 9000]
+    end
+  end
+
+  describe "enum fields" do
+    test "applies enum defaults when the scalar enum env var is absent" do
+      TestSupport.stub_system_env(%{
+        "DATABASE_URL" => "postgres://localhost",
+        "LOG_LEVELS" => ""
+      })
+
+      config = ConfigWithEnum.from_env!()
+
+      assert config.env.database_url == "postgres://localhost"
+      assert config.env.log_level == :LOG_LEVEL_INFO
+      assert config.env.log_levels == []
+    end
+
+    test "converts enum env var values by exact name" do
+      TestSupport.stub_system_env(%{
+        "DATABASE_URL" => "postgres://localhost",
+        "LOG_LEVEL" => "LOG_LEVEL_DEBUG",
+        "LOG_LEVELS" => "LOG_LEVEL_WARN, LOG_LEVEL_ERROR"
+      })
+
+      config = ConfigWithEnum.from_env!()
+
+      assert config.env.log_level == :LOG_LEVEL_DEBUG
+      assert config.env.log_levels == [:LOG_LEVEL_WARN, :LOG_LEVEL_ERROR]
+    end
+
+    test "trims repeated enum values before exact-name lookup" do
+      TestSupport.stub_system_env(%{
+        "DATABASE_URL" => "postgres://localhost",
+        "LOG_LEVELS" => "  LOG_LEVEL_WARN  ,  LOG_LEVEL_ERROR  "
+      })
+
+      config = ConfigWithEnum.from_env!()
+
+      assert config.env.log_levels == [:LOG_LEVEL_WARN, :LOG_LEVEL_ERROR]
+    end
+
+    test "raises ArgumentError for enum env vars that do not match a value name exactly" do
+      TestSupport.stub_system_env(%{
+        "DATABASE_URL" => "postgres://localhost",
+        "LOG_LEVEL" => "debug"
+      })
+
+      assert_raise ArgumentError, ~r/not a valid enum name "debug"/, fn ->
+        ConfigWithEnum.from_env!()
+      end
+    end
+
+    test "does not cast numeric enum env vars by tag" do
+      TestSupport.stub_system_env(%{
+        "DATABASE_URL" => "postgres://localhost",
+        "LOG_LEVEL" => "1"
+      })
+
+      assert_raise ArgumentError, ~r/not a valid enum name "1"/, fn ->
+        ConfigWithEnum.from_env!()
+      end
+    end
+
+    test "raises CompileError for invalid enum defaults" do
+      module = Module.concat(__MODULE__, :"InvalidEnumConfig#{System.unique_integer([:positive])}")
+
+      quoted =
+        quote do
+          defmodule unquote(module) do
+            use Trogon.Proto.Env, message: Acme.Test.V1.TestEnumInvalidDefault
+          end
+        end
+
+      assert_raise CompileError, ~r/Field log_level has invalid default_value "debug"/, fn ->
+        Code.compile_quoted(quoted)
+      end
     end
   end
 end
