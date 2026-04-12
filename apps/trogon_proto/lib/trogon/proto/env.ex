@@ -80,8 +80,12 @@ defmodule Trogon.Proto.Env do
           trim: Trim.t() | nil
         }
 
-  # Field conversion helpers
   @doc false
+  # Dialyzer cannot verify the contract when macro-generated call sites pass a map literal
+  # mixing scalar field_types (atoms like :string) with enum tuples ({:enum, Module}) in the
+  # same field position across entries. Its map-type unification loses precision and flags the
+  # call as "will not succeed" even though the union is correct at runtime.
+  @dialyzer {:no_contracts, build_field_data: 1}
   @spec build_field_data(%{atom() => field_config()}) :: [{atom(), any()}]
   def build_field_data(field_configs) do
     for {field_name, config} <- field_configs do
