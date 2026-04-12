@@ -10,15 +10,6 @@ jobs:
   publish-docs:
     name: Publish Docs to Hex.pm
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        package-name:
-          - one_piece_graceful_shutdown
-          - trogon_commanded
-          - trogon_error
-          - trogon_proto
-          - trogon_result
-          - trogon_typeprovider
     steps:
       - uses: actions/checkout@v6
       - uses: 1password/load-secrets-action@v4
@@ -30,4 +21,20 @@ jobs:
       - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
-          package-name: ${{ matrix.package-name }}
+          package-name: trogon_commanded
+      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
+        with:
+          hex-api-key: ${{ env.HEX_API_KEY }}
+          package-name: trogon_error
+      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
+        with:
+          hex-api-key: ${{ env.HEX_API_KEY }}
+          package-name: trogon_proto
+      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
+        with:
+          hex-api-key: ${{ env.HEX_API_KEY }}
+          package-name: trogon_result
+      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
+        with:
+          hex-api-key: ${{ env.HEX_API_KEY }}
+          package-name: trogon_typeprovider
