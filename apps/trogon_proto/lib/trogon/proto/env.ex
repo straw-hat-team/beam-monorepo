@@ -401,21 +401,16 @@ defmodule Trogon.Proto.Env do
   end
 
   defp parse_enum_value(value, enum_module) when is_binary(value) do
-    try do
-      enum_value =
-        value
-        |> enum_module.value()
-        |> enum_module.key()
-
-      if is_atom(enum_value) do
-        {:ok, enum_value}
-      else
-        {:error, invalid_enum_value_reason(value, enum_module)}
-      end
-    rescue
-      FunctionClauseError ->
-        {:error, invalid_enum_value_reason(value, enum_module)}
+    with {:ok, enum_tag} <- fetch_enum_tag(value, enum_module) do
+      {:ok, enum_module.key(enum_tag)}
     end
+  end
+
+  defp fetch_enum_tag(value, enum_module) do
+    {:ok, enum_module.value(value)}
+  rescue
+    FunctionClauseError ->
+      {:error, invalid_enum_value_reason(value, enum_module)}
   end
 
   defp invalid_enum_value_reason(value, enum_module) do
