@@ -56,7 +56,6 @@ defmodule Trogon.Proto.Env do
   """
 
   alias TrogonProto.Env.V1Alpha1.FieldOptions
-  alias TrogonProto.Env.V1Alpha1.Trim
   alias TrogonProto.Env.V1Alpha1.Visibility
 
   # Visibility codes - UNSPECIFIED (0) and SECRET (2) are both masked in inspect (secure by default)
@@ -70,19 +69,7 @@ defmodule Trogon.Proto.Env do
   defdelegate get_env(name, default), to: @system_adapter
   defdelegate fetch_env!(name), to: @system_adapter
 
-  @type field_config :: %{
-          env_var_name: String.t(),
-          visibility: non_neg_integer(),
-          default_value: String.t() | nil,
-          field_type: atom() | {:enum, module()},
-          is_repeated: boolean(),
-          split_delimiter: String.t(),
-          trim: Trim.t() | nil
-        }
-
-  # Field conversion helpers
   @doc false
-  @spec build_field_data(%{atom() => field_config()}) :: [{atom(), any()}]
   def build_field_data(field_configs) do
     for {field_name, config} <- field_configs do
       raw_value = get_raw_value(config)
