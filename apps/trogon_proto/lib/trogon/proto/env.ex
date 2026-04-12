@@ -401,11 +401,19 @@ defmodule Trogon.Proto.Env do
   end
 
   defp parse_enum_value(value, enum_module) when is_binary(value) do
-    case Map.fetch(enum_module.__reverse_mapping__(), value) do
-      {:ok, enum_value} ->
-        {:ok, enum_value}
+    try do
+      enum_value =
+        value
+        |> enum_module.value()
+        |> enum_module.key()
 
-      :error ->
+      if is_atom(enum_value) do
+        {:ok, enum_value}
+      else
+        {:error, invalid_enum_value_reason(value, enum_module)}
+      end
+    rescue
+      FunctionClauseError ->
         {:error, invalid_enum_value_reason(value, enum_module)}
     end
   end
