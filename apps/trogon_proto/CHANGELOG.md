@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.7.0...trogon_proto@v0.7.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* **trogon_proto:** Remove build_field_data spec that breaks Dialyzer ([#344](https://github.com/straw-hat-team/beam-monorepo/issues/344)) ([80dddc3](https://github.com/straw-hat-team/beam-monorepo/commit/80dddc3f964332d0d2afc862be2357b5c0ca07d0))
+
 ## [0.7.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.6.0...trogon_proto@v0.7.0) (2026-04-12)
 
 
