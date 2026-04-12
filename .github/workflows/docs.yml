@@ -1,10 +1,18 @@
 name: hex-publish-docs
 
 on:
-  push:
-    branches:
-      - master
   workflow_dispatch:
+    inputs:
+      package-name:
+        description: Package to publish docs for
+        required: true
+        type: choice
+        options:
+          - trogon_commanded
+          - trogon_error
+          - trogon_proto
+          - trogon_result
+          - trogon_typeprovider
 
 jobs:
   publish-docs:
@@ -21,20 +29,4 @@ jobs:
       - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
-          package-name: trogon_commanded
-      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
-        with:
-          hex-api-key: ${{ env.HEX_API_KEY }}
-          package-name: trogon_error
-      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
-        with:
-          hex-api-key: ${{ env.HEX_API_KEY }}
-          package-name: trogon_proto
-      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
-        with:
-          hex-api-key: ${{ env.HEX_API_KEY }}
-          package-name: trogon_result
-      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
-        with:
-          hex-api-key: ${{ env.HEX_API_KEY }}
-          package-name: trogon_typeprovider
+          package-name: ${{ inputs.package-name }}
