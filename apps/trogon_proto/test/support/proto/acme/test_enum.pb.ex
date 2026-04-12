@@ -50,11 +50,11 @@ defmodule Acme.Test.V1.LogLevel do
     }
   end
 
-  field :LOG_LEVEL_UNSPECIFIED, 0
-  field :LOG_LEVEL_DEBUG, 1
-  field :LOG_LEVEL_INFO, 2
-  field :LOG_LEVEL_WARN, 3
-  field :LOG_LEVEL_ERROR, 4
+  field(:LOG_LEVEL_UNSPECIFIED, 0)
+  field(:LOG_LEVEL_DEBUG, 1)
+  field(:LOG_LEVEL_INFO, 2)
+  field(:LOG_LEVEL_WARN, 3)
+  field(:LOG_LEVEL_ERROR, 4)
 end
 
 defmodule Acme.Test.V1.TestEnumConfig do
@@ -126,8 +126,7 @@ defmodule Acme.Test.V1.TestEnumConfig do
             uninterpreted_option: [],
             __pb_extensions__: %{},
             __unknown_fields__: [
-              {870_003, 2,
-               <<10, 18, 8, 1, 18, 14, 76, 79, 71, 95, 76, 69, 86, 69, 76, 95, 73, 78, 70, 79>>}
+              {870_003, 2, <<10, 18, 8, 1, 18, 14, 76, 79, 71, 95, 76, 69, 86, 69, 76, 95, 73, 78, 70, 79>>}
             ]
           },
           oneof_index: nil,
@@ -179,18 +178,20 @@ defmodule Acme.Test.V1.TestEnumConfig do
     }
   end
 
-  field :database_url, 1, type: :string, json_name: "databaseUrl", deprecated: false
+  field(:database_url, 1, type: :string, json_name: "databaseUrl", deprecated: false)
 
-  field :log_level, 2,
+  field(:log_level, 2,
     type: Acme.Test.V1.LogLevel,
     json_name: "logLevel",
     enum: true,
     deprecated: false
+  )
 
-  field :log_levels, 3,
+  field(:log_levels, 3,
     repeated: true,
     type: Acme.Test.V1.LogLevel,
     json_name: "logLevels",
     enum: true,
     deprecated: false
+  )
 end

@@ -55,9 +55,10 @@ defmodule Acme.Test.V1.TestEnumInvalidDefault do
     }
   end
 
-  field :log_level, 1,
+  field(:log_level, 1,
     type: Acme.Test.V1.LogLevel,
     json_name: "logLevel",
     enum: true,
     deprecated: false
+  )
 end
