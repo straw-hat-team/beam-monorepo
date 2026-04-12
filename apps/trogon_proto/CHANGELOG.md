@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.6.0...trogon_proto@v0.7.0) (2026-04-12)
+
+
+### Features
+
+* **trogon_proto:** Align env loaders with enum casting contract ([#342](https://github.com/straw-hat-team/beam-monorepo/issues/342)) ([efe9567](https://github.com/straw-hat-team/beam-monorepo/commit/efe9567c0393e7a94cbdfbea14e75057b243367c))
+
 ## [0.6.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.5.0...trogon_proto@v0.6.0) (2026-03-14)
 
 
