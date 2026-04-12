@@ -1,0 +1,32 @@
+name: hex-publish-docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      package-name:
+        description: Package to publish docs for
+        required: true
+        type: choice
+        options:
+          - trogon_commanded
+          - trogon_error
+          - trogon_proto
+          - trogon_result
+          - trogon_typeprovider
+
+jobs:
+  publish-docs:
+    name: Publish Docs to Hex.pm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: 1password/load-secrets-action@v4
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          HEX_API_KEY: "${{ secrets.SECRETS_VAULT }}/HEX_API_KEY"
+      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@master
+        with:
+          hex-api-key: ${{ env.HEX_API_KEY }}
+          package-name: ${{ inputs.package-name }}
