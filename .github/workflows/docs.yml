@@ -1,0 +1,38 @@
+name: hex-publish-docs
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      hex-api-key: ${{ steps.secrets.outputs.HEX_API_KEY }}
+    steps:
+      - uses: 1password/load-secrets-action@v4
+        id: secrets
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          HEX_API_KEY: "${{ secrets.SECRETS_VAULT }}/HEX_API_KEY"
+
+  publish-docs:
+    needs: setup
+    strategy:
+      matrix:
+        package-name:
+          - one_piece_graceful_shutdown
+          - trogon_commanded
+          - trogon_error
+          - trogon_proto
+          - trogon_result
+          - trogon_typeprovider
+    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-hex-publish-docs.yml@master
+    with:
+      package-name: ${{ matrix.package-name }}
+    secrets:
+      HEX_API_KEY: ${{ needs.setup.outputs.hex-api-key }}
