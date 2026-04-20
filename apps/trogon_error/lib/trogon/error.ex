@@ -592,6 +592,39 @@ defmodule Trogon.Error do
   def to_http_status_code(:DATA_LOSS), do: 500
   def to_http_status_code(:UNAUTHENTICATED), do: 401
 
+  @doc ~S"""
+  Updates the help links for a Trogon error.
+
+  The updater receives the error and the current links list, normalized from `nil`
+  to `[]`, and must return the replacement links list.
+
+  ## Examples
+
+      iex> defmodule MyApp.Error.InsufficientInventoryError do
+      ...>   use Trogon.Error,
+      ...>     domain: "com.myapp.inventory",
+      ...>     reason: "INSUFFICIENT_INVENTORY"
+      ...> end
+      iex> updater_links = fn err, links, principal_role ->
+      ...>   path = "/runbooks/" <> err.domain <> "/" <> err.reason <> "?role=#{principal_role}"
+      ...>   url = "https://docs.example.com" <> path
+      ...>   links ++ [%{description: "Runbook", url: url}]
+      ...> end
+      iex> err = MyApp.Error.InsufficientInventoryError.new!()
+      iex> err = Trogon.Error.update_help_links(err, &updater_links.(&1, &2, :ai_agent))
+      iex> err.help
+      %{links: [
+        %{description: "Runbook", url: "https://docs.example.com/runbooks/com.myapp.inventory/INSUFFICIENT_INVENTORY?role=ai_agent"}
+      ]}
+  """
+  @spec update_help_links(t(module()), (t(module()), list(help_link()) -> list(help_link()))) ::
+          t(module())
+  def update_help_links(error, updater) when is_function(updater, 2) do
+    links = updater.(error, current_help_links(error))
+
+    %{error | help: Map.put(error.help || %{}, :links, links)}
+  end
+
   @spec to_msg(atom() | String.t()) :: String.t()
   def to_msg(msg) when is_binary(msg), do: msg
   def to_msg(:CANCELLED), do: "the operation was cancelled"
@@ -636,6 +669,9 @@ defmodule Trogon.Error do
     |> Metadata.new()
     |> Macro.escape()
   end
+
+  defp current_help_links(%{help: %{links: links}}) when is_list(links), do: links
+  defp current_help_links(_error), do: []
 
   @doc "See `t:template_opt/0` for available options."
   @spec __using__([template_opt()]) :: Macro.t()
