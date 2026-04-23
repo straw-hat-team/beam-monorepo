@@ -542,6 +542,59 @@ defmodule Trogon.ErrorTest do
     end
   end
 
+  describe "update_help_links/2" do
+    test "passes the error and appends links using the caller-provided order" do
+      error = TestSupport.HelpfulError.new!()
+
+      error = Trogon.Error.update_help_links(error, &update_help_links(&1, &2, :ai_agent))
+
+      assert error.help == %{
+               links: [
+                 %{description: "API Docs", url: "https://example.com/docs"},
+                 %{
+                   description: "HELPFUL_ERROR",
+                   url: "https://docs.example.com/errors/com.test.help/HELPFUL_ERROR/ai_agent"
+                 }
+               ]
+             }
+    end
+
+    test "normalizes missing help links to an empty list" do
+      error = TestSupport.TestError.new!()
+      error = Trogon.Error.update_help_links(error, &prepend_priority_help_links/2)
+
+      assert error.help == %{
+               links: [
+                 %{description: "Priority Docs", url: "https://example.com/priority"}
+               ]
+             }
+    end
+
+    test "replaces the links with the updater result" do
+      error = TestSupport.HelpfulError.new!()
+      error = Trogon.Error.update_help_links(error, &replace_help_links/2)
+
+      assert error.help == %{
+               links: [
+                 %{description: "Replacement Docs", url: "https://example.com/replacement"}
+               ]
+             }
+    end
+  end
+
+  defp update_help_links(err, links, principal_type) do
+    url = "https://docs.example.com/errors/#{err.domain}/#{err.reason}/#{principal_type}"
+    links ++ [%{description: err.reason, url: url}]
+  end
+
+  defp prepend_priority_help_links(_err, links) do
+    [%{description: "Priority Docs", url: "https://example.com/priority"} | links]
+  end
+
+  defp replace_help_links(_err, _links) do
+    [%{description: "Replacement Docs", url: "https://example.com/replacement"}]
+  end
+
   describe "is_trogon_error?/1" do
     test "returns true for Trogon errors" do
       error = TestSupport.TestError.new!()
