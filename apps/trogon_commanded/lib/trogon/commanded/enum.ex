@@ -45,8 +45,10 @@ defmodule Trogon.Commanded.Enum do
   The enum values are derived at compile time, sorted by their proto field number.
   """
   defmacro __using__(opts) do
-    opts = resolve_proto_options(opts, __CALLER__)
-    values = Keyword.fetch!(opts, :values)
+    values =
+      opts
+      |> resolve_proto_options(__CALLER__)
+      |> Keyword.fetch!(:values)
     type_ast = Enum.reduce(values, &{:|, [], [&1, &2]})
 
     value_functions_ast =
