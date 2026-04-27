@@ -42,8 +42,7 @@ defmodule Trogon.Commanded.Enum do
           proto: Acme.Type.V1.ObjectType
       end
 
-  This reads the enum values from the proto module's `mapping/0` at compile time,
-  sorted by their proto field number.
+  The enum values are derived at compile time, sorted by their proto field number.
   """
   defmacro __using__(opts) do
     opts = resolve_proto_options(opts, __CALLER__)
