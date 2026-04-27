@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.39.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.38.1...trogon_commanded@v0.39.0) (2026-04-27)
+
+
+### Features
+
+* **trogon_commanded:** Support proto-driven enums ([#350](https://github.com/straw-hat-team/beam-monorepo/issues/350)) ([cee36fd](https://github.com/straw-hat-team/beam-monorepo/commit/cee36fdd7da75608c582291b935b9ec74379072e))
+
 ## [0.38.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.38.0...trogon_commanded@v0.38.1) (2026-03-14)
 
 
