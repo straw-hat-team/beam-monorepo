@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.6.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.4...trogon_error@v0.6.0) (2026-04-27)
+
+
+### Features
+
+* **trogon_error:** Let apps tailor help links ([#346](https://github.com/straw-hat-team/beam-monorepo/issues/346)) ([b6891c6](https://github.com/straw-hat-team/beam-monorepo/commit/b6891c66ef7dd9d71a721211bf4ce912b4e6d4a9))
+
 ## [0.5.4](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.3...trogon_error@v0.5.4) (2026-01-04)
 
 
