@@ -32,8 +32,21 @@ defmodule Trogon.Commanded.Enum do
           field :type, BankAccountType
         end
       end
+
+  ## Proto-driven Enum
+
+  You can derive values from a protobuf enum module instead of a hardcoded list:
+
+      defmodule ObjectTypeEnum do
+        use Trogon.Commanded.Enum,
+          proto: Acme.Type.V1.ObjectType
+      end
+
+  This reads the enum values from the proto module's `mapping/0` at compile time,
+  sorted by their proto field number.
   """
   defmacro __using__(opts) do
+    opts = resolve_proto_options(opts, __CALLER__)
     values = Keyword.fetch!(opts, :values)
     type_ast = Enum.reduce(values, &{:|, [], [&1, &2]})
 
@@ -179,6 +192,20 @@ defmodule Trogon.Commanded.Enum do
           Jason.Encode.value(v.value, opts)
         end
       end
+    end
+  end
+
+  defp resolve_proto_options(opts, caller) do
+    case Keyword.pop(opts, :proto) do
+      {nil, opts} ->
+        opts
+
+      {proto_module, opts} ->
+        mod = Macro.expand(proto_module, caller)
+
+        Code.ensure_compiled!(mod)
+        values = mod.mapping() |> Map.keys() |> Enum.sort_by(&mod.value/1)
+        Keyword.put_new(opts, :values, values)
     end
   end
 end
