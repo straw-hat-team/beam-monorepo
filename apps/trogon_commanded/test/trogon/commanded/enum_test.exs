@@ -2,6 +2,7 @@ defmodule Trogon.Commanded.EnumTest do
   use ExUnit.Case, async: true
 
   alias TestSupport.CommandRouterExample.BankAccountType
+  alias TestSupport.CommandRouterExample.ObjectTypeEnum
 
   describe "new/1" do
     test "returns a value object" do
@@ -149,5 +150,50 @@ defmodule Trogon.Commanded.EnumTest do
       })
 
     assert expected_value == given_value
+  end
+
+  describe "proto-driven enum" do
+    test "values/0 returns proto enum values sorted by number" do
+      assert ObjectTypeEnum.values() == [
+               :OBJECT_TYPE_UNSPECIFIED,
+               :OBJECT_TYPE_TICKET,
+               :OBJECT_TYPE_WORKSPACE
+             ]
+    end
+
+    test "new/1 with a valid proto enum value" do
+      assert {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}} =
+               ObjectTypeEnum.new(:OBJECT_TYPE_TICKET)
+    end
+
+    test "new/1 with an invalid value" do
+      assert {:error, changeset} = ObjectTypeEnum.new(:INVALID)
+      assert %{value: ["is invalid"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "cast/1 with atom" do
+      assert ObjectTypeEnum.cast(:OBJECT_TYPE_TICKET) ==
+               {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}}
+    end
+
+    test "cast/1 with string" do
+      assert ObjectTypeEnum.cast("OBJECT_TYPE_TICKET") ==
+               {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}}
+    end
+
+    test "load/1 with string" do
+      assert ObjectTypeEnum.load("OBJECT_TYPE_TICKET") ==
+               {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}}
+    end
+
+    test "dump/1" do
+      assert ObjectTypeEnum.dump(%ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}) ==
+               {:ok, "OBJECT_TYPE_TICKET"}
+    end
+
+    test "Jason.Encoder" do
+      assert Jason.encode!(%ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}) ==
+               ~s("OBJECT_TYPE_TICKET")
+    end
   end
 end
