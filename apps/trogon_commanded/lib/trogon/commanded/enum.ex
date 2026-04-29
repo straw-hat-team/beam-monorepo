@@ -49,6 +49,7 @@ defmodule Trogon.Commanded.Enum do
       opts
       |> resolve_proto_options(__CALLER__)
       |> Keyword.fetch!(:values)
+
     type_ast = Enum.reduce(values, &{:|, [], [&1, &2]})
 
     value_functions_ast =
