@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.7.1...trogon_proto@v0.8.0) (2026-04-29)
+
+
+### Features
+
+* **trogon_proto:** Support shared error contracts ([#352](https://github.com/straw-hat-team/beam-monorepo/issues/352)) ([101a1f7](https://github.com/straw-hat-team/beam-monorepo/commit/101a1f76ee2cad48f4ada1341204144116b959d1))
+
 ## [0.7.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.7.0...trogon_proto@v0.7.1) (2026-04-12)
 
 
