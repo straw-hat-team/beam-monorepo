@@ -1,5 +1,7 @@
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Forward do
-  @moduledoc false
+  @moduledoc """
+  Forward specifies parameters for forward pagination direction.
+  """
 
   use Protobuf,
     full_name: "trogon.relay.v1alpha1.CursorPagination.Forward",
@@ -63,7 +65,9 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Forward do
 end
 
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Backward do
-  @moduledoc false
+  @moduledoc """
+  Backward specifies parameters for backward pagination direction.
+  """
 
   use Protobuf,
     full_name: "trogon.relay.v1alpha1.CursorPagination.Backward",
@@ -127,7 +131,24 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Backward do
 end
 
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination do
-  @moduledoc false
+  @moduledoc """
+  CursorPagination represents cursor-based pagination parameters.
+
+  Use this message to specify pagination parameters in list query requests
+  following the Relay specification.
+
+  Enforces Relay constraints:
+  - Exactly one of Forward or Backward must be specified
+  - Parameters for each direction are logically grouped
+
+  Example usage:
+
+    import "trogon/relay/v1alpha1/cursor_pagination.proto";
+
+    message ListUsersRequest {
+      trogon.relay.v1alpha1.CursorPagination pagination = 1;
+    }
+  """
 
   use Protobuf,
     full_name: "trogon.relay.v1alpha1.CursorPagination",

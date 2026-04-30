@@ -1,5 +1,7 @@
 defmodule TrogonProto.Stream.V1Alpha1.EnumValueOptions do
-  @moduledoc false
+  @moduledoc """
+  EnumValueOptions defines enum-value-level options for stream identity prefixes.
+  """
 
   use Protobuf,
     full_name: "trogon.stream.v1alpha1.EnumValueOptions",

@@ -1,5 +1,19 @@
 defmodule TrogonProto.Relay.V1Alpha1.PageInfo do
-  @moduledoc false
+  @moduledoc """
+  PageInfo provides cursor-based pagination information for Relay connections.
+
+  This message follows the Relay GraphQL Connection specification and contains
+  metadata about the current page in a cursor-paginated result set.
+
+  Example usage:
+
+    import "trogon/relay/v1alpha1/page_info.proto";
+
+    message UserConnection {
+      repeated UserEdge edges = 1;
+      trogon.relay.v1alpha1.PageInfo page_info = 2;
+    }
+  """
 
   use Protobuf,
     full_name: "trogon.relay.v1alpha1.PageInfo",

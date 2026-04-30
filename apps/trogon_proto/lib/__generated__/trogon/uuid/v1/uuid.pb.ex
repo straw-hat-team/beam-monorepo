@@ -1,5 +1,19 @@
 defmodule TrogonProto.Uuid.V1.Uuid do
-  @moduledoc false
+  @moduledoc """
+  Uuid represents a universally unique identifier.
+
+  Use this message type instead of raw strings for type-safe UUID fields.
+  The version can be extracted from character 15 (0-indexed: 14) of the value.
+
+  Example usage:
+
+    import "trogon/uuid/v1/uuid.proto";
+
+    message Order {
+      trogon.uuid.v1.Uuid id = 1;
+      string customer_name = 2;
+    }
+  """
 
   use Protobuf,
     full_name: "trogon.uuid.v1.Uuid",

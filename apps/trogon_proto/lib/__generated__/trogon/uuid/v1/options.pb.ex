@@ -1,5 +1,7 @@
 defmodule TrogonProto.Uuid.V1.EnumOptions do
-  @moduledoc false
+  @moduledoc """
+  EnumOptions defines enum-level options for UUID generation.
+  """
 
   use Protobuf,
     full_name: "trogon.uuid.v1.EnumOptions",
@@ -48,7 +50,10 @@ defmodule TrogonProto.Uuid.V1.EnumOptions do
 end
 
 defmodule TrogonProto.Uuid.V1.EnumValueOptions.Format do
-  @moduledoc false
+  @moduledoc """
+  Format defines the UUID generation parameters.
+  Nested to avoid conflicts with potential top-level Format messages.
+  """
 
   use Protobuf,
     full_name: "trogon.uuid.v1.EnumValueOptions.Format",
@@ -112,7 +117,9 @@ defmodule TrogonProto.Uuid.V1.EnumValueOptions.Format do
 end
 
 defmodule TrogonProto.Uuid.V1.EnumValueOptions do
-  @moduledoc false
+  @moduledoc """
+  EnumValueOptions defines enum-value-level options for UUID generation.
+  """
 
   use Protobuf,
     full_name: "trogon.uuid.v1.EnumValueOptions",

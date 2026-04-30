@@ -1,5 +1,21 @@
 defmodule TrogonProto.Error.V1Alpha1.Code do
-  @moduledoc false
+  @moduledoc """
+  The canonical error codes for gRPC APIs.
+
+  This enum mirrors the error values from `google.rpc.Code` so typed error
+  templates can point at the canonical Google RPC error space without
+  importing `google.rpc`.
+
+  `OK` is intentionally omitted because this enum is used only for errors.
+
+  Sometimes multiple error codes may apply. Services should return the most
+  specific error code that applies. For example, prefer `OUT_OF_RANGE` over
+  `FAILED_PRECONDITION` if both codes apply. Similarly prefer `NOT_FOUND` or
+  `ALREADY_EXISTS` over `FAILED_PRECONDITION`.
+
+  Source:
+  https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
+  """
 
   use Protobuf,
     enum: true,

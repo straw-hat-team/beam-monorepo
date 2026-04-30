@@ -1,5 +1,7 @@
 defmodule TrogonProto.Uuid.V1.Namespace do
-  @moduledoc false
+  @moduledoc """
+  Namespace defines the namespace for UUIDv5 generation.
+  """
 
   use Protobuf,
     full_name: "trogon.uuid.v1.Namespace",

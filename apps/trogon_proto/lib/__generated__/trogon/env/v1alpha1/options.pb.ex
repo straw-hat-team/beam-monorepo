@@ -1,5 +1,11 @@
 defmodule TrogonProto.Env.V1Alpha1.Trim do
-  @moduledoc false
+  @moduledoc """
+  Trim specifies how to remove leading and trailing characters from each value
+  after splitting by `split_delimiter`. Internal characters are never affected.
+
+  INVARIANT: If `trim` is set (present), exactly one of its oneof fields must be set.
+  An empty `Trim` (with `by` unset) is a schema error and must be rejected.
+  """
 
   use Protobuf,
     full_name: "trogon.env.v1alpha1.Trim",
@@ -66,8 +72,6 @@ defmodule TrogonProto.Env.V1Alpha1.Trim do
 end
 
 defmodule TrogonProto.Env.V1Alpha1.EnvVarOption.TagsEntry do
-  @moduledoc false
-
   use Protobuf,
     full_name: "trogon.env.v1alpha1.EnvVarOption.TagsEntry",
     map: true,
@@ -135,7 +139,9 @@ defmodule TrogonProto.Env.V1Alpha1.EnvVarOption.TagsEntry do
 end
 
 defmodule TrogonProto.Env.V1Alpha1.EnvVarOption do
-  @moduledoc false
+  @moduledoc """
+  EnvVarOption captures metadata about an environment variable field.
+  """
 
   use Protobuf,
     full_name: "trogon.env.v1alpha1.EnvVarOption",
@@ -303,7 +309,14 @@ defmodule TrogonProto.Env.V1Alpha1.EnvVarOption do
 end
 
 defmodule TrogonProto.Env.V1Alpha1.FieldOptions do
-  @moduledoc false
+  @moduledoc """
+  FieldOptions wraps environment variable metadata.
+  This wrapper pattern allows attaching environment variable metadata
+  to protobuf fields without symbol conflicts (multiple extensions can
+  define different message types without collision).
+
+  Use with `google.protobuf.FieldOptions` extension (see below).
+  """
 
   use Protobuf,
     full_name: "trogon.env.v1alpha1.FieldOptions",

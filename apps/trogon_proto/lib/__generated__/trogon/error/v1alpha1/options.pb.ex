@@ -1,5 +1,12 @@
 defmodule TrogonProto.Error.V1Alpha1.MessageOptions.Template do
-  @moduledoc false
+  @moduledoc """
+  Template defines the static error template for a message that can be
+  adapted into a runtime error representation.
+
+  These fields are intentionally language-neutral so both Elixir and Go
+  runtimes can derive their native error template APIs from the same proto
+  annotation.
+  """
 
   use Protobuf,
     full_name: "trogon.error.v1alpha1.MessageOptions.Template",
@@ -104,7 +111,9 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions.Template do
 end
 
 defmodule TrogonProto.Error.V1Alpha1.MessageOptions do
-  @moduledoc false
+  @moduledoc """
+  MessageOptions defines message-level options for error payload messages.
+  """
 
   use Protobuf,
     full_name: "trogon.error.v1alpha1.MessageOptions",
