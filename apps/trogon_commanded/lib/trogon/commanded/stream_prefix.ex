@@ -1,7 +1,7 @@
 defmodule Trogon.Commanded.StreamPrefix do
   @moduledoc false
 
-  alias Trogon.Commanded.ProtoExtension
+  alias Trogon.ObjectId.ProtoExtension
   alias TrogonProto.Stream.V1Alpha1.EnumValueOptions
 
   @proto_extension_tag 870_011
