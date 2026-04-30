@@ -1,5 +1,14 @@
 defmodule TrogonProto.Env.V1Alpha1.Visibility do
-  @moduledoc false
+  @moduledoc """
+  Visibility controls whether an environment variable value should be
+  masked in generated documentation, .env examples, logs, and CLI output.
+
+  This is a hint to code generators and tooling about how to treat the value
+  when displaying configuration information. The actual secret protection
+  (encryption at rest, masking in memory) must be implemented by consuming code.
+
+  Default (unspecified) is treated as SECRET for safety.
+  """
 
   use Protobuf,
     enum: true,
@@ -38,7 +47,7 @@ defmodule TrogonProto.Env.V1Alpha1.Visibility do
     }
   end
 
-  field(:VISIBILITY_UNSPECIFIED, 0)
-  field(:VISIBILITY_PLAINTEXT, 1)
-  field(:VISIBILITY_SECRET, 2)
+  field :VISIBILITY_UNSPECIFIED, 0
+  field :VISIBILITY_PLAINTEXT, 1
+  field :VISIBILITY_SECRET, 2
 end

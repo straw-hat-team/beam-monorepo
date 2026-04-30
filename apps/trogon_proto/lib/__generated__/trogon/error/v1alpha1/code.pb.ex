@@ -1,5 +1,21 @@
 defmodule TrogonProto.Error.V1Alpha1.Code do
-  @moduledoc false
+  @moduledoc """
+  The canonical error codes for gRPC APIs.
+
+  This enum mirrors the error values from `google.rpc.Code` so typed error
+  templates can point at the canonical Google RPC error space without
+  importing `google.rpc`.
+
+  `OK` is intentionally omitted because this enum is used only for errors.
+
+  Sometimes multiple error codes may apply. Services should return the most
+  specific error code that applies. For example, prefer `OUT_OF_RANGE` over
+  `FAILED_PRECONDITION` if both codes apply. Similarly prefer `NOT_FOUND` or
+  `ALREADY_EXISTS` over `FAILED_PRECONDITION`.
+
+  Source:
+  https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
+  """
 
   use Protobuf,
     enum: true,
@@ -122,21 +138,21 @@ defmodule TrogonProto.Error.V1Alpha1.Code do
     }
   end
 
-  field(:UNSPECIFIED, 0)
-  field(:CANCELLED, 1)
-  field(:UNKNOWN, 2)
-  field(:INVALID_ARGUMENT, 3)
-  field(:DEADLINE_EXCEEDED, 4)
-  field(:NOT_FOUND, 5)
-  field(:ALREADY_EXISTS, 6)
-  field(:PERMISSION_DENIED, 7)
-  field(:UNAUTHENTICATED, 16)
-  field(:RESOURCE_EXHAUSTED, 8)
-  field(:FAILED_PRECONDITION, 9)
-  field(:ABORTED, 10)
-  field(:OUT_OF_RANGE, 11)
-  field(:UNIMPLEMENTED, 12)
-  field(:INTERNAL, 13)
-  field(:UNAVAILABLE, 14)
-  field(:DATA_LOSS, 15)
+  field :UNSPECIFIED, 0
+  field :CANCELLED, 1
+  field :UNKNOWN, 2
+  field :INVALID_ARGUMENT, 3
+  field :DEADLINE_EXCEEDED, 4
+  field :NOT_FOUND, 5
+  field :ALREADY_EXISTS, 6
+  field :PERMISSION_DENIED, 7
+  field :UNAUTHENTICATED, 16
+  field :RESOURCE_EXHAUSTED, 8
+  field :FAILED_PRECONDITION, 9
+  field :ABORTED, 10
+  field :OUT_OF_RANGE, 11
+  field :UNIMPLEMENTED, 12
+  field :INTERNAL, 13
+  field :UNAVAILABLE, 14
+  field :DATA_LOSS, 15
 end

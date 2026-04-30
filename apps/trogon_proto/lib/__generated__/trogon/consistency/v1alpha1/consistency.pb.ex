@@ -1,5 +1,69 @@
 defmodule TrogonProto.Consistency.V1Alpha1.Consistency do
-  @moduledoc false
+  @moduledoc """
+  Configuration for read-your-writes consistency guarantees in eventual consistency systems.
+
+  Used in query operations to wait for projections/read models to catch up to a specific version
+  after a write operation. This enables clients to immediately read their own writes despite
+  projection lag in CQRS/Event Sourcing architectures.
+
+  ## Consistency Modes
+
+  ### MinVersion (Recommended - Read-Your-Writes)
+  Waits for projection to reach AT LEAST the specified version. Will use newer data if available.
+  Use this after mutations to ensure you can immediately read what you just wrote.
+
+  ### ExactVersion (Strict - Reproducible Snapshots)
+  Waits for projection to reach EXACTLY the specified version. Rejects if version is newer.
+  Use this only when you need reproducible queries at a specific point-in-time (audits, reports).
+
+  ## Usage Pattern
+
+  1. Client performs mutation (e.g., CreateOrder, UpdateInventory)
+  2. Server returns stream_version (e.g., version 5)
+  3. Client immediately queries with Consistency:
+     - min_version { version: 5 }  (recommended - read-your-writes)
+     - exact_version { version: 5 }  (strict - reproducible snapshot)
+  4. Server retries query until projection reaches version or timeout
+
+  ## Example
+
+  ```protobuf
+  // Mutation response
+  message CreateOrderResponse {
+    string order_id = 1;
+    uint64 stream_version = 2;  // Returns: 5
+  }
+
+  // Read-your-writes (recommended)
+  message GetOrderRequest {
+    string order_id = 1;
+    trogon.consistency.v1alpha1.Consistency consistency = 2;
+  }
+
+  GetOrderRequest {
+    order_id: "order-123",
+    consistency: {
+      min_version: { version: 5 },
+      timeout_duration: "1s",
+      delay_duration: "100ms"
+    }
+  }
+  ```
+
+  ## Server Implementation Guidelines
+
+  Servers should:
+  - Enforce reasonable timeout limits (e.g., default 1s, max 5s)
+  - Enforce reasonable delay limits (e.g., default 100ms, max 500ms)
+  - Return unavailable status on timeout with appropriate error metadata
+  - Return failed precondition status on snapshot expired (ExactVersion only)
+  - Log when clamping client-provided values
+
+  ## Reference
+
+  Inspired by SpiceDB's Consistency patterns (at_least_as_fresh and at_exact_snapshot modes).
+  See: https://authzed.com/docs/spicedb/concepts/consistency
+  """
 
   use Protobuf,
     full_name: "trogon.consistency.v1alpha1.Consistency",
@@ -96,35 +160,33 @@ defmodule TrogonProto.Consistency.V1Alpha1.Consistency do
     }
   end
 
-  oneof(:requirement, 0)
+  oneof :requirement, 0
 
-  field(:min_version, 1,
+  field :min_version, 1,
     type: TrogonProto.Consistency.V1Alpha1.MinVersion,
     json_name: "minVersion",
     oneof: 0
-  )
 
-  field(:exact_version, 2,
+  field :exact_version, 2,
     type: TrogonProto.Consistency.V1Alpha1.ExactVersion,
     json_name: "exactVersion",
     oneof: 0
-  )
 
-  field(:timeout_duration, 3,
+  field :timeout_duration, 3,
     proto3_optional: true,
     type: Google.Protobuf.Duration,
     json_name: "timeoutDuration"
-  )
 
-  field(:delay_duration, 4,
+  field :delay_duration, 4,
     proto3_optional: true,
     type: Google.Protobuf.Duration,
     json_name: "delayDuration"
-  )
 end
 
 defmodule TrogonProto.Consistency.V1Alpha1.MinVersion do
-  @moduledoc false
+  @moduledoc """
+  Wait for projection to be at least as fresh as the specified version.
+  """
 
   use Protobuf,
     full_name: "trogon.consistency.v1alpha1.MinVersion",
@@ -163,11 +225,13 @@ defmodule TrogonProto.Consistency.V1Alpha1.MinVersion do
     }
   end
 
-  field(:version, 1, type: :int64)
+  field :version, 1, type: :int64
 end
 
 defmodule TrogonProto.Consistency.V1Alpha1.ExactVersion do
-  @moduledoc false
+  @moduledoc """
+  Wait for projection to reach exactly the specified version (strict snapshot).
+  """
 
   use Protobuf,
     full_name: "trogon.consistency.v1alpha1.ExactVersion",
@@ -206,5 +270,5 @@ defmodule TrogonProto.Consistency.V1Alpha1.ExactVersion do
     }
   end
 
-  field(:version, 1, type: :int64)
+  field :version, 1, type: :int64
 end

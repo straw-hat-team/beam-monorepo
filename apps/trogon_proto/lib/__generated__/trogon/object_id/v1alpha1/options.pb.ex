@@ -1,5 +1,7 @@
 defmodule TrogonProto.ObjectId.V1Alpha1.EnumValueOptions do
-  @moduledoc false
+  @moduledoc """
+  EnumValueOptions defines enum-value-level options for object ID types.
+  """
 
   use Protobuf,
     full_name: "trogon.object_id.v1alpha1.EnumValueOptions",
@@ -58,6 +60,6 @@ defmodule TrogonProto.ObjectId.V1Alpha1.EnumValueOptions do
     }
   end
 
-  field(:object_type, 1, type: :string, json_name: "objectType")
-  field(:separator, 2, proto3_optional: true, type: :string)
+  field :object_type, 1, type: :string, json_name: "objectType"
+  field :separator, 2, proto3_optional: true, type: :string
 end

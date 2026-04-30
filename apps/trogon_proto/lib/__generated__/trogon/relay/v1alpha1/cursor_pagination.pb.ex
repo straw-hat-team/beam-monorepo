@@ -1,5 +1,7 @@
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Forward do
-  @moduledoc false
+  @moduledoc """
+  Forward specifies parameters for forward pagination direction.
+  """
 
   use Protobuf,
     full_name: "trogon.relay.v1alpha1.CursorPagination.Forward",
@@ -58,12 +60,14 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Forward do
     }
   end
 
-  field(:first, 1, type: :uint32)
-  field(:after, 2, proto3_optional: true, type: :string)
+  field :first, 1, type: :uint32
+  field :after, 2, proto3_optional: true, type: :string
 end
 
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Backward do
-  @moduledoc false
+  @moduledoc """
+  Backward specifies parameters for backward pagination direction.
+  """
 
   use Protobuf,
     full_name: "trogon.relay.v1alpha1.CursorPagination.Backward",
@@ -122,12 +126,29 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Backward do
     }
   end
 
-  field(:last, 1, type: :uint32)
-  field(:before, 2, proto3_optional: true, type: :string)
+  field :last, 1, type: :uint32
+  field :before, 2, proto3_optional: true, type: :string
 end
 
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination do
-  @moduledoc false
+  @moduledoc """
+  CursorPagination represents cursor-based pagination parameters.
+
+  Use this message to specify pagination parameters in list query requests
+  following the Relay specification.
+
+  Enforces Relay constraints:
+  - Exactly one of Forward or Backward must be specified
+  - Parameters for each direction are logically grouped
+
+  Example usage:
+
+    import "trogon/relay/v1alpha1/cursor_pagination.proto";
+
+    message ListUsersRequest {
+      trogon.relay.v1alpha1.CursorPagination pagination = 1;
+    }
+  """
 
   use Protobuf,
     full_name: "trogon.relay.v1alpha1.CursorPagination",
@@ -283,8 +304,8 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination do
     }
   end
 
-  oneof(:direction, 0)
+  oneof :direction, 0
 
-  field(:forward, 1, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Forward, oneof: 0)
-  field(:backward, 2, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Backward, oneof: 0)
+  field :forward, 1, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Forward, oneof: 0
+  field :backward, 2, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Backward, oneof: 0
 end

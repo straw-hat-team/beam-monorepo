@@ -9,3 +9,4 @@ plugins:
     out: lib/__generated__
     opt:
       - gen_descriptors=true
+      - include_docs=true
