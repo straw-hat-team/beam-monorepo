@@ -45,7 +45,6 @@ defmodule Trogon.Commanded.MixProject do
       {:jason, "~> 1.2", optional: true},
       {:ecto, "~> 3.6"},
       {:polymorphic_embed, "~> 5.0"},
-      {:nimble_options, "~> 1.0"},
       {:protobuf, "~> 0.16", optional: true},
       trogon_proto_dep(),
       trogon_object_id_dep(),
