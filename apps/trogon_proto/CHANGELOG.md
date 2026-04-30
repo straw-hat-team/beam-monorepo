@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.8.0...trogon_proto@v0.8.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **trogon_proto:** Enable docs on generated protobuf modules ([#359](https://github.com/straw-hat-team/beam-monorepo/issues/359)) ([fdc65e4](https://github.com/straw-hat-team/beam-monorepo/commit/fdc65e402865046b11e7c326e0e0522e5ed7411e))
+
 ## [0.8.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.7.1...trogon_proto@v0.8.0) (2026-04-29)
 
 
