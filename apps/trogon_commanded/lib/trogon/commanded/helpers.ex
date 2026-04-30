@@ -17,13 +17,6 @@ defmodule Trogon.Commanded.Helpers do
           | {:error, reason :: term()}
 
   @doc """
-  Deprecated, it has the same behavior as `Trogon.Commanded.Id.new/0`.
-  """
-  @spec generate_uuid :: String.t()
-  @deprecated "Use `Trogon.Commanded.Id.new/0` instead."
-  defdelegate generate_uuid, to: Trogon.Commanded.Id, as: :new
-
-  @doc """
   Transforms the given `source` map or struct into the `target` struct.
   """
   @spec struct_from(source :: struct(), target :: struct()) :: struct()

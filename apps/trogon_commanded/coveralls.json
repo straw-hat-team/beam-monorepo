@@ -3,7 +3,7 @@
     "treat_no_relevant_lines_as_covered": true
   },
   "skip_files": [
-    "lib/one_piece/commanded/test_support",
+    "lib/trogon/commanded/test_support",
     "test/support/proto/"
   ]
 }
