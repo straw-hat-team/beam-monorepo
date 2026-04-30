@@ -11,14 +11,14 @@ jobs:
     name: Publish to Hex.pm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: 1password/load-secrets-action@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: 1password/load-secrets-action@2bfca7363ef8f96bb66d38dd50981bf948040c7e # v4
         with:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           HEX_API_KEY: "${{ secrets.SECRETS_VAULT }}/HEX_API_KEY"
-      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@master
+      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@9d9de721069136b981894947c85a0c27ab14a392 # master
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
           ref-name: ${{ github.ref_name }}
