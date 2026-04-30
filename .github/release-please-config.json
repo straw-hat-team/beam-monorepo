@@ -27,6 +27,9 @@
     },
     "apps/trogon_proto": {
       "component": "trogon_proto"
+    },
+    "apps/trogon_object_id": {
+      "component": "trogon_object_id"
     }
   },
   "plugins": [
