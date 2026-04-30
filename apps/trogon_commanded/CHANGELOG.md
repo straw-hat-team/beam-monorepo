@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## [1.0.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.39.0...trogon_commanded@v1.0.0) (2026-04-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **trogon_commanded:** clean up dead code and stale config before 1.0 ([#362](https://github.com/straw-hat-team/beam-monorepo/issues/362))
+* **trogon_commanded:** remove ObjectId in favor of trogon_object_id ([#361](https://github.com/straw-hat-team/beam-monorepo/issues/361))
+
+### Features
+
+* **trogon_proto:** Support shared error contracts ([#352](https://github.com/straw-hat-team/beam-monorepo/issues/352)) ([101a1f7](https://github.com/straw-hat-team/beam-monorepo/commit/101a1f76ee2cad48f4ada1341204144116b959d1))
+
+
+### Bug Fixes
+
+* **trogon_commanded:** Clean up dead code and stale config before 1.0 ([#362](https://github.com/straw-hat-team/beam-monorepo/issues/362)) ([9280904](https://github.com/straw-hat-team/beam-monorepo/commit/9280904e83b6f72f8d7613f3e5d189e2c83a1bdd))
+* **trogon_commanded:** Remove ObjectId in favor of trogon_object_id ([#361](https://github.com/straw-hat-team/beam-monorepo/issues/361)) ([fe2f8ae](https://github.com/straw-hat-team/beam-monorepo/commit/fe2f8aee4acf0366a072bf9aad16726de0faed4d))
+
 ## [0.39.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.38.1...trogon_commanded@v0.39.0) (2026-04-27)
 
 
