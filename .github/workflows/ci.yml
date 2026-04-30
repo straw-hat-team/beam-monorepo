@@ -10,4 +10,4 @@ on:
 
 jobs:
   qa:
-    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-quality-assurance.yml@9d9de721069136b981894947c85a0c27ab14a392 # master
+    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-quality-assurance.yml@380a7d55273bbfff3291d0febae9caece989dce6 # master
