@@ -47,7 +47,7 @@ defmodule TrogonProto.Env.V1Alpha1.Visibility do
     }
   end
 
-  field :VISIBILITY_UNSPECIFIED, 0
-  field :VISIBILITY_PLAINTEXT, 1
-  field :VISIBILITY_SECRET, 2
+  field(:VISIBILITY_UNSPECIFIED, 0)
+  field(:VISIBILITY_PLAINTEXT, 1)
+  field(:VISIBILITY_SECRET, 2)
 end

@@ -104,10 +104,10 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions.Template do
     }
   end
 
-  field :domain, 1, proto3_optional: true, type: :string
-  field :reason, 2, proto3_optional: true, type: :string
-  field :message, 3, proto3_optional: true, type: :string
-  field :code, 4, proto3_optional: true, type: TrogonProto.Error.V1Alpha1.Code, enum: true
+  field(:domain, 1, proto3_optional: true, type: :string)
+  field(:reason, 2, proto3_optional: true, type: :string)
+  field(:message, 3, proto3_optional: true, type: :string)
+  field(:code, 4, proto3_optional: true, type: TrogonProto.Error.V1Alpha1.Code, enum: true)
 end
 
 defmodule TrogonProto.Error.V1Alpha1.MessageOptions do
@@ -244,5 +244,5 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions do
     }
   end
 
-  field :template, 1, type: TrogonProto.Error.V1Alpha1.MessageOptions.Template
+  field(:template, 1, type: TrogonProto.Error.V1Alpha1.MessageOptions.Template)
 end

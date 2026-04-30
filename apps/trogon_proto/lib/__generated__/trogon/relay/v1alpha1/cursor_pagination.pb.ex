@@ -60,8 +60,8 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Forward do
     }
   end
 
-  field :first, 1, type: :uint32
-  field :after, 2, proto3_optional: true, type: :string
+  field(:first, 1, type: :uint32)
+  field(:after, 2, proto3_optional: true, type: :string)
 end
 
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Backward do
@@ -126,8 +126,8 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination.Backward do
     }
   end
 
-  field :last, 1, type: :uint32
-  field :before, 2, proto3_optional: true, type: :string
+  field(:last, 1, type: :uint32)
+  field(:before, 2, proto3_optional: true, type: :string)
 end
 
 defmodule TrogonProto.Relay.V1Alpha1.CursorPagination do
@@ -304,8 +304,8 @@ defmodule TrogonProto.Relay.V1Alpha1.CursorPagination do
     }
   end
 
-  oneof :direction, 0
+  oneof(:direction, 0)
 
-  field :forward, 1, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Forward, oneof: 0
-  field :backward, 2, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Backward, oneof: 0
+  field(:forward, 1, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Forward, oneof: 0)
+  field(:backward, 2, type: TrogonProto.Relay.V1Alpha1.CursorPagination.Backward, oneof: 0)
 end

@@ -60,6 +60,6 @@ defmodule TrogonProto.Stream.V1Alpha1.EnumValueOptions do
     }
   end
 
-  field :prefix, 1, type: :string
-  field :separator, 2, proto3_optional: true, type: :string
+  field(:prefix, 1, type: :string)
+  field(:separator, 2, proto3_optional: true, type: :string)
 end

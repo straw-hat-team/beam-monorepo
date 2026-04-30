@@ -46,7 +46,7 @@ defmodule TrogonProto.Uuid.V1.EnumOptions do
     }
   end
 
-  field :namespace, 1, proto3_optional: true, type: TrogonProto.Uuid.V1.Namespace
+  field(:namespace, 1, proto3_optional: true, type: TrogonProto.Uuid.V1.Namespace)
 end
 
 defmodule TrogonProto.Uuid.V1.EnumValueOptions.Format do
@@ -112,8 +112,8 @@ defmodule TrogonProto.Uuid.V1.EnumValueOptions.Format do
     }
   end
 
-  field :namespace, 1, proto3_optional: true, type: TrogonProto.Uuid.V1.Namespace
-  field :template, 2, type: :string
+  field(:namespace, 1, proto3_optional: true, type: TrogonProto.Uuid.V1.Namespace)
+  field(:template, 2, type: :string)
 end
 
 defmodule TrogonProto.Uuid.V1.EnumValueOptions do
@@ -213,5 +213,5 @@ defmodule TrogonProto.Uuid.V1.EnumValueOptions do
     }
   end
 
-  field :format, 1, proto3_optional: true, type: TrogonProto.Uuid.V1.EnumValueOptions.Format
+  field(:format, 1, proto3_optional: true, type: TrogonProto.Uuid.V1.EnumValueOptions.Format)
 end

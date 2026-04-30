@@ -52,5 +52,5 @@ defmodule TrogonProto.Uuid.V1.Uuid do
     }
   end
 
-  field :value, 1, type: :string
+  field(:value, 1, type: :string)
 end

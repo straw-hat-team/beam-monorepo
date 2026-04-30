@@ -70,9 +70,9 @@ defmodule TrogonProto.Uuid.V1.Namespace do
     }
   end
 
-  oneof :value, 0
+  oneof(:value, 0)
 
-  field :uuid, 1, type: :string, oneof: 0
-  field :dns, 2, type: :string, oneof: 0
-  field :url, 3, type: :string, oneof: 0
+  field(:uuid, 1, type: :string, oneof: 0)
+  field(:dns, 2, type: :string, oneof: 0)
+  field(:url, 3, type: :string, oneof: 0)
 end

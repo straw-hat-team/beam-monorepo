@@ -160,27 +160,31 @@ defmodule TrogonProto.Consistency.V1Alpha1.Consistency do
     }
   end
 
-  oneof :requirement, 0
+  oneof(:requirement, 0)
 
-  field :min_version, 1,
+  field(:min_version, 1,
     type: TrogonProto.Consistency.V1Alpha1.MinVersion,
     json_name: "minVersion",
     oneof: 0
+  )
 
-  field :exact_version, 2,
+  field(:exact_version, 2,
     type: TrogonProto.Consistency.V1Alpha1.ExactVersion,
     json_name: "exactVersion",
     oneof: 0
+  )
 
-  field :timeout_duration, 3,
+  field(:timeout_duration, 3,
     proto3_optional: true,
     type: Google.Protobuf.Duration,
     json_name: "timeoutDuration"
+  )
 
-  field :delay_duration, 4,
+  field(:delay_duration, 4,
     proto3_optional: true,
     type: Google.Protobuf.Duration,
     json_name: "delayDuration"
+  )
 end
 
 defmodule TrogonProto.Consistency.V1Alpha1.MinVersion do
@@ -225,7 +229,7 @@ defmodule TrogonProto.Consistency.V1Alpha1.MinVersion do
     }
   end
 
-  field :version, 1, type: :int64
+  field(:version, 1, type: :int64)
 end
 
 defmodule TrogonProto.Consistency.V1Alpha1.ExactVersion do
@@ -270,5 +274,5 @@ defmodule TrogonProto.Consistency.V1Alpha1.ExactVersion do
     }
   end
 
-  field :version, 1, type: :int64
+  field(:version, 1, type: :int64)
 end

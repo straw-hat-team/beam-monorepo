@@ -105,8 +105,8 @@ defmodule TrogonProto.Relay.V1Alpha1.PageInfo do
     }
   end
 
-  field :has_next_page, 1, type: :bool, json_name: "hasNextPage"
-  field :has_previous_page, 2, type: :bool, json_name: "hasPreviousPage"
-  field :start_cursor, 3, proto3_optional: true, type: :string, json_name: "startCursor"
-  field :end_cursor, 4, proto3_optional: true, type: :string, json_name: "endCursor"
+  field(:has_next_page, 1, type: :bool, json_name: "hasNextPage")
+  field(:has_previous_page, 2, type: :bool, json_name: "hasPreviousPage")
+  field(:start_cursor, 3, proto3_optional: true, type: :string, json_name: "startCursor")
+  field(:end_cursor, 4, proto3_optional: true, type: :string, json_name: "endCursor")
 end
