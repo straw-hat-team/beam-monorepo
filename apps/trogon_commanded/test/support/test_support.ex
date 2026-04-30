@@ -299,5 +299,4 @@ defmodule TestSupport do
     embedded_schema do
     end
   end
-
 end
