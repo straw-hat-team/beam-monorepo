@@ -77,6 +77,96 @@ defmodule Trogon.Error.MetadataTest do
       assert %Metadata{entries: entries} = merged
       assert entries["key"] == %MetadataValue{value: "value2", visibility: :INTERNAL}
     end
+
+    test "returns empty metadata when both sides are empty" do
+      empty = Metadata.new()
+
+      assert Metadata.merge(empty, empty) == %Metadata{entries: %{}}
+    end
+
+    test "returns left side when right side is empty" do
+      left = Metadata.new(%{"key" => "value"})
+      empty = Metadata.new()
+
+      merged = Metadata.merge(left, empty)
+
+      assert merged == left
+    end
+
+    test "returns right side when left side is empty" do
+      empty = Metadata.new()
+      right = Metadata.new(%{"key" => "value"})
+
+      merged = Metadata.merge(empty, right)
+
+      assert merged == right
+    end
+  end
+
+  describe "from_field_specs/2" do
+    test "builds metadata from field specs with nil policy" do
+      specs = [{"userId", :user_id, :PUBLIC, nil}]
+      proto = %{user_id: "user-123", __struct__: FakeProto}
+
+      metadata = Metadata.from_field_specs(specs, proto)
+
+      assert metadata["userId"].value == "user-123"
+      assert metadata["userId"].visibility == :PUBLIC
+    end
+
+    test "uses default value when proto field is empty" do
+      specs = [{"service", :service, :PUBLIC, {:default, "user-api"}}]
+      proto = %{service: "", __struct__: FakeProto}
+
+      metadata = Metadata.from_field_specs(specs, proto)
+
+      assert metadata["service"].value == "user-api"
+    end
+
+    test "uses proto field value over default when present" do
+      specs = [{"service", :service, :PUBLIC, {:default, "user-api"}}]
+      proto = %{service: "billing-api", __struct__: FakeProto}
+
+      metadata = Metadata.from_field_specs(specs, proto)
+
+      assert metadata["service"].value == "billing-api"
+    end
+
+    test "uses default value when proto field is nil" do
+      specs = [{"service", :service, :PUBLIC, {:default, "user-api"}}]
+      proto = %{service: nil, __struct__: FakeProto}
+
+      metadata = Metadata.from_field_specs(specs, proto)
+
+      assert metadata["service"].value == "user-api"
+    end
+
+    test "uses fixed value regardless of proto field" do
+      specs = [{"region", :region, :PUBLIC, {:fixed, "us-east-1"}}]
+      proto = %{region: "eu-west-1", __struct__: FakeProto}
+
+      metadata = Metadata.from_field_specs(specs, proto)
+
+      assert metadata["region"].value == "us-east-1"
+    end
+
+    test "builds entries for multiple field specs" do
+      specs = [
+        {"userId", :user_id, :PUBLIC, nil},
+        {"trace", :trace, :INTERNAL, nil},
+        {"service", :service, :PUBLIC, {:default, "default-svc"}},
+        {"region", :region, :PRIVATE, {:fixed, "us-east-1"}}
+      ]
+
+      proto = %{user_id: "u-1", trace: "t-1", service: "", region: "ignored", __struct__: FakeProto}
+
+      metadata = Metadata.from_field_specs(specs, proto)
+
+      assert metadata["userId"] == %MetadataValue{value: "u-1", visibility: :PUBLIC}
+      assert metadata["trace"] == %MetadataValue{value: "t-1", visibility: :INTERNAL}
+      assert metadata["service"] == %MetadataValue{value: "default-svc", visibility: :PUBLIC}
+      assert metadata["region"] == %MetadataValue{value: "us-east-1", visibility: :PRIVATE}
+    end
   end
 
   describe "Access behavior" do

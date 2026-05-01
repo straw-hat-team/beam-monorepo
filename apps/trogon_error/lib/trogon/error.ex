@@ -327,6 +327,7 @@ defmodule Trogon.Error do
   #{NimbleOptions.docs(@template_opts_schema)}
   """
   @type template_opt :: unquote(NimbleOptions.option_typespec(@template_opts_schema))
+  @type using_opt :: template_opt() | {:proto, module()}
 
   @spec_version 1
 
@@ -405,8 +406,9 @@ defmodule Trogon.Error do
     message = Keyword.fetch!(compile_opts, :message)
     visibility = Keyword.fetch!(compile_opts, :visibility)
     help = Keyword.get(compile_opts, :help)
+    field_specs = Keyword.get(compile_opts, :field_specs)
     compile_metadata = Keyword.fetch!(compile_opts, :metadata)
-    runtime_metadata = Keyword.get(opts, :metadata, Metadata.new())
+    runtime_metadata = opts |> Keyword.get(:metadata, Metadata.new()) |> to_metadata(field_specs)
     metadata = Metadata.merge(compile_metadata, runtime_metadata)
 
     causes = Keyword.get(opts, :causes, [])
@@ -515,18 +517,20 @@ defmodule Trogon.Error do
     compiled_opts =
       [code: :UNKNOWN, visibility: :INTERNAL, help: nil, metadata: %{}]
       |> Keyword.merge(template_opts)
-      |> Keyword.update!(:metadata, &to_metadata/1)
+      |> Keyword.update!(:metadata, &to_metadata(&1, nil))
       |> then(&Keyword.put_new(&1, :message, &1[:code]))
       |> Keyword.update!(:message, &to_msg/1)
 
     exception(__MODULE__, compiled_opts, instance_opts)
   end
 
-  defp to_metadata(%Metadata{} = metadata) do
-    metadata
+  defp to_metadata(%Metadata{} = metadata, _field_specs), do: metadata
+
+  defp to_metadata(proto, field_specs) when is_struct(proto) and is_list(field_specs) do
+    Metadata.from_field_specs(field_specs, proto)
   end
 
-  defp to_metadata(raw_metadata) when is_map(raw_metadata) do
+  defp to_metadata(raw_metadata, _field_specs) when is_map(raw_metadata) do
     Metadata.new(raw_metadata)
   end
 
@@ -673,15 +677,47 @@ defmodule Trogon.Error do
   defp current_help_links(%{help: %{links: links}}) when is_list(links), do: links
   defp current_help_links(_error), do: []
 
+  @proto_exclusive_keys [:domain, :reason, :message, :code, :visibility, :help]
+
+  @doc false
+  def resolve_template_opts!(opts) do
+    case Keyword.pop(opts, :proto) do
+      {nil, opts} ->
+        {nil, nil, opts}
+
+      {proto_module, extra_opts} ->
+        conflicts = Keyword.keys(extra_opts) -- (Keyword.keys(extra_opts) -- @proto_exclusive_keys)
+
+        if conflicts != [] do
+          raise ArgumentError,
+                "the :proto option is mutually exclusive with #{inspect(conflicts)}"
+        end
+
+        {proto_opts, field_specs} =
+          case Code.ensure_compiled(Trogon.Proto.Error) do
+            {:module, mod} ->
+              {mod.extract_template_opts!(proto_module), mod.field_specs(proto_module)}
+
+            {:error, _} ->
+              raise ArgumentError,
+                    "the :proto option requires the :trogon_proto dependency to be available"
+          end
+
+        {proto_module, field_specs, Keyword.merge(proto_opts, extra_opts)}
+    end
+  end
+
   @doc "See `t:template_opt/0` for available options."
-  @spec __using__([template_opt()]) :: Macro.t()
+  @spec __using__([using_opt()]) :: Macro.t()
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
+      {proto_module, field_specs, opts} = Trogon.Error.resolve_template_opts!(opts)
       opts = Trogon.Error.validate_template_opts!(opts)
 
       compiled_opts =
         [code: :UNKNOWN, visibility: :INTERNAL, help: nil]
         |> Keyword.merge(opts)
+        |> Keyword.put(:field_specs, Macro.escape(field_specs))
         |> Keyword.update!(:help, &Macro.escape/1)
         |> Keyword.update!(:metadata, &Trogon.Error.compile_metadata(&1))
         |> then(&Keyword.put_new(&1, :message, &1[:code]))
@@ -709,8 +745,16 @@ defmodule Trogon.Error do
         :source_id
       ]
 
-      @typedoc "See `t:Trogon.Error.error_opt/0`."
-      @type error_opt :: Trogon.Error.error_opt()
+      if proto_module do
+        @typedoc "The proto struct type accepted as metadata."
+        @type proto_metadata :: unquote(proto_module).t()
+
+        @typedoc "See `t:Trogon.Error.error_opt/0`. Also accepts `t:proto_metadata/0` as metadata."
+        @type error_opt :: Trogon.Error.error_opt() | {:metadata, proto_metadata()}
+      else
+        @typedoc "See `t:Trogon.Error.error_opt/0`."
+        @type error_opt :: Trogon.Error.error_opt()
+      end
 
       @typedoc "See `t:Trogon.Error.t/1`."
       @type t :: Trogon.Error.t(__MODULE__)
@@ -724,9 +768,7 @@ defmodule Trogon.Error do
 
       @doc "Creates a new error instance."
       @spec new!([error_opt()]) :: t()
-      def new!(opts \\ []) when is_list(opts) do
-        Trogon.Error.exception(__MODULE__, unquote(compiled_opts), opts)
-      end
+      defdelegate new!(opts \\ []), to: __MODULE__, as: :exception
 
       @impl Exception
       def message(%__MODULE__{} = error) do

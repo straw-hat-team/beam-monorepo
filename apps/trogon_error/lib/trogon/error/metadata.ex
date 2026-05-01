@@ -145,6 +145,40 @@ defmodule Trogon.Error.Metadata do
     %__MODULE__{entries: Map.new(entries, &to_entry/1)}
   end
 
+  @typedoc """
+  Value strategy from proto field options.
+
+  - `{:default, value}` — fallback when the runtime field is empty
+  - `{:fixed, value}` — always used, runtime field is ignored
+  - `nil` — use the runtime field value as-is
+  """
+  @type value_policy :: {:default, String.t()} | {:fixed, String.t()} | nil
+
+  @doc """
+  Creates a Metadata struct from precomputed field specs and a proto struct.
+
+  Each field spec is a `{json_name, atom_key, visibility, value_policy}` tuple
+  produced at compile time. Builds `MetadataValue` entries in a single pass.
+  """
+  @spec from_field_specs([{String.t(), atom(), MetadataValue.visibility(), value_policy()}], struct()) :: t()
+  def from_field_specs(field_specs, proto) when is_list(field_specs) and is_struct(proto) do
+    %__MODULE__{entries: Map.new(field_specs, &field_spec_to_entry(&1, proto))}
+  end
+
+  defp field_spec_to_entry({name, _atom_key, visibility, {:fixed, value}}, _proto) do
+    {name, %MetadataValue{value: value, visibility: visibility}}
+  end
+
+  defp field_spec_to_entry({name, atom_key, visibility, {:default, default}}, proto) do
+    value = Map.get(proto, atom_key)
+    value = if value in [nil, ""], do: default, else: value
+    {name, %MetadataValue{value: value, visibility: visibility}}
+  end
+
+  defp field_spec_to_entry({name, atom_key, visibility, nil}, proto) do
+    {name, %MetadataValue{value: Map.get(proto, atom_key), visibility: visibility}}
+  end
+
   @doc """
   Merges two Metadata structs. The second argument takes precedence for duplicate keys.
 
@@ -160,8 +194,15 @@ defmodule Trogon.Error.Metadata do
 
   """
   @spec merge(t(), t()) :: t()
-  def merge(%__MODULE__{entries: entries1}, %__MODULE__{entries: entries2}) do
-    %__MODULE__{entries: Map.merge(entries1, entries2)}
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2)
+      when map_size(m1.entries) == 0 and map_size(m2.entries) == 0,
+      do: %__MODULE__{entries: %{}}
+
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2) when map_size(m2.entries) == 0, do: m1
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2) when map_size(m1.entries) == 0, do: m2
+
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2) do
+    %__MODULE__{entries: Map.merge(m1.entries, m2.entries)}
   end
 
   defp to_entry({key, %MetadataValue{} = value}) do

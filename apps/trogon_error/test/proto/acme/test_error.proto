@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package acme.test.v1;
+
+import "trogon/error/v1alpha1/options.proto";
+
+message UserNotFoundError {
+  option (trogon.error.v1alpha1.message).template = {
+    domain: "com.acme.users",
+    reason: "user_not_found",
+    message: "The requested user was not found",
+    code: NOT_FOUND,
+    visibility: VISIBILITY_PUBLIC,
+    help_links: [{url: "https://docs.acme.com/users", description: "User API Docs"}]
+  };
+
+  string user_id = 1 [(trogon.error.v1alpha1.field).visibility = VISIBILITY_PUBLIC];
+  string internal_trace = 2;
+  string service = 3 [(trogon.error.v1alpha1.field) = {
+    visibility: VISIBILITY_PUBLIC,
+    default_value: "user-api"
+  }];
+  string region = 4 [(trogon.error.v1alpha1.field) = {
+    visibility: VISIBILITY_PUBLIC,
+    value: "us-east-1"
+  }];
+}
+
+message InternalServerError {
+  option (trogon.error.v1alpha1.message).template = {
+    domain: "com.acme.system",
+    reason: "internal_server_error",
+    message: "An internal server error occurred",
+    code: INTERNAL
+  };
+}

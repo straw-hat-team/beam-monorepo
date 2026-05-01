@@ -1,12 +1,12 @@
 version: v2
-clean: true
 managed:
   enabled: true
 inputs:
-  - module: buf.build/trogonstack/trogon-proto:v0.12.0
+  - directory: .
+    paths:
+      - acme
 plugins:
   - local: protoc-gen-elixir
-    out: lib/__generated__
+    out: ../support/proto
     opt:
       - gen_descriptors=true
-      - include_docs=true

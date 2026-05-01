@@ -797,4 +797,298 @@ defmodule Trogon.ErrorTest do
       assert_raise Trogon.Error, ~r/unknown error/, fn -> raise external_error end
     end
   end
+
+  describe "proto struct as metadata on non-proto error" do
+    test "raises when passing a proto struct to a non-proto error" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-789"}
+
+      assert_raise Protocol.UndefinedError, ~r/protocol Enumerable not implemented/, fn ->
+        TestSupport.TestError.new!(metadata: proto)
+      end
+    end
+  end
+
+  describe "resolve_template_opts!/1" do
+    test "passes through manual options with nil proto module" do
+      opts = [domain: "com.test", reason: "test", message: "test", code: :UNKNOWN]
+
+      assert Trogon.Error.resolve_template_opts!(opts) == {nil, nil, opts}
+    end
+
+    test "rejects proto-exclusive options alongside proto" do
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:domain\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, domain: "override")
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:reason\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, reason: "override")
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:message\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, message: "override")
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:code\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, code: :UNKNOWN)
+      end
+    end
+
+    test "rejects multiple proto-exclusive options at once" do
+      assert_raise ArgumentError, ~r/mutually exclusive with/, fn ->
+        Trogon.Error.resolve_template_opts!(
+          proto: SomeModule,
+          domain: "override",
+          reason: "override"
+        )
+      end
+    end
+
+    test "allows non-exclusive options alongside proto" do
+      assert_raise UndefinedFunctionError, fn ->
+        Trogon.Error.resolve_template_opts!(
+          proto: SomeModule,
+          metadata: %{"key" => "value"}
+        )
+      end
+    end
+  end
+
+  describe "use Trogon.Error, proto:" do
+    defmodule ProtoUserNotFoundError do
+      use Trogon.Error, proto: Acme.Test.V1.UserNotFoundError
+    end
+
+    defmodule ProtoInternalServerError do
+      use Trogon.Error, proto: Acme.Test.V1.InternalServerError
+    end
+
+    defmodule ProtoUserNotFoundWithMetadataError do
+      use Trogon.Error,
+        proto: Acme.Test.V1.UserNotFoundError,
+        metadata: %{"extra" => "compile-time-value"}
+    end
+
+    test "derives all template fields from proto extension" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.domain == "com.acme.users"
+      assert error.reason == "user_not_found"
+      assert error.message == "The requested user was not found"
+      assert error.code == :NOT_FOUND
+      assert error.specversion == 1
+      assert error.__trogon_error__ == true
+    end
+
+    test "derives visibility from proto template" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.visibility == :PUBLIC
+    end
+
+    test "derives help links from proto template" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.help == %{links: [%{url: "https://docs.acme.com/users", description: "User API Docs"}]}
+    end
+
+    test "defaults visibility to :INTERNAL when proto template omits it" do
+      error = ProtoInternalServerError.new!()
+
+      assert error.visibility == :INTERNAL
+    end
+
+    test "works with different proto error definitions" do
+      error = ProtoInternalServerError.new!()
+
+      assert error.domain == "com.acme.system"
+      assert error.reason == "internal_server_error"
+      assert error.message == "An internal server error occurred"
+      assert error.code == :INTERNAL
+    end
+
+    test "merges compile-time metadata alongside proto" do
+      error = ProtoUserNotFoundWithMetadataError.new!()
+
+      assert error.domain == "com.acme.users"
+      assert error.reason == "user_not_found"
+      assert error.code == :NOT_FOUND
+      assert error.visibility == :PUBLIC
+      assert error.metadata["extra"].value == "compile-time-value"
+    end
+
+    test "rejects proto-exclusive options alongside proto" do
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:domain\]/, fn ->
+        defmodule ConflictDomainError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            domain: "override"
+        end
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:code\]/, fn ->
+        defmodule ConflictCodeError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            code: :UNKNOWN
+        end
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:visibility\]/, fn ->
+        defmodule ConflictVisibilityError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            visibility: :PUBLIC
+        end
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:help\]/, fn ->
+        defmodule ConflictHelpError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            help: %{links: []}
+        end
+      end
+    end
+
+    test "supports runtime metadata" do
+      error =
+        ProtoUserNotFoundError.new!(metadata: Trogon.Error.Metadata.new(%{"user_id" => "user-123"}))
+
+      assert error.metadata["user_id"].value == "user-123"
+    end
+
+    test "merges compile-time and runtime metadata" do
+      error =
+        ProtoUserNotFoundWithMetadataError.new!(metadata: Trogon.Error.Metadata.new(%{"user_id" => "user-456"}))
+
+      assert error.metadata["extra"].value == "compile-time-value"
+      assert error.metadata["user_id"].value == "user-456"
+    end
+
+    test "supports raise/rescue" do
+      assert_raise ProtoUserNotFoundError, fn ->
+        raise ProtoUserNotFoundError
+      end
+
+      try do
+        raise ProtoUserNotFoundError,
+          metadata: Trogon.Error.Metadata.new(%{"user_id" => "123"})
+      rescue
+        error in ProtoUserNotFoundError ->
+          assert error.domain == "com.acme.users"
+          assert error.code == :NOT_FOUND
+          assert error.metadata["user_id"].value == "123"
+      end
+    end
+
+    test "supports all runtime instance options" do
+      time = DateTime.utc_now()
+
+      error =
+        ProtoUserNotFoundError.new!(
+          subject: "/users/123",
+          id: "err-abc",
+          time: time,
+          source_id: "api-gateway",
+          causes: [ProtoInternalServerError.new!()],
+          localized_message: %{locale: "es", message: "Usuario no encontrado"},
+          retry_info: %{retry_offset: Duration.new!(second: 30)},
+          debug_info: %{stack_entries: ["line 1"], detail: "user lookup failed"}
+        )
+
+      assert error.subject == "/users/123"
+      assert error.id == "err-abc"
+      assert error.time == time
+      assert error.source_id == "api-gateway"
+      assert length(error.causes) == 1
+      assert error.localized_message == %{locale: "es", message: "Usuario no encontrado"}
+      assert error.retry_info == %{retry_offset: Duration.new!(second: 30)}
+      assert error.debug_info == %{stack_entries: ["line 1"], detail: "user lookup failed"}
+    end
+
+    test "exception/1 and new!/1 produce identical results" do
+      opts = [metadata: Trogon.Error.Metadata.new(%{"user_id" => "123"})]
+
+      error1 = ProtoUserNotFoundError.exception(opts)
+      error2 = ProtoUserNotFoundError.new!(opts)
+
+      assert error1 == error2
+    end
+
+    test "formats error message" do
+      error = ProtoUserNotFoundError.new!()
+      message = Exception.message(error)
+
+      assert String.contains?(message, "The requested user was not found")
+      assert String.contains?(message, "com.acme.users")
+      assert String.contains?(message, "user_not_found")
+    end
+
+    test "accepts proto struct as metadata" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-789"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["userId"].value == "user-789"
+    end
+
+    test "converts all proto struct fields to metadata entries" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc", internal_trace: "trace-123"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["userId"].value == "user-abc"
+      assert error.metadata["userId"].visibility == :PUBLIC
+      assert error.metadata["internalTrace"].value == "trace-123"
+      assert error.metadata["internalTrace"].visibility == :INTERNAL
+    end
+
+    test "still accepts regular Metadata alongside proto-backed errors" do
+      error =
+        ProtoUserNotFoundError.new!(metadata: Trogon.Error.Metadata.new(%{"user_id" => "regular"}))
+
+      assert error.metadata["user_id"].value == "regular"
+    end
+
+    test "uses default_value when proto field is empty" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["service"].value == "user-api"
+    end
+
+    test "uses proto field value when present over default_value" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc", service: "billing-api"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["service"].value == "billing-api"
+    end
+
+    test "uses fixed value regardless of proto field value" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc", region: "eu-west-1"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["region"].value == "us-east-1"
+    end
+
+    test "uses fixed value when proto field is empty" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["region"].value == "us-east-1"
+    end
+
+    test "respects per-field visibility from proto extensions" do
+      proto = %Acme.Test.V1.UserNotFoundError{
+        user_id: "user-abc",
+        internal_trace: "trace-123",
+        service: "billing-api"
+      }
+
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["userId"].visibility == :PUBLIC
+      assert error.metadata["internalTrace"].visibility == :INTERNAL
+      assert error.metadata["service"].visibility == :PUBLIC
+      assert error.metadata["region"].visibility == :PUBLIC
+    end
+  end
 end

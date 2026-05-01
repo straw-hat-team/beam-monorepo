@@ -42,6 +42,7 @@ defmodule Trogon.Error.MixProject do
     [
       # Dependencies
       {:nimble_options, "~> 1.0"},
+      trogon_proto_dep(),
 
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
@@ -49,6 +50,14 @@ defmodule Trogon.Error.MixProject do
       {:excoveralls, ">= 0.0.0", only: [:test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: [:dev], runtime: false}
     ]
+  end
+
+  defp trogon_proto_dep do
+    if System.get_env("MIX_IN_UMBRELLA_DEPS") == "false" do
+      {:trogon_proto, "~> 0.8", optional: true}
+    else
+      {:trogon_proto, in_umbrella: true, optional: true}
+    end
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
