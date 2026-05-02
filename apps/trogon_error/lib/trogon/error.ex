@@ -498,7 +498,7 @@ defmodule Trogon.Error do
 
     template_opts = validate_runtime_options!(template_opts)
 
-    compiled =
+    compiled_opts =
       [code: :UNKNOWN, visibility: :INTERNAL, help: nil, metadata: %{}, field_specs: nil]
       |> Keyword.merge(template_opts)
       |> Keyword.update!(:metadata, &to_metadata(&1, nil))
@@ -506,7 +506,7 @@ defmodule Trogon.Error do
       |> Keyword.update!(:message, &to_msg/1)
       |> Map.new()
 
-    exception(__MODULE__, compiled, instance_opts)
+    exception(__MODULE__, compiled_opts, instance_opts)
   end
 
   defp to_metadata(%Metadata{} = metadata, _field_specs), do: metadata
