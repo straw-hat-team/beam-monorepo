@@ -5,4 +5,9 @@ defmodule TrogonProto.Error.V1Alpha1.PbExtension do
     optional: true,
     type: TrogonProto.Error.V1Alpha1.MessageOptions
   )
+
+  extend(Google.Protobuf.FieldOptions, :field, 870_013,
+    optional: true,
+    type: TrogonProto.Error.V1Alpha1.FieldOptions
+  )
 end
