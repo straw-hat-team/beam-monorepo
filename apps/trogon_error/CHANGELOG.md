@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.7.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.6.0...trogon_error@v0.7.0) (2026-05-02)
+
+
+### Features
+
+* **trogon_error:** Add proto support for error templates ([#366](https://github.com/straw-hat-team/beam-monorepo/issues/366)) ([165d7bf](https://github.com/straw-hat-team/beam-monorepo/commit/165d7bf0fb4d4d73d7bf748bf654e6e43f610af5))
+
 ## [0.6.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.5.4...trogon_error@v0.6.0) (2026-04-27)
 
 
