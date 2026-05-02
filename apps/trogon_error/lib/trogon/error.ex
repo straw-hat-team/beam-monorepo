@@ -400,44 +400,28 @@ defmodule Trogon.Error do
 
   @doc false
   def exception(struct_module, compile_opts, opts \\ []) do
-    domain = Keyword.fetch!(compile_opts, :domain)
-    reason = Keyword.fetch!(compile_opts, :reason)
-    code = Keyword.fetch!(compile_opts, :code)
-    message = Keyword.fetch!(compile_opts, :message)
-    visibility = Keyword.fetch!(compile_opts, :visibility)
-    help = Keyword.get(compile_opts, :help)
-    field_specs = Keyword.get(compile_opts, :field_specs)
-    compile_metadata = Keyword.fetch!(compile_opts, :metadata)
-    runtime_metadata = opts |> Keyword.get(:metadata, Metadata.new()) |> to_metadata(field_specs)
-    metadata = Metadata.merge(compile_metadata, runtime_metadata)
-
-    causes = Keyword.get(opts, :causes, [])
-    subject = Keyword.get(opts, :subject)
-    debug_info = Keyword.get(opts, :debug_info)
-    localized_message = Keyword.get(opts, :localized_message)
-    retry_info = Keyword.get(opts, :retry_info)
-    id = Keyword.get(opts, :id)
-    time = Keyword.get(opts, :time)
-    source_id = Keyword.get(opts, :source_id)
+    compiled = Map.new(compile_opts)
+    runtime_metadata = opts |> Keyword.get(:metadata, Metadata.new()) |> to_metadata(compiled.field_specs)
+    metadata = Metadata.merge(compiled.metadata, runtime_metadata)
 
     struct(struct_module, %{
       __trogon_error__: true,
       specversion: @spec_version,
-      code: code,
-      message: message,
-      domain: domain,
-      reason: reason,
+      code: compiled.code,
+      message: compiled.message,
+      domain: compiled.domain,
+      reason: compiled.reason,
       metadata: metadata,
-      causes: causes,
-      visibility: visibility,
-      subject: subject,
-      id: id,
-      time: time,
-      help: help,
-      debug_info: debug_info,
-      localized_message: localized_message,
-      retry_info: retry_info,
-      source_id: source_id
+      causes: Keyword.get(opts, :causes, []),
+      visibility: compiled.visibility,
+      subject: Keyword.get(opts, :subject),
+      id: Keyword.get(opts, :id),
+      time: Keyword.get(opts, :time),
+      help: compiled.help,
+      debug_info: Keyword.get(opts, :debug_info),
+      localized_message: Keyword.get(opts, :localized_message),
+      retry_info: Keyword.get(opts, :retry_info),
+      source_id: Keyword.get(opts, :source_id)
     })
   end
 
@@ -514,14 +498,15 @@ defmodule Trogon.Error do
 
     template_opts = validate_runtime_options!(template_opts)
 
-    compiled_opts =
-      [code: :UNKNOWN, visibility: :INTERNAL, help: nil, metadata: %{}]
+    compiled =
+      [code: :UNKNOWN, visibility: :INTERNAL, help: nil, metadata: %{}, field_specs: nil]
       |> Keyword.merge(template_opts)
       |> Keyword.update!(:metadata, &to_metadata(&1, nil))
       |> then(&Keyword.put_new(&1, :message, &1[:code]))
       |> Keyword.update!(:message, &to_msg/1)
+      |> Map.new()
 
-    exception(__MODULE__, compiled_opts, instance_opts)
+    exception(__MODULE__, compiled, instance_opts)
   end
 
   defp to_metadata(%Metadata{} = metadata, _field_specs), do: metadata
