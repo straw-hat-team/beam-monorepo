@@ -18,7 +18,7 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           HEX_API_KEY: "${{ secrets.SECRETS_VAULT }}/HEX_API_KEY"
-      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@a47798ffe54ef6079d7a1212ea93058cb8d0d4d9 # master
+      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@f331a745dbb551794e33e91eac4abf8a1f51646c # master
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
           ref-name: ${{ github.ref_name }}
