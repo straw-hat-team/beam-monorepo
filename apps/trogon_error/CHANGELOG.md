@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.8.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.7.0...trogon_error@v0.8.0) (2026-05-05)
+
+
+### Features
+
+* **trogon_error:** Support template metadata from proto ([#374](https://github.com/straw-hat-team/beam-monorepo/issues/374)) ([817d5b5](https://github.com/straw-hat-team/beam-monorepo/commit/817d5b53f8ddd3ee744ce09f07679786bdfeda9a))
+
 ## [0.7.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_error@v0.6.0...trogon_error@v0.7.0) (2026-05-02)
 
 
