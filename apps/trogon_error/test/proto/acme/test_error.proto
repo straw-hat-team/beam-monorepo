@@ -11,7 +11,11 @@ message UserNotFoundError {
     message: "The requested user was not found",
     code: NOT_FOUND,
     visibility: VISIBILITY_PUBLIC,
-    help_links: [{url: "https://docs.acme.com/users", description: "User API Docs"}]
+    help_links: [{url: "https://docs.acme.com/users", description: "User API Docs"}],
+    metadata: [
+      {key: "resource", value: "user"},
+      {key: "tenant_kind", value: "internal", visibility: VISIBILITY_PRIVATE}
+    ]
   };
 
   string user_id = 1 [(trogon.error.v1alpha1.field).visibility = VISIBILITY_PUBLIC];

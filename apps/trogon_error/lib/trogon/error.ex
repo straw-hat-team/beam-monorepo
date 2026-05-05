@@ -688,7 +688,18 @@ defmodule Trogon.Error do
                     "the :proto option requires the :trogon_proto dependency to be available"
           end
 
-        {proto_module, field_specs, Keyword.merge(proto_opts, extra_opts)}
+        {proto_module, field_specs, merge_template_opts(proto_opts, extra_opts)}
+    end
+  end
+
+  defp merge_template_opts(proto_opts, extra_opts) do
+    proto_metadata = Keyword.get(proto_opts, :metadata, %{})
+    extra_metadata = Keyword.get(extra_opts, :metadata, %{})
+    merged = Keyword.merge(proto_opts, extra_opts)
+
+    case Map.merge(proto_metadata, extra_metadata) do
+      metadata when metadata == %{} -> Keyword.delete(merged, :metadata)
+      metadata -> Keyword.put(merged, :metadata, metadata)
     end
   end
 

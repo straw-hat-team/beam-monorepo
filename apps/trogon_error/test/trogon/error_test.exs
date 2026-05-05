@@ -913,7 +913,29 @@ defmodule Trogon.ErrorTest do
       assert error.reason == "user_not_found"
       assert error.code == :NOT_FOUND
       assert error.visibility == :PUBLIC
+      assert error.metadata["resource"].value == "user"
       assert error.metadata["extra"].value == "compile-time-value"
+    end
+
+    test "derives default metadata from proto template" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.metadata["resource"].value == "user"
+      assert error.metadata["resource"].visibility == :INTERNAL
+      assert error.metadata["tenant_kind"].value == "internal"
+      assert error.metadata["tenant_kind"].visibility == :PRIVATE
+    end
+
+    test "compile-time metadata overrides proto template metadata on key collision" do
+      defmodule ProtoUserNotFoundOverrideError do
+        use Trogon.Error,
+          proto: Acme.Test.V1.UserNotFoundError,
+          metadata: %{"resource" => "override-resource"}
+      end
+
+      error = ProtoUserNotFoundOverrideError.new!()
+
+      assert error.metadata["resource"].value == "override-resource"
     end
 
     test "rejects proto-exclusive options alongside proto" do

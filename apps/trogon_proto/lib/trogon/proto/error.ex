@@ -90,21 +90,35 @@ defmodule Trogon.Proto.Error do
   end
 
   defp to_template_opts(%MessageOptions{template: template}) do
-    opts = [
+    [
       domain: require_nonempty!(template.domain, :domain),
       reason: require_nonempty!(template.reason, :reason),
       message: require_nonempty!(template.message, :message),
       code: require_code!(template.code),
       visibility: resolve_visibility(template.visibility)
     ]
+    |> put_help_links(template.help_links)
+    |> put_metadata(template.metadata)
+  end
 
-    opts =
-      case template.help_links do
-        [] -> opts
-        links -> Keyword.put(opts, :help, %{links: Enum.map(links, &help_link_to_map/1)})
-      end
+  defp put_help_links(opts, []), do: opts
 
-    opts
+  defp put_help_links(opts, links) do
+    Keyword.put(opts, :help, %{links: Enum.map(links, &help_link_to_map/1)})
+  end
+
+  defp put_metadata(opts, []), do: opts
+
+  defp put_metadata(opts, entries) do
+    Keyword.put(opts, :metadata, Map.new(entries, &metadata_entry_to_pair/1))
+  end
+
+  defp metadata_entry_to_pair(%{key: key, value: value, visibility: :VISIBILITY_UNSPECIFIED}) do
+    {key, value}
+  end
+
+  defp metadata_entry_to_pair(%{key: key, value: value, visibility: visibility}) do
+    {key, {value, resolve_visibility(visibility)}}
   end
 
   defp resolve_visibility(:VISIBILITY_UNSPECIFIED), do: :INTERNAL
