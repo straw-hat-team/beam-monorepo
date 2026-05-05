@@ -101,6 +101,20 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions.Template do
           json_name: "helpLinks",
           proto3_optional: nil,
           __unknown_fields__: []
+        },
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "metadata",
+          extendee: nil,
+          number: 7,
+          label: :LABEL_REPEATED,
+          type: :TYPE_MESSAGE,
+          type_name: ".trogon.error.v1alpha1.MessageOptions.MetadataEntry",
+          default_value: nil,
+          options: nil,
+          oneof_index: nil,
+          json_name: "metadata",
+          proto3_optional: nil,
+          __unknown_fields__: []
         }
       ],
       nested_type: [],
@@ -125,6 +139,11 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions.Template do
     repeated: true,
     type: TrogonProto.Error.V1Alpha1.MessageOptions.HelpLink,
     json_name: "helpLinks"
+  )
+
+  field(:metadata, 7,
+    repeated: true,
+    type: TrogonProto.Error.V1Alpha1.MessageOptions.MetadataEntry
   )
 end
 
@@ -186,6 +205,81 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions.HelpLink do
 
   field(:url, 1, type: :string)
   field(:description, 2, type: :string)
+end
+
+defmodule TrogonProto.Error.V1Alpha1.MessageOptions.MetadataEntry do
+  @moduledoc """
+  MetadataEntry declares a fixed metadata pair on a Template.
+  """
+
+  use Protobuf,
+    full_name: "trogon.error.v1alpha1.MessageOptions.MetadataEntry",
+    protoc_gen_elixir_version: "0.16.0",
+    syntax: :proto3
+
+  def descriptor do
+    # credo:disable-for-next-line
+    %Google.Protobuf.DescriptorProto{
+      name: "MetadataEntry",
+      field: [
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "key",
+          extendee: nil,
+          number: 1,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_STRING,
+          type_name: nil,
+          default_value: nil,
+          options: nil,
+          oneof_index: nil,
+          json_name: "key",
+          proto3_optional: nil,
+          __unknown_fields__: []
+        },
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "value",
+          extendee: nil,
+          number: 2,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_STRING,
+          type_name: nil,
+          default_value: nil,
+          options: nil,
+          oneof_index: nil,
+          json_name: "value",
+          proto3_optional: nil,
+          __unknown_fields__: []
+        },
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "visibility",
+          extendee: nil,
+          number: 3,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_ENUM,
+          type_name: ".trogon.error.v1alpha1.Visibility",
+          default_value: nil,
+          options: nil,
+          oneof_index: nil,
+          json_name: "visibility",
+          proto3_optional: nil,
+          __unknown_fields__: []
+        }
+      ],
+      nested_type: [],
+      enum_type: [],
+      extension_range: [],
+      extension: [],
+      options: nil,
+      oneof_decl: [],
+      reserved_range: [],
+      reserved_name: [],
+      __unknown_fields__: []
+    }
+  end
+
+  field(:key, 1, type: :string)
+  field(:value, 2, type: :string)
+  field(:visibility, 3, type: TrogonProto.Error.V1Alpha1.Visibility, enum: true)
 end
 
 defmodule TrogonProto.Error.V1Alpha1.MessageOptions do
@@ -305,6 +399,20 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions do
               json_name: "helpLinks",
               proto3_optional: nil,
               __unknown_fields__: []
+            },
+            %Google.Protobuf.FieldDescriptorProto{
+              name: "metadata",
+              extendee: nil,
+              number: 7,
+              label: :LABEL_REPEATED,
+              type: :TYPE_MESSAGE,
+              type_name: ".trogon.error.v1alpha1.MessageOptions.MetadataEntry",
+              default_value: nil,
+              options: nil,
+              oneof_index: nil,
+              json_name: "metadata",
+              proto3_optional: nil,
+              __unknown_fields__: []
             }
           ],
           nested_type: [],
@@ -345,6 +453,62 @@ defmodule TrogonProto.Error.V1Alpha1.MessageOptions do
               options: nil,
               oneof_index: nil,
               json_name: "description",
+              proto3_optional: nil,
+              __unknown_fields__: []
+            }
+          ],
+          nested_type: [],
+          enum_type: [],
+          extension_range: [],
+          extension: [],
+          options: nil,
+          oneof_decl: [],
+          reserved_range: [],
+          reserved_name: [],
+          __unknown_fields__: []
+        },
+        %Google.Protobuf.DescriptorProto{
+          name: "MetadataEntry",
+          field: [
+            %Google.Protobuf.FieldDescriptorProto{
+              name: "key",
+              extendee: nil,
+              number: 1,
+              label: :LABEL_OPTIONAL,
+              type: :TYPE_STRING,
+              type_name: nil,
+              default_value: nil,
+              options: nil,
+              oneof_index: nil,
+              json_name: "key",
+              proto3_optional: nil,
+              __unknown_fields__: []
+            },
+            %Google.Protobuf.FieldDescriptorProto{
+              name: "value",
+              extendee: nil,
+              number: 2,
+              label: :LABEL_OPTIONAL,
+              type: :TYPE_STRING,
+              type_name: nil,
+              default_value: nil,
+              options: nil,
+              oneof_index: nil,
+              json_name: "value",
+              proto3_optional: nil,
+              __unknown_fields__: []
+            },
+            %Google.Protobuf.FieldDescriptorProto{
+              name: "visibility",
+              extendee: nil,
+              number: 3,
+              label: :LABEL_OPTIONAL,
+              type: :TYPE_ENUM,
+              type_name: ".trogon.error.v1alpha1.Visibility",
+              default_value: nil,
+              options: nil,
+              oneof_index: nil,
+              json_name: "visibility",
               proto3_optional: nil,
               __unknown_fields__: []
             }
