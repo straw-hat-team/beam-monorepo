@@ -13,6 +13,11 @@ defmodule Trogon.Proto.ErrorTest do
       assert Keyword.get(opts, :code) == :NOT_FOUND
       assert Keyword.get(opts, :visibility) == :PUBLIC
       assert Keyword.get(opts, :help) == %{links: [%{url: "https://docs.acme.com/users", description: "User API Docs"}]}
+
+      assert Keyword.get(opts, :metadata) == %{
+               "resource" => "user",
+               "tenant_kind" => {"internal", :PRIVATE}
+             }
     end
 
     test "extracts all template fields when message is provided" do
@@ -22,6 +27,7 @@ defmodule Trogon.Proto.ErrorTest do
       assert Keyword.fetch!(opts, :reason) == "internal_server_error"
       assert Keyword.fetch!(opts, :message) == "An internal server error occurred"
       assert Keyword.fetch!(opts, :code) == :INTERNAL
+      refute Keyword.has_key?(opts, :metadata)
     end
 
     test "raises for message without error extension" do
