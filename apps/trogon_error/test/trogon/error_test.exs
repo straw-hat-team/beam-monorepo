@@ -891,10 +891,10 @@ defmodule Trogon.ErrorTest do
       assert error.help == %{links: [%{url: "https://docs.acme.com/users", description: "User API Docs"}]}
     end
 
-    test "defaults visibility to :INTERNAL when proto template omits it" do
+    test "derives private visibility from proto template" do
       error = ProtoInternalServerError.new!()
 
-      assert error.visibility == :INTERNAL
+      assert error.visibility == :PRIVATE
     end
 
     test "works with different proto error definitions" do
@@ -921,7 +921,7 @@ defmodule Trogon.ErrorTest do
       error = ProtoUserNotFoundError.new!()
 
       assert error.metadata["resource"].value == "user"
-      assert error.metadata["resource"].visibility == :INTERNAL
+      assert error.metadata["resource"].visibility == :PUBLIC
       assert error.metadata["tenant_kind"].value == "internal"
       assert error.metadata["tenant_kind"].visibility == :PRIVATE
     end
@@ -1053,14 +1053,13 @@ defmodule Trogon.ErrorTest do
       assert error.metadata["userId"].value == "user-789"
     end
 
-    test "converts all proto struct fields to metadata entries" do
+    test "converts annotated proto struct fields to metadata entries" do
       proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc", internal_trace: "trace-123"}
       error = ProtoUserNotFoundError.new!(metadata: proto)
 
       assert error.metadata["userId"].value == "user-abc"
       assert error.metadata["userId"].visibility == :PUBLIC
-      assert error.metadata["internalTrace"].value == "trace-123"
-      assert error.metadata["internalTrace"].visibility == :INTERNAL
+      refute Map.has_key?(error.metadata.entries, "internalTrace")
     end
 
     test "still accepts regular Metadata alongside proto-backed errors" do
@@ -1108,7 +1107,7 @@ defmodule Trogon.ErrorTest do
       error = ProtoUserNotFoundError.new!(metadata: proto)
 
       assert error.metadata["userId"].visibility == :PUBLIC
-      assert error.metadata["internalTrace"].visibility == :INTERNAL
+      refute Map.has_key?(error.metadata.entries, "internalTrace")
       assert error.metadata["service"].visibility == :PUBLIC
       assert error.metadata["region"].visibility == :PUBLIC
     end
