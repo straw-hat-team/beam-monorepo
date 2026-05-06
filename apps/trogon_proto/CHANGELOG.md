@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.11.0...trogon_proto@v0.11.1) (2026-05-06)
+
+
+### Bug Fixes
+
+* **trogon_proto:** Align error visibility codegen ([#377](https://github.com/straw-hat-team/beam-monorepo/issues/377)) ([4a99ee8](https://github.com/straw-hat-team/beam-monorepo/commit/4a99ee8a8f988141f697306611f6ece417363e19))
+
 ## [0.11.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.10.0...trogon_proto@v0.11.0) (2026-05-05)
 
 
