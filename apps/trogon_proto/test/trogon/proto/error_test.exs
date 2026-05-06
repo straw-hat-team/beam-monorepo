@@ -15,7 +15,7 @@ defmodule Trogon.Proto.ErrorTest do
       assert Keyword.get(opts, :help) == %{links: [%{url: "https://docs.acme.com/users", description: "User API Docs"}]}
 
       assert Keyword.get(opts, :metadata) == %{
-               "resource" => "user",
+               "resource" => {"user", :PUBLIC},
                "tenant_kind" => {"internal", :PRIVATE}
              }
     end
@@ -27,6 +27,7 @@ defmodule Trogon.Proto.ErrorTest do
       assert Keyword.fetch!(opts, :reason) == "internal_server_error"
       assert Keyword.fetch!(opts, :message) == "An internal server error occurred"
       assert Keyword.fetch!(opts, :code) == :INTERNAL
+      assert Keyword.fetch!(opts, :visibility) == :PRIVATE
       refute Keyword.has_key?(opts, :metadata)
     end
 
@@ -46,6 +47,14 @@ defmodule Trogon.Proto.ErrorTest do
                    end
     end
 
+    test "raises when metadata visibility is not explicit" do
+      assert_raise ArgumentError,
+                   ~r/error visibility must be VISIBILITY_PRIVATE or VISIBILITY_PUBLIC/,
+                   fn ->
+                     Error.extract_template_opts!(Acme.Test.V1.MissingMetadataVisibilityError)
+                   end
+    end
+
     test "raises for message with non-string fields" do
       assert_raise ArgumentError,
                    ~r/must be of type string, got :TYPE_INT32/,
@@ -62,8 +71,7 @@ defmodule Trogon.Proto.ErrorTest do
       user_id_spec = Enum.find(specs, fn {name, _, _, _} -> name == "userId" end)
       assert user_id_spec == {"userId", :user_id, :PUBLIC, nil}
 
-      trace_spec = Enum.find(specs, fn {name, _, _, _} -> name == "internalTrace" end)
-      assert trace_spec == {"internalTrace", :internal_trace, :INTERNAL, nil}
+      refute Enum.any?(specs, fn {name, _, _, _} -> name == "internalTrace" end)
 
       service_spec = Enum.find(specs, fn {name, _, _, _} -> name == "service" end)
       assert service_spec == {"service", :service, :PUBLIC, {:default, "user-api"}}
@@ -75,7 +83,7 @@ defmodule Trogon.Proto.ErrorTest do
     test "returns field specs for message without field extensions" do
       specs = Error.field_specs(Acme.Test.V1.NoExtensionMessage)
 
-      assert specs == [{"value", :value, :INTERNAL, nil}]
+      assert specs == []
     end
   end
 end

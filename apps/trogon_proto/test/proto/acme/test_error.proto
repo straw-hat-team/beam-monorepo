@@ -13,7 +13,7 @@ message UserNotFoundError {
     visibility: VISIBILITY_PUBLIC,
     help_links: [{url: "https://docs.acme.com/users", description: "User API Docs"}],
     metadata: [
-      {key: "resource", value: "user"},
+      {key: "resource", value: "user", visibility: VISIBILITY_PUBLIC},
       {key: "tenant_kind", value: "internal", visibility: VISIBILITY_PRIVATE}
     ]
   };
@@ -35,7 +35,19 @@ message InternalServerError {
     domain: "com.acme.system",
     reason: "internal_server_error",
     message: "An internal server error occurred",
-    code: INTERNAL
+    code: INTERNAL,
+    visibility: VISIBILITY_PRIVATE
+  };
+}
+
+message MissingMetadataVisibilityError {
+  option (trogon.error.v1alpha1.message).template = {
+    domain: "com.acme.users",
+    reason: "missing_metadata_visibility",
+    message: "This has metadata without visibility",
+    code: INVALID_ARGUMENT,
+    visibility: VISIBILITY_PUBLIC,
+    metadata: [{key: "resource", value: "user"}]
   };
 }
 

@@ -2,10 +2,12 @@ defmodule TrogonProto.Error.V1Alpha1.Visibility do
   @moduledoc """
   Visibility controls who can see a given error metadata field.
 
-  This aligns with the three-tier model in the Trogon Error runtime
-  (Trogon.Error.MetadataValue.visibility/0).
+  Visibility is an exposure contract for shared descriptors. It is not a
+  secrecy boundary for data encoded in proto annotations: anyone with the
+  descriptor can read those keys and values. Internal-only metadata belongs in
+  runtime enrichment, observability pipelines, or internal-only overlays.
 
-  Default (unspecified) is treated as INTERNAL for safety.
+  Code generators should reject UNSPECIFIED for emitted error details.
   """
 
   use Protobuf,
@@ -26,20 +28,14 @@ defmodule TrogonProto.Error.V1Alpha1.Visibility do
           __unknown_fields__: []
         },
         %Google.Protobuf.EnumValueDescriptorProto{
-          name: "VISIBILITY_INTERNAL",
+          name: "VISIBILITY_PRIVATE",
           number: 1,
           options: nil,
           __unknown_fields__: []
         },
         %Google.Protobuf.EnumValueDescriptorProto{
-          name: "VISIBILITY_PRIVATE",
-          number: 2,
-          options: nil,
-          __unknown_fields__: []
-        },
-        %Google.Protobuf.EnumValueDescriptorProto{
           name: "VISIBILITY_PUBLIC",
-          number: 3,
+          number: 2,
           options: nil,
           __unknown_fields__: []
         }
@@ -52,7 +48,6 @@ defmodule TrogonProto.Error.V1Alpha1.Visibility do
   end
 
   field(:VISIBILITY_UNSPECIFIED, 0)
-  field(:VISIBILITY_INTERNAL, 1)
-  field(:VISIBILITY_PRIVATE, 2)
-  field(:VISIBILITY_PUBLIC, 3)
+  field(:VISIBILITY_PRIVATE, 1)
+  field(:VISIBILITY_PUBLIC, 2)
 end

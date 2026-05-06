@@ -10,7 +10,6 @@ defmodule Trogon.Proto.Error do
   @valid_codes Map.keys(Code.mapping())
 
   @visibility_mapping %{
-    VISIBILITY_INTERNAL: :INTERNAL,
     VISIBILITY_PRIVATE: :PRIVATE,
     VISIBILITY_PUBLIC: :PUBLIC
   }
@@ -22,8 +21,8 @@ defmodule Trogon.Proto.Error do
   def field_specs(message_module) do
     field_options_by_name = descriptor_field_options(message_module)
 
-    for {_tag, props} <- message_module.__message_props__().field_props do
-      {visibility, value_policy} = Map.get(field_options_by_name, props.name, {:INTERNAL, nil})
+    for {_tag, props} <- message_module.__message_props__().field_props,
+        {visibility, value_policy} <- [Map.get(field_options_by_name, props.name)] do
       {props.json_name, props.name_atom, visibility, value_policy}
     end
   end
@@ -36,11 +35,11 @@ defmodule Trogon.Proto.Error do
     {field.name, read_field_options(field)}
   end
 
-  defp read_field_options(%{options: nil}), do: {:INTERNAL, nil}
+  defp read_field_options(%{options: nil}), do: nil
 
   defp read_field_options(%{options: options}) do
     case get_extension(options, @field_extension_tag) do
-      nil -> {:INTERNAL, nil}
+      nil -> nil
       binary -> decode_field_options(binary)
     end
   end
@@ -113,16 +112,20 @@ defmodule Trogon.Proto.Error do
     Keyword.put(opts, :metadata, Map.new(entries, &metadata_entry_to_pair/1))
   end
 
-  defp metadata_entry_to_pair(%{key: key, value: value, visibility: :VISIBILITY_UNSPECIFIED}) do
-    {key, value}
-  end
-
   defp metadata_entry_to_pair(%{key: key, value: value, visibility: visibility}) do
     {key, {value, resolve_visibility(visibility)}}
   end
 
-  defp resolve_visibility(:VISIBILITY_UNSPECIFIED), do: :INTERNAL
-  defp resolve_visibility(v), do: Map.fetch!(@visibility_mapping, v)
+  defp resolve_visibility(visibility) do
+    case Map.fetch(@visibility_mapping, visibility) do
+      {:ok, resolved} ->
+        resolved
+
+      :error ->
+        raise ArgumentError,
+              "error visibility must be VISIBILITY_PRIVATE or VISIBILITY_PUBLIC, got #{inspect(visibility)}"
+    end
+  end
 
   defp help_link_to_map(link) do
     %{url: link.url, description: link.description}

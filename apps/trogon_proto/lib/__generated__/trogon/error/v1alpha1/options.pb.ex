@@ -1,7 +1,7 @@
 defmodule TrogonProto.Error.V1Alpha1.MessageOptions.Template do
   @moduledoc """
   Template defines the static error template for a message that can be
-  adapted into a runtime error representation.
+  adapted into a runtime Google RPC error representation.
 
   These fields are intentionally language-neutral so both Elixir and Go
   runtimes can derive their native error template APIs from the same proto
@@ -285,6 +285,11 @@ end
 defmodule TrogonProto.Error.V1Alpha1.MessageOptions do
   @moduledoc """
   MessageOptions defines message-level options for error payload messages.
+
+  These annotations describe the Google RPC rich error details a runtime
+  should emit for this payload. They are not a transport envelope; runtimes
+  adapt the template into google.rpc.Status, google.rpc.ErrorInfo, google.rpc.Help,
+  or equivalent protocol-native details.
   """
 
   use Protobuf,
@@ -541,6 +546,9 @@ end
 defmodule TrogonProto.Error.V1Alpha1.FieldOptions do
   @moduledoc """
   FieldOptions defines field-level options for error payload message fields.
+
+  Runtimes copy payload fields into google.rpc.ErrorInfo.metadata unless a
+  value policy supplies a default or fixed value.
   """
 
   use Protobuf,
