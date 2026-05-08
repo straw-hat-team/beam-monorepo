@@ -72,7 +72,7 @@ defmodule EventStoreDashboard.Components.EventsTable do
           page={@page}
           ctx={@ctx}
           stream_uuid={row[:stream_uuid]}
-          event_number={row[:event_number]}
+          event_number={row[:stream_version]}
           stop_propagation
         />
       </:col>
