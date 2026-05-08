@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.2.0...eventstore_dashboard@v0.2.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* **eventstore_dashboard:** Keep modal usable when deserialization fails ([#385](https://github.com/straw-hat-team/beam-monorepo/issues/385)) ([a40d651](https://github.com/straw-hat-team/beam-monorepo/commit/a40d651d4d75162d4ee763592cbc89d8dc3c6e44))
+
 ## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.1.0...eventstore_dashboard@v0.2.0) (2026-05-08)
 
 
