@@ -8,6 +8,7 @@ on:
         required: true
         type: choice
         options:
+          - eventstore_dashboard
           - trogon_commanded
           - trogon_error
           - trogon_proto
