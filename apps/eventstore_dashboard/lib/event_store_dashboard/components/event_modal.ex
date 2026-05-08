@@ -3,6 +3,7 @@ defmodule EventStoreDashboard.Components.EventModal do
 
   use Phoenix.LiveComponent
 
+  alias EventStoreDashboard.Components.DataField
   alias EventStoreDashboard.Params
   alias EventStoreDashboard.Repo
   alias EventStoreDashboard.Repo.Context
@@ -90,14 +91,8 @@ defmodule EventStoreDashboard.Components.EventModal do
               <td>Created at</td>
               <td><pre>{@event.created_at}</pre></td>
             </tr>
-            <tr>
-              <td>Data</td>
-              <td><pre>{inspect(@event.data, @inspect_opts)}</pre></td>
-            </tr>
-            <tr>
-              <td>Metadata</td>
-              <td><pre>{inspect(@event.metadata, @inspect_opts)}</pre></td>
-            </tr>
+            <DataField.row label="Data" value={@event.data} inspect_opts={@inspect_opts} />
+            <DataField.row label="Metadata" value={@event.metadata} inspect_opts={@inspect_opts} />
           </tbody>
         </table>
       </div>

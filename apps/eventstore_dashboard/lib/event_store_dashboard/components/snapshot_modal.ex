@@ -3,7 +3,7 @@ defmodule EventStoreDashboard.Components.SnapshotModal do
 
   use Phoenix.Component
 
-  alias EventStoreDashboard.Components.EventLink
+  alias EventStoreDashboard.Components.{DataField, EventLink}
   alias EventStoreDashboard.{Params, Repo}
   alias EventStoreDashboard.Repo.Context
   alias Phoenix.LiveDashboard.PageBuilder
@@ -61,14 +61,8 @@ defmodule EventStoreDashboard.Components.SnapshotModal do
               <td>Created at</td>
               <td><pre>{@snapshot.created_at}</pre></td>
             </tr>
-            <tr>
-              <td>Data</td>
-              <td><pre>{inspect(@snapshot.data, @inspect_opts)}</pre></td>
-            </tr>
-            <tr>
-              <td>Metadata</td>
-              <td><pre>{inspect(@snapshot.metadata, @inspect_opts)}</pre></td>
-            </tr>
+            <DataField.row label="Data" value={@snapshot.data} inspect_opts={@inspect_opts} />
+            <DataField.row label="Metadata" value={@snapshot.metadata} inspect_opts={@inspect_opts} />
           </tbody>
         </table>
       </div>

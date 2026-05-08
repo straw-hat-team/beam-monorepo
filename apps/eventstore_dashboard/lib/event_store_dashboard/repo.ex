@@ -336,7 +336,12 @@ defmodule EventStoreDashboard.Repo do
   end
 
   defp deserialize(nil, value, _opts), do: value
-  defp deserialize(serializer, value, opts), do: serializer.deserialize(value, opts)
+
+  defp deserialize(serializer, value, opts) do
+    serializer.deserialize(value, opts)
+  rescue
+    exception -> {:deserialization_error, exception, value}
+  end
 
   defp sort_dir_sql(:desc), do: "DESC"
   defp sort_dir_sql(_), do: "ASC"
