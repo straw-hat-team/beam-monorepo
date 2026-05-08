@@ -15,7 +15,7 @@ Add EventStoreDashboard as a page in the `live_dashboard` macro in your router:
 ```elixir
 live_dashboard "/dashboard",
   additional_pages: [
-    eventstores: {EventStoreDashboard, event_stores: [MyEventStore]}
+    eventstore: {EventStoreDashboard, event_stores: [MyEventStore]}
   ]
 ```
 
@@ -24,7 +24,7 @@ Omit `:event_stores` to auto-discover them:
 ```elixir
 live_dashboard "/dashboard",
   additional_pages: [
-    eventstores: EventStoreDashboard
+    eventstore: EventStoreDashboard
   ]
 ```
 
