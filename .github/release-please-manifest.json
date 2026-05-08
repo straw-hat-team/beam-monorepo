@@ -5,5 +5,5 @@
   "apps/trogon_typeprovider": "0.3.0",
   "apps/trogon_proto": "0.11.1",
   "apps/trogon_object_id": "0.1.0",
-  "apps/eventstore_dashboard": "0.0.1"
+  "apps/eventstore_dashboard": "0.1.0"
 }
