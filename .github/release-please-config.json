@@ -30,6 +30,9 @@
     },
     "apps/trogon_object_id": {
       "component": "trogon_object_id"
+    },
+    "apps/eventstore_dashboard": {
+      "component": "eventstore_dashboard"
     }
   },
   "plugins": [
