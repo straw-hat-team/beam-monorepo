@@ -102,8 +102,7 @@ defmodule EventStoreDashboard.MixProject do
     [
       main: "readme",
       homepage_url: @source_url,
-      source_url_pattern:
-        "#{@source_url}/blob/#{@app}@v#{@version}/apps/#{@app}/%{path}#L%{line}",
+      source_url_pattern: "#{@source_url}/blob/#{@app}@v#{@version}/apps/#{@app}/%{path}#L%{line}",
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: [
         "README.md"
