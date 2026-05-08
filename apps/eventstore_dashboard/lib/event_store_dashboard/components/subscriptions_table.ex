@@ -237,9 +237,7 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
   defp search_clause(nil, base_params, _index), do: {"", base_params}
 
   defp search_clause(term, base_params, index),
-    do:
-      {" WHERE s.subscription_name ILIKE $#{index} OR s.stream_uuid ILIKE $#{index}",
-       base_params ++ [term]}
+    do: {" WHERE s.subscription_name ILIKE $#{index} OR s.stream_uuid ILIKE $#{index}", base_params ++ [term]}
 
   defp sort_dir_sql(:asc), do: "ASC"
   defp sort_dir_sql(:desc), do: "DESC"
