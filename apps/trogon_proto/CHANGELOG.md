@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.11.1...trogon_proto@v0.12.0) (2026-05-11)
+
+
+### Features
+
+* **trogon_proto:** Add tuple-returning from_env/0 ([#391](https://github.com/straw-hat-team/beam-monorepo/issues/391)) ([75b1c42](https://github.com/straw-hat-team/beam-monorepo/commit/75b1c42b9829a6b9259e9005cd1d7524c7909a45))
+* **trogon_proto:** Surface every env var failure at once ([#389](https://github.com/straw-hat-team/beam-monorepo/issues/389)) ([3d83595](https://github.com/straw-hat-team/beam-monorepo/commit/3d835953827e0e798df08c76e4dc54245b833d1d))
+
 ## [0.11.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.11.0...trogon_proto@v0.11.1) (2026-05-06)
 
 
