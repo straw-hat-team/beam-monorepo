@@ -112,9 +112,12 @@ defmodule Trogon.Proto.EnvTest do
     test "raises ArgumentError for invalid float" do
       config = %{field_type: :TYPE_FLOAT, is_repeated: false, split_delimiter: "", trim: nil}
 
-      assert_raise ArgumentError, ~r/not a valid float/, fn ->
-        Env.convert_field("not_a_number", config)
-      end
+      error =
+        assert_raise ArgumentError, fn ->
+          Env.convert_field("not_a_number", config)
+        end
+
+      assert Exception.message(error) == ~s|not a valid float: "not_a_number"|
     end
 
     test "converts enum names to protobuf enum atoms" do
@@ -126,17 +129,25 @@ defmodule Trogon.Proto.EnvTest do
     test "raises ArgumentError for invalid enum names" do
       config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
 
-      assert_raise ArgumentError, ~r/not a valid enum name "debug"/, fn ->
-        Env.convert_field("debug", config)
-      end
+      error =
+        assert_raise ArgumentError, fn ->
+          Env.convert_field("debug", config)
+        end
+
+      assert Exception.message(error) ==
+               ~s|not a valid enum name "debug" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN|
     end
 
     test "does not treat numeric strings as enum values" do
       config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
 
-      assert_raise ArgumentError, ~r/not a valid enum name "1"/, fn ->
-        Env.convert_field("1", config)
-      end
+      error =
+        assert_raise ArgumentError, fn ->
+          Env.convert_field("1", config)
+        end
+
+      assert Exception.message(error) ==
+               ~s|not a valid enum name "1" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN|
     end
   end
 
@@ -184,30 +195,61 @@ defmodule Trogon.Proto.EnvTest do
       assert config.env.host == "localhost"
     end
 
-    test "raises System.EnvError when DATABASE_URL is missing" do
+    test "raises LoadError when DATABASE_URL is missing" do
       TestSupport.stub_system_env(%{
         "API_KEY" => "secret"
       })
 
       error =
-        assert_raise System.EnvError, fn ->
+        assert_raise Trogon.Proto.Env.LoadError, fn ->
           AllTypesConfig.from_env!()
         end
 
-      assert error.env == "DATABASE_URL"
+      assert [%{env_var: "DATABASE_URL", field: :database_url, reason: :missing}] = error.errors
     end
 
-    test "raises System.EnvError when API_KEY is missing" do
+    test "raises LoadError when API_KEY is missing" do
       TestSupport.stub_system_env(%{
         "DATABASE_URL" => "postgres://localhost"
       })
 
       error =
-        assert_raise System.EnvError, fn ->
+        assert_raise Trogon.Proto.Env.LoadError, fn ->
           AllTypesConfig.from_env!()
         end
 
-      assert error.env == "API_KEY"
+      assert [%{env_var: "API_KEY", field: :api_key, reason: :missing}] = error.errors
+    end
+
+    test "aggregates every missing and invalid env var in a single error" do
+      TestSupport.stub_system_env(%{
+        "MAX_MEMORY_MB" => "not_a_float",
+        "PORT" => "not_an_int"
+      })
+
+      error =
+        assert_raise Trogon.Proto.Env.LoadError, fn ->
+          AllTypesConfig.from_env!()
+        end
+
+      assert error.errors == [
+               %{env_var: "PORT", field: :port, reason: {:invalid, "not a valid int32: \"not_an_int\""}},
+               %{env_var: "API_KEY", field: :api_key, reason: :missing},
+               %{env_var: "DATABASE_URL", field: :database_url, reason: :missing},
+               %{
+                 env_var: "MAX_MEMORY_MB",
+                 field: :max_memory_mb,
+                 reason: {:invalid, "not a valid float: \"not_a_float\""}
+               }
+             ]
+
+      assert Exception.message(error) == """
+             failed to load 4 environment variable(s):
+               - PORT invalid (not a valid int32: "not_an_int")
+               - API_KEY missing
+               - DATABASE_URL missing
+               - MAX_MEMORY_MB invalid (not a valid float: "not_a_float")\
+             """
     end
 
     test "applies default values for optional fields" do
@@ -292,16 +334,30 @@ defmodule Trogon.Proto.EnvTest do
       assert config.env.cpu_limit == 1.0
     end
 
-    test "raises ArgumentError for invalid float value" do
+    test "raises LoadError for invalid float value" do
       TestSupport.stub_system_env(%{
         "DATABASE_URL" => "postgres://localhost",
         "API_KEY" => "secret",
         "MAX_MEMORY_MB" => "not_a_float"
       })
 
-      assert_raise ArgumentError, ~r/not a valid float/, fn ->
-        AllTypesConfig.from_env!()
-      end
+      error =
+        assert_raise Trogon.Proto.Env.LoadError, fn ->
+          AllTypesConfig.from_env!()
+        end
+
+      assert error.errors == [
+               %{
+                 env_var: "MAX_MEMORY_MB",
+                 field: :max_memory_mb,
+                 reason: {:invalid, ~s|not a valid float: "not_a_float"|}
+               }
+             ]
+
+      assert Exception.message(error) == """
+             failed to load 1 environment variable(s):
+               - MAX_MEMORY_MB invalid (not a valid float: "not_a_float")\
+             """
     end
 
     test "converts double fields from strings" do
@@ -596,26 +652,60 @@ defmodule Trogon.Proto.EnvTest do
       assert config.env.log_levels == [:LOG_LEVEL_WARN, :LOG_LEVEL_ERROR]
     end
 
-    test "raises ArgumentError for enum env vars that do not match a value name exactly" do
+    test "raises LoadError for enum env vars that do not match a value name exactly" do
       TestSupport.stub_system_env(%{
         "DATABASE_URL" => "postgres://localhost",
-        "LOG_LEVEL" => "debug"
+        "LOG_LEVEL" => "debug",
+        "LOG_LEVELS" => ""
       })
 
-      assert_raise ArgumentError, ~r/not a valid enum name "debug"/, fn ->
-        ConfigWithEnum.from_env!()
-      end
+      error =
+        assert_raise Trogon.Proto.Env.LoadError, fn ->
+          ConfigWithEnum.from_env!()
+        end
+
+      assert error.errors == [
+               %{
+                 env_var: "LOG_LEVEL",
+                 field: :log_level,
+                 reason:
+                   {:invalid,
+                    ~s|not a valid enum name "debug" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN|}
+               }
+             ]
+
+      assert Exception.message(error) == """
+             failed to load 1 environment variable(s):
+               - LOG_LEVEL invalid (not a valid enum name "debug" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN)\
+             """
     end
 
     test "does not cast numeric enum env vars by tag" do
       TestSupport.stub_system_env(%{
         "DATABASE_URL" => "postgres://localhost",
-        "LOG_LEVEL" => "1"
+        "LOG_LEVEL" => "1",
+        "LOG_LEVELS" => ""
       })
 
-      assert_raise ArgumentError, ~r/not a valid enum name "1"/, fn ->
-        ConfigWithEnum.from_env!()
-      end
+      error =
+        assert_raise Trogon.Proto.Env.LoadError, fn ->
+          ConfigWithEnum.from_env!()
+        end
+
+      assert error.errors == [
+               %{
+                 env_var: "LOG_LEVEL",
+                 field: :log_level,
+                 reason:
+                   {:invalid,
+                    ~s|not a valid enum name "1" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN|}
+               }
+             ]
+
+      assert Exception.message(error) == """
+             failed to load 1 environment variable(s):
+               - LOG_LEVEL invalid (not a valid enum name "1" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN)\
+             """
     end
 
     test "raises CompileError for invalid enum defaults" do

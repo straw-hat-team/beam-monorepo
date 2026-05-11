@@ -4,7 +4,7 @@ defmodule Trogon.Proto.TestSupport do
   @doc """
   Stubs system environment adapter to return values from the provided map.
 
-  Stubs all three SystemAdapter functions: get_env/1, get_env/2, and fetch_env!/1.
+  Stubs both SystemAdapter functions: get_env/1 and get_env/2.
 
   ## Example
 
@@ -17,15 +17,5 @@ defmodule Trogon.Proto.TestSupport do
   def stub_system_env(vars) when is_map(vars) do
     Mox.stub(Trogon.Proto.TestSupport.SystemAdapter.Mock, :get_env, &Map.get(vars, &1))
     Mox.stub(Trogon.Proto.TestSupport.SystemAdapter.Mock, :get_env, &Map.get(vars, &1, &2))
-
-    Mox.stub(Trogon.Proto.TestSupport.SystemAdapter.Mock, :fetch_env!, fn name ->
-      case Map.fetch(vars, name) do
-        {:ok, value} ->
-          value
-
-        :error ->
-          raise System.EnvError, env: name
-      end
-    end)
   end
 end
