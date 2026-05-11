@@ -8,5 +8,4 @@ defmodule Trogon.Proto.TestSupport.SystemAdapter do
 
   @callback get_env(String.t()) :: String.t() | nil
   @callback get_env(String.t(), String.t()) :: String.t()
-  @callback fetch_env!(String.t()) :: String.t()
 end

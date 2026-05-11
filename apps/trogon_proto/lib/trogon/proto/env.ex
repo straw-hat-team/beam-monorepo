@@ -68,7 +68,6 @@ defmodule Trogon.Proto.Env do
 
   defdelegate get_env(name), to: @system_adapter
   defdelegate get_env(name, default), to: @system_adapter
-  defdelegate fetch_env!(name), to: @system_adapter
 
   @type field_config :: %{
           env_var_name: String.t(),
