@@ -88,19 +88,43 @@ defmodule Trogon.Proto.Env do
   @dialyzer {:no_contracts, build_field_data: 1}
   @spec build_field_data(%{atom() => field_config()}) :: [{atom(), any()}]
   def build_field_data(field_configs) do
-    for {field_name, config} <- field_configs do
-      raw_value = get_raw_value(config)
-      converted = convert_field(raw_value, config)
-      {field_name, converted}
+    {values, errors} =
+      field_configs
+      |> Enum.map(&load_field/1)
+      |> Enum.split_with(&is_tuple/1)
+
+    case errors do
+      [] -> values
+      _ -> raise Trogon.Proto.Env.LoadError, errors: errors
     end
   end
 
-  defp get_raw_value(%{default_value: nil} = config) do
-    fetch_env!(config.env_var_name)
+  defp load_field({field_name, config}) do
+    case fetch_raw_value(config) do
+      {:ok, raw_value} ->
+        try_convert(field_name, raw_value, config)
+
+      {:error, :missing} ->
+        %{env_var: config.env_var_name, field: field_name, reason: :missing}
+    end
   end
 
-  defp get_raw_value(%{default_value: default} = config) do
-    get_env(config.env_var_name, default)
+  defp try_convert(field_name, raw_value, config) do
+    {field_name, convert_field(raw_value, config)}
+  rescue
+    e in ArgumentError ->
+      %{env_var: config.env_var_name, field: field_name, reason: {:invalid, Exception.message(e)}}
+  end
+
+  defp fetch_raw_value(%{default_value: nil} = config) do
+    case get_env(config.env_var_name) do
+      nil -> {:error, :missing}
+      value -> {:ok, value}
+    end
+  end
+
+  defp fetch_raw_value(%{default_value: default} = config) do
+    {:ok, get_env(config.env_var_name, default)}
   end
 
   @doc false
@@ -147,8 +171,8 @@ defmodule Trogon.Proto.Env do
   defp trim(value, _), do: value
 
   defp to_scalar(value, :string), do: value
-  defp to_scalar(value, :int32), do: String.to_integer(value)
-  defp to_scalar(value, :int64), do: String.to_integer(value)
+  defp to_scalar(value, :int32), do: parse_int(value, :int32)
+  defp to_scalar(value, :int64), do: parse_int(value, :int64)
   defp to_scalar(value, :float), do: parse_float(value)
   defp to_scalar(value, :double), do: parse_float(value)
   defp to_scalar(value, :bool), do: String.downcase(value) in ["true", "1", "yes", "on"]
@@ -157,6 +181,13 @@ defmodule Trogon.Proto.Env do
     case parse_enum_value(value, enum_module) do
       {:ok, enum_value} -> enum_value
       {:error, reason} -> raise ArgumentError, reason
+    end
+  end
+
+  defp parse_int(value, type) do
+    case Integer.parse(value) do
+      {int, ""} -> int
+      _ -> raise ArgumentError, "not a valid #{type}: #{inspect(value)}"
     end
   end
 
@@ -216,7 +247,8 @@ defmodule Trogon.Proto.Env do
       @doc """
       Loads environment variables and returns a wrapped protobuf message.
 
-      Raises `System.EnvError` when a required env var is missing.
+      Raises `Trogon.Proto.Env.LoadError` with the full list of problems when
+      any required env var is missing or any value fails to parse.
       """
       @spec from_env!() :: t()
       def from_env! do
