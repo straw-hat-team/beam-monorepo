@@ -4,7 +4,8 @@ defmodule Trogon.Proto.Env do
 
   Reads field-level `trogon_proto.env.v1_alpha1.field` extensions to generate:
   - Typed struct with proper field definitions
-  - `from_env!/0` function that reads from System.get_env()
+  - `from_env/0` function that returns `{:ok, t()} | {:error, LoadError.t()}`
+  - `from_env!/0` function that returns the struct or raises `LoadError`
   - Inspect implementation that masks secret fields automatically
 
   ## Usage
@@ -38,6 +39,12 @@ defmodule Trogon.Proto.Env do
 
       # Requires DATABASE_URL env var, uses PORT default of 5432
       config = MyApp.Config.from_env!()
+
+      # Or handle failures without rescuing (CLI / Mix tasks / health checks):
+      case MyApp.Config.from_env() do
+        {:ok, config} -> config
+        {:error, %Trogon.Proto.Env.LoadError{errors: errors}} -> handle(errors)
+      end
 
       # Secrets are automatically masked when inspecting/logging
       Logger.info(inspect(config))
@@ -85,7 +92,8 @@ defmodule Trogon.Proto.Env do
   # same field position across entries. Its map-type unification loses precision and flags the
   # call as "will not succeed" even though the union is correct at runtime.
   @dialyzer {:no_contracts, build_field_data: 1}
-  @spec build_field_data(%{atom() => field_config()}) :: [{atom(), any()}]
+  @spec build_field_data(%{atom() => field_config()}) ::
+          {:ok, [{atom(), any()}]} | {:error, [Trogon.Proto.Env.LoadError.error()]}
   def build_field_data(field_configs) do
     {values, errors} =
       field_configs
@@ -93,8 +101,8 @@ defmodule Trogon.Proto.Env do
       |> Enum.split_with(&is_tuple/1)
 
     case errors do
-      [] -> values
-      _ -> raise Trogon.Proto.Env.LoadError, errors: errors
+      [] -> {:ok, values}
+      _ -> {:error, errors}
     end
   end
 
@@ -124,6 +132,25 @@ defmodule Trogon.Proto.Env do
 
   defp fetch_raw_value(%{default_value: default} = config) do
     {:ok, get_env(config.env_var_name, default)}
+  end
+
+  @doc false
+  def __from_env__(wrapper_module, message_module, field_configs) do
+    case build_field_data(field_configs) do
+      {:ok, field_data} ->
+        {:ok, struct!(wrapper_module, env: struct!(message_module, field_data))}
+
+      {:error, errors} ->
+        {:error, %Trogon.Proto.Env.LoadError{errors: errors}}
+    end
+  end
+
+  @doc false
+  def __from_env__!(wrapper_module, message_module, field_configs) do
+    case __from_env__(wrapper_module, message_module, field_configs) do
+      {:ok, config} -> config
+      {:error, error} -> raise error
+    end
   end
 
   @doc false
@@ -244,6 +271,19 @@ defmodule Trogon.Proto.Env do
   defp __generated_load_function__(field_configs, message_module) do
     quote location: :keep do
       @doc """
+      Loads environment variables and returns `{:ok, t()}` on success or
+      `{:error, Trogon.Proto.Env.LoadError.t()}` listing every missing or
+      invalid variable.
+
+      Use this when reporting failures programmatically (CLI / Mix task /
+      health check) so you can format the structured error list yourself.
+      """
+      @spec from_env() :: {:ok, t()} | {:error, Trogon.Proto.Env.LoadError.t()}
+      def from_env do
+        Trogon.Proto.Env.__from_env__(__MODULE__, unquote(message_module), unquote(Macro.escape(field_configs)))
+      end
+
+      @doc """
       Loads environment variables and returns a wrapped protobuf message.
 
       Raises `Trogon.Proto.Env.LoadError` with the full list of problems when
@@ -251,9 +291,7 @@ defmodule Trogon.Proto.Env do
       """
       @spec from_env!() :: t()
       def from_env! do
-        field_data = Trogon.Proto.Env.build_field_data(unquote(Macro.escape(field_configs)))
-        message = struct!(unquote(message_module), field_data)
-        %__MODULE__{env: message}
+        Trogon.Proto.Env.__from_env__!(__MODULE__, unquote(message_module), unquote(Macro.escape(field_configs)))
       end
     end
   end

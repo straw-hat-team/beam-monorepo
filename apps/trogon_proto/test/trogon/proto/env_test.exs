@@ -178,6 +178,49 @@ defmodule Trogon.Proto.EnvTest do
     end
   end
 
+  describe "from_env/0 function" do
+    test "returns {:ok, config} when every env var loads cleanly" do
+      TestSupport.stub_system_env(%{
+        "DATABASE_URL" => "postgres://localhost",
+        "API_KEY" => "my-secret-key",
+        "PORT" => "5432",
+        "HOST" => "localhost"
+      })
+
+      assert {:ok, %AllTypesConfig{} = config} = AllTypesConfig.from_env()
+      assert config.env.database_url == "postgres://localhost"
+      assert config.env.api_key == "my-secret-key"
+      assert config.env.port == 5432
+      assert config.env.host == "localhost"
+    end
+
+    test "returns {:error, LoadError} aggregating every failure" do
+      TestSupport.stub_system_env(%{
+        "MAX_MEMORY_MB" => "not_a_float",
+        "PORT" => "not_an_int"
+      })
+
+      assert {:error, %Trogon.Proto.Env.LoadError{} = error} = AllTypesConfig.from_env()
+
+      assert error.errors == [
+               %{env_var: "PORT", field: :port, reason: {:invalid, "not a valid int32: \"not_an_int\""}},
+               %{env_var: "API_KEY", field: :api_key, reason: :missing},
+               %{env_var: "DATABASE_URL", field: :database_url, reason: :missing},
+               %{
+                 env_var: "MAX_MEMORY_MB",
+                 field: :max_memory_mb,
+                 reason: {:invalid, "not a valid float: \"not_a_float\""}
+               }
+             ]
+    end
+
+    test "does not raise on missing required env vars" do
+      TestSupport.stub_system_env(%{})
+
+      assert {:error, %Trogon.Proto.Env.LoadError{}} = AllTypesConfig.from_env()
+    end
+  end
+
   describe "from_env!/0 function" do
     test "loads required fields from environment" do
       TestSupport.stub_system_env(%{
