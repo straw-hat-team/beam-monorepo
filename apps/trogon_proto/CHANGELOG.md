@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.12.0...trogon_proto@v0.13.0) (2026-05-12)
+
+
+### Features
+
+* **trogon_proto:** Separate LoadError list from stacktrace ([#392](https://github.com/straw-hat-team/beam-monorepo/issues/392)) ([938cde9](https://github.com/straw-hat-team/beam-monorepo/commit/938cde9563d1b4dca4bbcb8fecda8a7b0a0a347b))
+
 ## [0.12.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.11.1...trogon_proto@v0.12.0) (2026-05-11)
 
 
