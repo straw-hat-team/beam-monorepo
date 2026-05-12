@@ -291,7 +291,7 @@ defmodule Trogon.Proto.EnvTest do
                - PORT invalid (not a valid int32: "not_an_int")
                - API_KEY missing
                - DATABASE_URL missing
-               - MAX_MEMORY_MB invalid (not a valid float: "not_a_float")\
+               - MAX_MEMORY_MB invalid (not a valid float: "not_a_float")
              """
     end
 
@@ -399,7 +399,7 @@ defmodule Trogon.Proto.EnvTest do
 
       assert Exception.message(error) == """
              failed to load 1 environment variable(s):
-               - MAX_MEMORY_MB invalid (not a valid float: "not_a_float")\
+               - MAX_MEMORY_MB invalid (not a valid float: "not_a_float")
              """
     end
 
@@ -719,7 +719,7 @@ defmodule Trogon.Proto.EnvTest do
 
       assert Exception.message(error) == """
              failed to load 1 environment variable(s):
-               - LOG_LEVEL invalid (not a valid enum name "debug" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN)\
+               - LOG_LEVEL invalid (not a valid enum name "debug" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN)
              """
     end
 
@@ -747,7 +747,7 @@ defmodule Trogon.Proto.EnvTest do
 
       assert Exception.message(error) == """
              failed to load 1 environment variable(s):
-               - LOG_LEVEL invalid (not a valid enum name "1" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN)\
+               - LOG_LEVEL invalid (not a valid enum name "1" for Acme.Test.V1.LogLevel. Expected one of: LOG_LEVEL_DEBUG, LOG_LEVEL_ERROR, LOG_LEVEL_INFO, LOG_LEVEL_UNSPECIFIED, LOG_LEVEL_WARN)
              """
     end
 
