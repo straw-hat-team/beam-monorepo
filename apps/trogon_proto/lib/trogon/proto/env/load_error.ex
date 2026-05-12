@@ -19,7 +19,7 @@ defmodule Trogon.Proto.Env.LoadError do
   @impl true
   def message(%__MODULE__{} = err) do
     header = "failed to load #{length(err.errors)} environment variable(s):"
-    header <> "\n" <> Enum.map_join(err.errors, "\n", &format_error/1)
+    header <> "\n" <> Enum.map_join(err.errors, "\n", &format_error/1) <> "\n"
   end
 
   defp format_error(%{env_var: name, reason: :missing}) do
