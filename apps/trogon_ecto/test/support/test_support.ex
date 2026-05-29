@@ -16,7 +16,7 @@ defmodule Trogon.Ecto.TestSupport do
     end
   end
 
-  defmodule MyValueOject do
+  defmodule MyValueObject do
     @moduledoc false
     use Trogon.Ecto.ValueObject
 

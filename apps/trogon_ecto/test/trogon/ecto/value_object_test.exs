@@ -50,6 +50,19 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert {:error, changeset} = TestSupport.MessageThree.new(%{target: "a wrong value"})
       assert %{target: ["is invalid"]} = TestSupport.errors_on(changeset)
     end
+
+    test "returns an own-type struct unchanged" do
+      message = %TestSupport.MessageOne{title: "x"}
+      assert {:ok, ^message} = TestSupport.MessageOne.new(message)
+    end
+
+    test "raises ArgumentError on a foreign struct" do
+      assert_raise ArgumentError,
+                   ~r/expected attrs to be a map or %Trogon\.Ecto\.TestSupport\.MessageOne\{\}/,
+                   fn ->
+                     TestSupport.MessageOne.new(%TestSupport.MessageTwo{title: "x"})
+                   end
+    end
   end
 
   describe "new!/1" do
@@ -59,10 +72,17 @@ defmodule Trogon.Ecto.ValueObjectTest do
       end
     end
 
-    test "rejects a struct argument" do
-      assert_raise FunctionClauseError, fn ->
-        TestSupport.MessageOne.new!(%TestSupport.MessageOne{title: "x"})
-      end
+    test "returns an own-type struct unchanged" do
+      message = %TestSupport.MessageOne{title: "x"}
+      assert ^message = TestSupport.MessageOne.new!(message)
+    end
+
+    test "raises ArgumentError on a foreign struct" do
+      assert_raise ArgumentError,
+                   ~r/expected attrs to be a map or %Trogon\.Ecto\.TestSupport\.MessageOne\{\}/,
+                   fn ->
+                     TestSupport.MessageOne.new!(%TestSupport.MessageTwo{title: "x"})
+                   end
     end
   end
 
@@ -137,7 +157,7 @@ defmodule Trogon.Ecto.ValueObjectTest do
 
   describe "changeset/2" do
     test "validates the struct" do
-      assert {:error, changeset} = TestSupport.MyValueOject.new(%{amount: 0})
+      assert {:error, changeset} = TestSupport.MyValueObject.new(%{amount: 0})
       assert %{amount: ["must be greater than 0"]} = TestSupport.errors_on(changeset)
     end
   end
@@ -270,6 +290,49 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert_raise RuntimeError, ~r/could not infer polymorphic embed/, fn ->
         TestSupport.NotificationWithPolymorphicEmbed.new(attrs)
       end
+    end
+
+    test "round-trips polymorphic_embeds_one through dump and load" do
+      {:ok, notification} =
+        TestSupport.NotificationWithPolymorphicEmbed.new(%{
+          title: "Welcome Email",
+          content: %{
+            __type__: :email,
+            subject: "Hello",
+            body: "World"
+          }
+        })
+
+      assert {:ok, dumped} = TestSupport.NotificationWithPolymorphicEmbed.dump(notification)
+      assert {:ok, loaded} = TestSupport.NotificationWithPolymorphicEmbed.load(dumped)
+
+      assert loaded.title == "Welcome Email"
+      assert loaded.content.__struct__ == TestSupport.EmailContent
+      assert loaded.content.subject == "Hello"
+      assert loaded.content.body == "World"
+    end
+
+    test "round-trips polymorphic_embeds_many through dump and load" do
+      {:ok, message} =
+        TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{
+          title: "Multi",
+          contents: [
+            %{__type__: :email, subject: "s", body: "b"},
+            %{__type__: :sms, message: "m", phone: "+1"}
+          ]
+        })
+
+      assert {:ok, dumped} = TestSupport.MessageWithMultiplePolymorphicEmbeds.dump(message)
+      assert {:ok, loaded} = TestSupport.MessageWithMultiplePolymorphicEmbeds.load(dumped)
+
+      assert loaded.title == "Multi"
+      assert [email, sms] = loaded.contents
+      assert email.__struct__ == TestSupport.EmailContent
+      assert email.subject == "s"
+      assert email.body == "b"
+      assert sms.__struct__ == TestSupport.SmsContent
+      assert sms.message == "m"
+      assert sms.phone == "+1"
     end
 
     test "casts polymorphic embed with map data" do

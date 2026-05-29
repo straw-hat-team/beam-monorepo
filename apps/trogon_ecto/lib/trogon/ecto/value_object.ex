@@ -13,6 +13,12 @@ defmodule Trogon.Ecto.ValueObject do
   - `Ecto.Schema`
   - `Ecto.Type`
 
+  ## Imports
+
+  `use Trogon.Ecto.ValueObject` imports `PolymorphicEmbed.polymorphic_embeds_one/2`
+  and `PolymorphicEmbed.polymorphic_embeds_many/2` so they can be used inside
+  `embedded_schema/1`.
+
   ## Usage
 
   ```elixir
@@ -39,9 +45,8 @@ defmodule Trogon.Ecto.ValueObject do
           field :amount, :integer
         end
 
-        def validate(changeset, attrs) do
-          changeset
-          |> Changeset.validate_number(:amount, greater_than: 0)
+        def validate(changeset, _attrs) do
+          Ecto.Changeset.validate_number(changeset, :amount, greater_than: 0)
         end
       end
       ```
@@ -58,7 +63,7 @@ defmodule Trogon.Ecto.ValueObject do
       > If you only need to extend the changeset, you can override the
       > `validate/2` function instead.
   """
-  @spec __using__(opts :: []) :: any()
+  @spec __using__(opts :: Keyword.t()) :: Macro.t()
   defmacro __using__(_opts \\ []) do
     quote generated: true do
       alias Trogon.Ecto.ValueObject
@@ -75,22 +80,22 @@ defmodule Trogon.Ecto.ValueObject do
       @doc """
       Creates a `t:t/0`.
       """
-      @spec new(attrs :: map()) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
-      def new(attrs) when is_map(attrs) and not is_struct(attrs) do
+      @spec new(attrs :: map() | %__MODULE__{}) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
+      def new(attrs) when is_map(attrs) do
         Trogon.Ecto.ValueObject.new(__MODULE__, attrs)
       end
 
       @doc """
       Creates a `t:t/0`.
       """
-      @spec new!(attrs :: map()) :: %__MODULE__{}
-      def new!(attrs) when is_map(attrs) and not is_struct(attrs) do
+      @spec new!(attrs :: map() | %__MODULE__{}) :: %__MODULE__{}
+      def new!(attrs) when is_map(attrs) do
         Trogon.Ecto.ValueObject.new!(__MODULE__, attrs)
       end
 
       @doc false
       @spec validate(Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
-      def validate(%Ecto.Changeset{} = changeset, attrs) do
+      def validate(%Ecto.Changeset{} = changeset, _attrs) do
         changeset
       end
 
@@ -213,13 +218,29 @@ defmodule Trogon.Ecto.ValueObject do
 
   Missing required field:
 
-      iex> {:error, changeset} = Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.MyValueOject, %{amount: 25})
+      iex> {:error, changeset} = Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.MyValueObject, %{amount: 25})
       iex> changeset.valid?
       false
 
+  Passing an own-type struct returns it unchanged (value objects are immutable):
+
+      iex> Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.MessageOne, %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"})
+      {:ok, %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"}}
+
+  Passing a foreign struct raises an `ArgumentError`.
   """
-  @spec new(struct_module :: atom(), attrs :: map()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
-  def new(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) and not is_struct(attrs) do
+  @spec new(struct_module :: atom(), attrs :: map() | struct()) ::
+          {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  def new(struct_module, attrs) when is_atom(struct_module) and is_struct(attrs, struct_module) do
+    {:ok, attrs}
+  end
+
+  def new(struct_module, %other{}) when is_atom(struct_module) do
+    raise ArgumentError,
+          "expected attrs to be a map or %#{inspect(struct_module)}{}, got %#{inspect(other)}{}"
+  end
+
+  def new(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
     struct_module
     |> apply_changeset(attrs)
     |> Changeset.apply_action(:new)
@@ -260,15 +281,30 @@ defmodule Trogon.Ecto.ValueObject do
   Missing required field raises an exception:
 
       iex> try do
-      ...>   Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.MyValueOject, %{amount: 25})
+      ...>   Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.MyValueObject, %{amount: 25})
       ...> rescue
       ...>   Ecto.InvalidChangesetError -> :error_raised
       ...> end
       :error_raised
 
+  Passing an own-type struct returns it unchanged:
+
+      iex> Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.MessageOne, %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"})
+      %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"}
+
+  Passing a foreign struct raises an `ArgumentError`.
   """
-  @spec new!(struct_module :: atom(), attrs :: map()) :: struct()
-  def new!(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) and not is_struct(attrs) do
+  @spec new!(struct_module :: atom(), attrs :: map() | struct()) :: struct()
+  def new!(struct_module, attrs) when is_atom(struct_module) and is_struct(attrs, struct_module) do
+    attrs
+  end
+
+  def new!(struct_module, %other{}) when is_atom(struct_module) do
+    raise ArgumentError,
+          "expected attrs to be a map or %#{inspect(struct_module)}{}, got %#{inspect(other)}{}"
+  end
+
+  def new!(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
     struct_module
     |> apply_changeset(attrs)
     |> Changeset.apply_action!(:new)

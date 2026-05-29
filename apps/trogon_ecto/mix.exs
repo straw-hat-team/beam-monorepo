@@ -13,7 +13,7 @@ defmodule Trogon.Ecto.MixProject do
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
       name: "Trogon.Ecto",
-      description: "Extend Ecto package",
+      description: "Extend Ecto with value object helpers",
       app: @app,
       version: @version,
       elixir: @elixir_version,
