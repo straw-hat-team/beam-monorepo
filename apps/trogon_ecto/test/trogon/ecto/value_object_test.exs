@@ -149,9 +149,11 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert :error = TestSupport.MessageOne.dump(1)
     end
 
-    test "recursively dumps nested value object structs" do
+    test "recursively dumps nested value object structs into plain maps" do
       box = %TestSupport.BoxWithField{content: %TestSupport.MessageOne{title: "hi"}}
-      assert {:ok, %{content: %{title: "hi"}}} = TestSupport.BoxWithField.dump(box)
+      assert {:ok, dumped} = TestSupport.BoxWithField.dump(box)
+      refute is_struct(dumped.content)
+      assert dumped.content == %{title: "hi"}
     end
   end
 

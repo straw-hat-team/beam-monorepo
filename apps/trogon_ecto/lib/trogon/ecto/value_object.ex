@@ -140,6 +140,8 @@ defmodule Trogon.Ecto.ValueObject do
       def dump(value) when is_struct(value, __MODULE__), do: {:ok, Ecto.embedded_dump(value, :json)}
       def dump(_), do: :error
 
+      def embed_as(_format), do: :dump
+
       defoverridable new: 1,
                      new!: 1,
                      changeset: 2,
@@ -147,7 +149,8 @@ defmodule Trogon.Ecto.ValueObject do
                      type: 0,
                      cast: 1,
                      load: 1,
-                     dump: 1
+                     dump: 1,
+                     embed_as: 1
     end
   end
 
