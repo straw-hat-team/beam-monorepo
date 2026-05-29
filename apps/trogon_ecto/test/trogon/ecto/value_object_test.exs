@@ -270,12 +270,11 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert %{contents: [%{}, %{phone: ["can't be blank"]}]} = TestSupport.errors_on(changeset)
     end
 
-    test "allows empty polymorphic_embeds_many when not required" do
+    test "rejects empty required polymorphic_embeds_many" do
       attrs = %{title: "Missing Contents"}
 
-      assert {:ok, result} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(attrs)
-      assert result.title == "Missing Contents"
-      assert result.contents == []
+      assert {:error, changeset} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(attrs)
+      assert %{contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
     end
 
     test "handles unknown polymorphic type" do

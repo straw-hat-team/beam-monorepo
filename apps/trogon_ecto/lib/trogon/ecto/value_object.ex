@@ -358,6 +358,7 @@ defmodule Trogon.Ecto.ValueObject do
     changeset
     |> cast_embeds(embeds, struct_module)
     |> cast_polymorphic_embeds(polymorphic_embeds, struct_module)
+    |> validate_required_polymorphic_embeds_many(polymorphic_embeds, struct_module)
   end
 
   defp cast_polymorphic_embeds(changeset, polymorphic_embeds, struct_module) do
@@ -366,6 +367,18 @@ defmodule Trogon.Ecto.ValueObject do
       changeset,
       &cast_polymorphic_embed(&1, &2, struct_module)
     )
+  end
+
+  defp validate_required_polymorphic_embeds_many(changeset, polymorphic_embeds, struct_module) do
+    Enum.reduce(polymorphic_embeds, changeset, fn field, changeset ->
+      if struct_module.__enforced_keys__?(field) and
+           polymorphic_embed_many?(field, struct_module) and
+           Changeset.get_field(changeset, field) == [] do
+        Changeset.add_error(changeset, field, "can't be blank", validation: :required)
+      else
+        changeset
+      end
+    end)
   end
 
   defp cast_embeds(changeset, embeds, struct_module) do
@@ -393,6 +406,13 @@ defmodule Trogon.Ecto.ValueObject do
   defp polymorphic_embed_field?(field, struct_module) do
     case struct_module.__schema__(:type, field) do
       {:parameterized, {PolymorphicEmbed, _config}} -> true
+      {:array, {:parameterized, {PolymorphicEmbed, _config}}} -> true
+      _ -> false
+    end
+  end
+
+  defp polymorphic_embed_many?(field, struct_module) do
+    case struct_module.__schema__(:type, field) do
       {:array, {:parameterized, {PolymorphicEmbed, _config}}} -> true
       _ -> false
     end
