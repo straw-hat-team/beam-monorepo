@@ -158,8 +158,14 @@ defmodule Trogon.Ecto.ValueObject do
 
   defmacro __before_compile__(env) do
     enforced_keys = get_enforced_keys(env)
+    {polymorphic_embeds, polymorphic_embeds_many} = get_polymorphic_embeds(env)
 
-    quote unquote: false, bind_quoted: [enforced_keys: enforced_keys] do
+    quote unquote: false,
+          bind_quoted: [
+            enforced_keys: enforced_keys,
+            polymorphic_embeds: polymorphic_embeds,
+            polymorphic_embeds_many: polymorphic_embeds_many
+          ] do
       def __enforced_keys__ do
         unquote(enforced_keys)
       end
@@ -172,6 +178,14 @@ defmodule Trogon.Ecto.ValueObject do
 
       def __enforced_keys__?(_) do
         false
+      end
+
+      def __polymorphic_embeds__ do
+        unquote(polymorphic_embeds)
+      end
+
+      def __polymorphic_embeds_many__ do
+        unquote(polymorphic_embeds_many)
       end
     end
   end
@@ -190,6 +204,33 @@ defmodule Trogon.Ecto.ValueObject do
         []
     end
   end
+
+  defp get_polymorphic_embeds(env) do
+    ecto_fields = Module.get_attribute(env.module, :ecto_fields) || []
+
+    {all, many} =
+      ecto_fields
+      |> Enum.reverse()
+      |> Enum.reduce({[], []}, &classify_polymorphic_embed/2)
+
+    {Enum.reverse(all), Enum.reverse(many)}
+  end
+
+  defp classify_polymorphic_embed(
+         {name, {{:array, {:parameterized, {PolymorphicEmbed, _}}}, _writable}},
+         {all, many}
+       ) do
+    {[name | all], [name | many]}
+  end
+
+  defp classify_polymorphic_embed(
+         {name, {{:parameterized, {PolymorphicEmbed, _}}, _writable}},
+         {all, many}
+       ) do
+    {[name | all], many}
+  end
+
+  defp classify_polymorphic_embed(_field, acc), do: acc
 
   @doc """
   Creates a value object struct for the given module and attributes.
@@ -348,7 +389,7 @@ defmodule Trogon.Ecto.ValueObject do
 
   def changeset(%struct_module{} = message, attrs) do
     embeds = struct_module.__schema__(:embeds)
-    polymorphic_embeds = get_polymorphic_embeds(struct_module)
+    polymorphic_embeds = struct_module.__polymorphic_embeds__()
     fields = struct_module.__schema__(:fields)
     all_embeds = embeds ++ polymorphic_embeds
 
@@ -360,7 +401,7 @@ defmodule Trogon.Ecto.ValueObject do
     changeset
     |> cast_embeds(embeds, struct_module)
     |> cast_polymorphic_embeds(polymorphic_embeds, struct_module)
-    |> validate_required_polymorphic_embeds_many(polymorphic_embeds, struct_module)
+    |> validate_required_polymorphic_embeds_many(struct_module)
   end
 
   defp cast_polymorphic_embeds(changeset, polymorphic_embeds, struct_module) do
@@ -371,16 +412,20 @@ defmodule Trogon.Ecto.ValueObject do
     )
   end
 
-  defp validate_required_polymorphic_embeds_many(changeset, polymorphic_embeds, struct_module) do
-    Enum.reduce(polymorphic_embeds, changeset, fn field, changeset ->
-      if struct_module.__enforced_keys__?(field) and
-           polymorphic_embed_many?(field, struct_module) and
-           Changeset.get_field(changeset, field) == [] do
-        Changeset.add_error(changeset, field, "can't be blank", validation: :required)
-      else
-        changeset
-      end
-    end)
+  defp validate_required_polymorphic_embeds_many(changeset, struct_module) do
+    Enum.reduce(
+      struct_module.__polymorphic_embeds_many__(),
+      changeset,
+      &validate_required_polymorphic_embed_many(&1, &2, struct_module)
+    )
+  end
+
+  defp validate_required_polymorphic_embed_many(field, changeset, struct_module) do
+    if struct_module.__enforced_keys__?(field) and Changeset.get_field(changeset, field) == [] do
+      Changeset.add_error(changeset, field, "can't be blank", validation: :required)
+    else
+      changeset
+    end
   end
 
   defp cast_embeds(changeset, embeds, struct_module) do
@@ -397,27 +442,6 @@ defmodule Trogon.Ecto.ValueObject do
 
   defp cast_polymorphic_embed(field, changeset, struct_module) do
     PolymorphicEmbed.cast_polymorphic_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
-  end
-
-  defp get_polymorphic_embeds(struct_module) do
-    :fields
-    |> struct_module.__schema__()
-    |> Enum.filter(&polymorphic_embed_field?(&1, struct_module))
-  end
-
-  defp polymorphic_embed_field?(field, struct_module) do
-    case struct_module.__schema__(:type, field) do
-      {:parameterized, {PolymorphicEmbed, _config}} -> true
-      {:array, {:parameterized, {PolymorphicEmbed, _config}}} -> true
-      _ -> false
-    end
-  end
-
-  defp polymorphic_embed_many?(field, struct_module) do
-    case struct_module.__schema__(:type, field) do
-      {:array, {:parameterized, {PolymorphicEmbed, _config}}} -> true
-      _ -> false
-    end
   end
 
   defp apply_changeset(struct_module, attrs) do
