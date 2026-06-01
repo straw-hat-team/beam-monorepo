@@ -40,7 +40,7 @@ defmodule Trogon.Ecto.MixProject do
 
   defp deps do
     [
-      {:ecto, "~> 3.6"},
+      {:ecto, "~> 3.12"},
       {:polymorphic_embed, "~> 5.0"},
 
       # Tools

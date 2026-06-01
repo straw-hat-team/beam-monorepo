@@ -133,6 +133,8 @@ defmodule Trogon.Ecto.ValueObject do
 
       def load(data) when is_map(data) do
         {:ok, Ecto.embedded_load(__MODULE__, data, :json)}
+      rescue
+        _ -> :error
       end
 
       def load(_), do: :error
@@ -239,8 +241,7 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   def new(struct_module, %other{}) when is_atom(struct_module) do
-    raise ArgumentError,
-          "expected attrs to be a map or %#{inspect(struct_module)}{}, got %#{inspect(other)}{}"
+    raise_unexpected_attrs(struct_module, other)
   end
 
   def new(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
@@ -303,8 +304,7 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   def new!(struct_module, %other{}) when is_atom(struct_module) do
-    raise ArgumentError,
-          "expected attrs to be a map or %#{inspect(struct_module)}{}, got %#{inspect(other)}{}"
+    raise_unexpected_attrs(struct_module, other)
   end
 
   def new!(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
@@ -343,8 +343,7 @@ defmodule Trogon.Ecto.ValueObject do
   def changeset(%struct_module{}, %struct_module{} = attrs), do: Changeset.change(attrs)
 
   def changeset(%struct_module{}, %other{}) when struct_module != other do
-    raise ArgumentError,
-          "expected attrs to be a map or %#{inspect(struct_module)}{}, got %#{inspect(other)}{}"
+    raise_unexpected_attrs(struct_module, other)
   end
 
   def changeset(%struct_module{} = message, attrs) do
@@ -424,5 +423,10 @@ defmodule Trogon.Ecto.ValueObject do
   defp apply_changeset(struct_module, attrs) do
     struct(struct_module)
     |> struct_module.changeset(attrs)
+  end
+
+  defp raise_unexpected_attrs(struct_module, other) do
+    raise ArgumentError,
+          "expected attrs to be a map or %#{inspect(struct_module)}{}, got %#{inspect(other)}{}"
   end
 end

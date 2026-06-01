@@ -137,6 +137,14 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert {:ok, %TestSupport.TransferableMoney{amount: -5, currency: :USD}} =
                TestSupport.TransferableMoney.load(%{"amount" => -5, "currency" => "USD"})
     end
+
+    test "returns :error for a polymorphic embed map without a resolvable __type__" do
+      assert :error =
+               TestSupport.NotificationWithPolymorphicEmbed.load(%{
+                 "title" => "Bad",
+                 "content" => %{"data" => "missing discriminator"}
+               })
+    end
   end
 
   describe "dump/1" do
