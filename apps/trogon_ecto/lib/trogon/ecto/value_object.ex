@@ -1,0 +1,473 @@
+defmodule Trogon.Ecto.ValueObject do
+  @moduledoc """
+  Defines "Value Object" modules.
+  """
+
+  alias Ecto.Changeset
+
+  @doc """
+  Converts the module into an `Ecto.Schema` and add factory functions to create structs.
+
+  ## Using
+
+  - `Ecto.Schema`
+  - `Ecto.Type`
+
+  ## Imports
+
+  `use Trogon.Ecto.ValueObject` imports `PolymorphicEmbed.polymorphic_embeds_one/2`
+  and `PolymorphicEmbed.polymorphic_embeds_many/2` so they can be used inside
+  `embedded_schema/1`.
+
+  ## Usage
+
+  ```elixir
+  defmodule MyValueObject do
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :title, :string
+      # ...
+    end
+  end
+  ```
+
+  ## Overridable
+
+  - `validate/2` to add custom validation to the existing `changeset/2` without overriding the whole `changeset/2`
+    function.
+
+      ```elixir
+      defmodule MyValueObject do
+        use Trogon.Ecto.ValueObject
+
+        embedded_schema do
+          field :amount, :integer
+        end
+
+        def validate(changeset, _attrs) do
+          Ecto.Changeset.validate_number(changeset, :amount, greater_than: 0)
+        end
+      end
+      ```
+
+  - `changeset/2` returns an `t:Ecto.Changeset.t/0` for a given value object struct.
+
+      > #### Overriding Changeset {: .warning}
+      >
+      > Be careful when overriding `changeset/2` because the default
+      > implementation takes care of `cast`, `validate_required` the
+      > `@enforced_keys` and nested embeds. You may want to call
+      > `Trogon.Ecto.ValueObject.changeset/2` to have such features.
+      >
+      > If you only need to extend the changeset, you can override the
+      > `validate/2` function instead.
+  """
+  @spec __using__(opts :: Keyword.t()) :: Macro.t()
+  defmacro __using__(_opts \\ []) do
+    quote generated: true do
+      alias Trogon.Ecto.ValueObject
+      alias Ecto.Changeset
+
+      use Ecto.Schema
+      use Ecto.Type
+      import PolymorphicEmbed, only: [polymorphic_embeds_one: 2, polymorphic_embeds_many: 2]
+
+      @primary_key false
+
+      @before_compile Trogon.Ecto.ValueObject
+
+      @doc """
+      Creates a `t:t/0`.
+      """
+      @spec new(attrs :: map() | %__MODULE__{}) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
+      def new(attrs) when is_map(attrs) do
+        Trogon.Ecto.ValueObject.new(__MODULE__, attrs)
+      end
+
+      @doc """
+      Creates a `t:t/0`.
+      """
+      @spec new!(attrs :: map() | %__MODULE__{}) :: %__MODULE__{}
+      def new!(attrs) when is_map(attrs) do
+        Trogon.Ecto.ValueObject.new!(__MODULE__, attrs)
+      end
+
+      @doc false
+      @spec validate(Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
+      def validate(%Ecto.Changeset{} = changeset, _attrs) do
+        changeset
+      end
+
+      @doc false
+      @spec changeset(message :: %__MODULE__{}, attrs :: map() | %__MODULE__{}) :: Ecto.Changeset.t()
+      def changeset(_message, attrs) when is_struct(attrs, __MODULE__) do
+        Ecto.Changeset.change(attrs)
+      end
+
+      def changeset(message, attrs) do
+        message
+        |> Trogon.Ecto.ValueObject.changeset(attrs)
+        |> validate(attrs)
+      end
+
+      def type, do: :map
+
+      def cast(value) when is_struct(value, __MODULE__), do: {:ok, value}
+
+      def cast(%other{}) do
+        {:error, message: "expected %#{inspect(__MODULE__)}{}, got %#{inspect(other)}{}"}
+      end
+
+      def cast(value) when is_map(value) do
+        case new(value) do
+          {:ok, v} -> {:ok, v}
+          {:error, _changeset} -> {:error, message: "is invalid"}
+        end
+      end
+
+      def cast(_), do: :error
+
+      def load(value) when is_struct(value, __MODULE__), do: {:ok, value}
+      def load(%_other{}), do: :error
+
+      def load(data) when is_map(data) do
+        {:ok, Ecto.embedded_load(__MODULE__, data, :json)}
+      rescue
+        _ -> :error
+      end
+
+      def load(_), do: :error
+
+      def dump(value) when is_struct(value, __MODULE__), do: {:ok, Ecto.embedded_dump(value, :json)}
+      def dump(_), do: :error
+
+      def embed_as(_format), do: :dump
+
+      defoverridable new: 1,
+                     new!: 1,
+                     changeset: 2,
+                     validate: 2,
+                     type: 0,
+                     cast: 1,
+                     load: 1,
+                     dump: 1,
+                     embed_as: 1
+    end
+  end
+
+  defmacro __before_compile__(env) do
+    enforced_keys = get_enforced_keys(env)
+    {polymorphic_embeds, polymorphic_embeds_many} = get_polymorphic_embeds(env)
+    field_names = get_field_names(env)
+    embed_names = get_embed_names(env)
+    all_embeds = embed_names ++ polymorphic_embeds
+    cast_fields = field_names -- all_embeds
+    required_fields = enforced_keys -- all_embeds
+
+    quote unquote: false,
+          bind_quoted: [
+            enforced_keys: enforced_keys,
+            polymorphic_embeds: polymorphic_embeds,
+            polymorphic_embeds_many: polymorphic_embeds_many,
+            cast_fields: cast_fields,
+            required_fields: required_fields
+          ] do
+      def __enforced_keys__ do
+        unquote(enforced_keys)
+      end
+
+      for the_key <- enforced_keys do
+        def __enforced_keys__?(unquote(the_key)) do
+          true
+        end
+      end
+
+      def __enforced_keys__?(_) do
+        false
+      end
+
+      def __polymorphic_embeds__ do
+        unquote(polymorphic_embeds)
+      end
+
+      def __polymorphic_embeds_many__ do
+        unquote(polymorphic_embeds_many)
+      end
+
+      def __cast_fields__ do
+        unquote(cast_fields)
+      end
+
+      def __required_fields__ do
+        unquote(required_fields)
+      end
+    end
+  end
+
+  defp get_enforced_keys(env) do
+    enforce_keys = Module.get_attribute(env.module, :enforce_keys) || []
+    enforce_keys ++ get_primary_key_name(env)
+  end
+
+  defp get_primary_key_name(env) do
+    case Module.get_attribute(env.module, :primary_key) do
+      {field_name, _type, opts} ->
+        if Keyword.get(opts, :autogenerate, false), do: [], else: [field_name]
+
+      _ ->
+        []
+    end
+  end
+
+  defp get_polymorphic_embeds(env) do
+    ecto_fields = Module.get_attribute(env.module, :ecto_fields) || []
+
+    {all, many} =
+      ecto_fields
+      |> Enum.reverse()
+      |> Enum.reduce({[], []}, &classify_polymorphic_embed/2)
+
+    {Enum.reverse(all), Enum.reverse(many)}
+  end
+
+  defp classify_polymorphic_embed(
+         {name, {{:array, {:parameterized, {PolymorphicEmbed, _}}}, _writable}},
+         {all, many}
+       ) do
+    {[name | all], [name | many]}
+  end
+
+  defp classify_polymorphic_embed(
+         {name, {{:parameterized, {PolymorphicEmbed, _}}, _writable}},
+         {all, many}
+       ) do
+    {[name | all], many}
+  end
+
+  defp classify_polymorphic_embed(_field, acc), do: acc
+
+  defp get_field_names(env) do
+    ecto_fields = Module.get_attribute(env.module, :ecto_fields) || []
+    for {name, _type} <- Enum.reverse(ecto_fields), do: name
+  end
+
+  defp get_embed_names(env) do
+    ecto_embeds = Module.get_attribute(env.module, :ecto_embeds) || []
+    for {name, _embed} <- Enum.reverse(ecto_embeds), do: name
+  end
+
+  @doc """
+  Creates a value object struct for the given module and attributes.
+
+  This function applies the changeset validation logic defined in the value object
+  module and returns either `{:ok, struct}` on success or `{:error, changeset}`
+  when validation fails.
+
+  ## Parameters
+
+  - `struct_module` - The value object module that uses `Trogon.Ecto.ValueObject`
+  - `attrs` - A map of attributes to create the value object with
+
+  ## Examples
+
+  Creating a simple value object:
+
+      iex> Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.MessageOne, %{title: "Hello"})
+      {:ok, %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"}}
+
+  Creating a value object with validation:
+
+      iex> Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
+      {:ok, %Trogon.Ecto.TestSupport.TransferableMoney{amount: 100, currency: :USD}}
+
+  Validation failure example:
+
+      iex> {:error, changeset} = Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
+      iex> changeset.valid?
+      false
+
+  Missing required field:
+
+      iex> {:error, changeset} = Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.MyValueObject, %{amount: 25})
+      iex> changeset.valid?
+      false
+
+  Passing an own-type struct returns it unchanged (value objects are immutable):
+
+      iex> Trogon.Ecto.ValueObject.new(Trogon.Ecto.TestSupport.MessageOne, %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"})
+      {:ok, %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"}}
+
+  Passing a foreign struct raises an `ArgumentError`.
+  """
+  @spec new(struct_module :: atom(), attrs :: map() | struct()) ::
+          {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  def new(struct_module, attrs) when is_atom(struct_module) and is_struct(attrs, struct_module) do
+    {:ok, attrs}
+  end
+
+  def new(struct_module, %other{}) when is_atom(struct_module) do
+    raise_unexpected_attrs(struct_module, other)
+  end
+
+  def new(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
+    struct_module
+    |> apply_changeset(attrs)
+    |> Changeset.apply_action(:new)
+  end
+
+  @doc """
+  Creates a value object struct for the given module and attributes, raising on validation errors.
+
+  This function is similar to `new/2` but raises an `Ecto.InvalidChangesetError`
+  instead of returning an error tuple when validation fails.
+
+  ## Parameters
+
+  - `struct_module` - The value object module that uses `Trogon.Ecto.ValueObject`
+  - `attrs` - A map of attributes to create the value object with
+
+  ## Examples
+
+  Creating a simple value object:
+
+      iex> Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.MessageOne, %{title: "Hello"})
+      %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"}
+
+  Creating a value object with validation:
+
+      iex> Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
+      %Trogon.Ecto.TestSupport.TransferableMoney{amount: 100, currency: :USD}
+
+  Validation failure raises an exception:
+
+      iex> try do
+      ...>   Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
+      ...> rescue
+      ...>   Ecto.InvalidChangesetError -> :error_raised
+      ...> end
+      :error_raised
+
+  Missing required field raises an exception:
+
+      iex> try do
+      ...>   Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.MyValueObject, %{amount: 25})
+      ...> rescue
+      ...>   Ecto.InvalidChangesetError -> :error_raised
+      ...> end
+      :error_raised
+
+  Passing an own-type struct returns it unchanged:
+
+      iex> Trogon.Ecto.ValueObject.new!(Trogon.Ecto.TestSupport.MessageOne, %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"})
+      %Trogon.Ecto.TestSupport.MessageOne{title: "Hello"}
+
+  Passing a foreign struct raises an `ArgumentError`.
+  """
+  @spec new!(struct_module :: atom(), attrs :: map() | struct()) :: struct()
+  def new!(struct_module, attrs) when is_atom(struct_module) and is_struct(attrs, struct_module) do
+    attrs
+  end
+
+  def new!(struct_module, %other{}) when is_atom(struct_module) do
+    raise_unexpected_attrs(struct_module, other)
+  end
+
+  def new!(struct_module, attrs) when is_atom(struct_module) and is_map(attrs) do
+    struct_module
+    |> apply_changeset(attrs)
+    |> Changeset.apply_action!(:new)
+  end
+
+  @doc """
+  Returns an `t:Ecto.Changeset.t/0` for a given value object struct.
+
+  It reads the `@enforced_keys` from the struct and validates the required
+  fields. Also, it casts the embeds. It is useful when you override the
+  `changeset/2` function in your value object.
+
+  ## Examples
+
+  ```elixir
+  defmodule MyValueObject do
+    use Trogon.Ecto.ValueObject
+
+    @enforce_keys [:title, :amount]
+    embedded_schema do
+      field :title, :string
+      field :amount, :integer
+    end
+
+    def changeset(message, attrs) do
+      message
+      |> ValueObject.changeset(attrs)
+      |> Changeset.validate_number(:amount, greater_than: 0)
+    end
+  end
+  ```
+  """
+  def changeset(%struct_module{}, %struct_module{} = attrs), do: Changeset.change(attrs)
+
+  def changeset(%struct_module{}, %other{}) when struct_module != other do
+    raise_unexpected_attrs(struct_module, other)
+  end
+
+  def changeset(%struct_module{} = message, attrs) do
+    message
+    |> Changeset.cast(attrs, struct_module.__cast_fields__())
+    |> Changeset.validate_required(struct_module.__required_fields__())
+    |> cast_embeds(struct_module.__schema__(:embeds), struct_module)
+    |> cast_polymorphic_embeds(struct_module.__polymorphic_embeds__(), struct_module)
+    |> validate_required_polymorphic_embeds_many(struct_module)
+  end
+
+  defp cast_polymorphic_embeds(changeset, polymorphic_embeds, struct_module) do
+    Enum.reduce(
+      polymorphic_embeds,
+      changeset,
+      &cast_polymorphic_embed(&1, &2, struct_module)
+    )
+  end
+
+  defp validate_required_polymorphic_embeds_many(changeset, struct_module) do
+    Enum.reduce(
+      struct_module.__polymorphic_embeds_many__(),
+      changeset,
+      &validate_required_polymorphic_embed_many(&1, &2, struct_module)
+    )
+  end
+
+  defp validate_required_polymorphic_embed_many(field, changeset, struct_module) do
+    if struct_module.__enforced_keys__?(field) and Changeset.get_field(changeset, field) == [] do
+      Changeset.add_error(changeset, field, "can't be blank", validation: :required)
+    else
+      changeset
+    end
+  end
+
+  defp cast_embeds(changeset, embeds, struct_module) do
+    Enum.reduce(
+      embeds,
+      changeset,
+      &cast_embed(&1, &2, struct_module)
+    )
+  end
+
+  defp cast_embed(field, changeset, struct_module) do
+    Changeset.cast_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
+  end
+
+  defp cast_polymorphic_embed(field, changeset, struct_module) do
+    PolymorphicEmbed.cast_polymorphic_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
+  end
+
+  defp apply_changeset(struct_module, attrs) do
+    struct(struct_module)
+    |> struct_module.changeset(attrs)
+  end
+
+  defp raise_unexpected_attrs(struct_module, other) do
+    raise ArgumentError,
+          "expected attrs to be a map or %#{inspect(struct_module)}{}, got %#{inspect(other)}{}"
+  end
+end
