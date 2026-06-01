@@ -159,12 +159,19 @@ defmodule Trogon.Ecto.ValueObject do
   defmacro __before_compile__(env) do
     enforced_keys = get_enforced_keys(env)
     {polymorphic_embeds, polymorphic_embeds_many} = get_polymorphic_embeds(env)
+    field_names = get_field_names(env)
+    embed_names = get_embed_names(env)
+    all_embeds = embed_names ++ polymorphic_embeds
+    cast_fields = field_names -- all_embeds
+    required_fields = enforced_keys -- all_embeds
 
     quote unquote: false,
           bind_quoted: [
             enforced_keys: enforced_keys,
             polymorphic_embeds: polymorphic_embeds,
-            polymorphic_embeds_many: polymorphic_embeds_many
+            polymorphic_embeds_many: polymorphic_embeds_many,
+            cast_fields: cast_fields,
+            required_fields: required_fields
           ] do
       def __enforced_keys__ do
         unquote(enforced_keys)
@@ -186,6 +193,14 @@ defmodule Trogon.Ecto.ValueObject do
 
       def __polymorphic_embeds_many__ do
         unquote(polymorphic_embeds_many)
+      end
+
+      def __cast_fields__ do
+        unquote(cast_fields)
+      end
+
+      def __required_fields__ do
+        unquote(required_fields)
       end
     end
   end
@@ -231,6 +246,16 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   defp classify_polymorphic_embed(_field, acc), do: acc
+
+  defp get_field_names(env) do
+    ecto_fields = Module.get_attribute(env.module, :ecto_fields) || []
+    for {name, _type} <- Enum.reverse(ecto_fields), do: name
+  end
+
+  defp get_embed_names(env) do
+    ecto_embeds = Module.get_attribute(env.module, :ecto_embeds) || []
+    for {name, _embed} <- Enum.reverse(ecto_embeds), do: name
+  end
 
   @doc """
   Creates a value object struct for the given module and attributes.
@@ -388,19 +413,11 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   def changeset(%struct_module{} = message, attrs) do
-    embeds = struct_module.__schema__(:embeds)
-    polymorphic_embeds = struct_module.__polymorphic_embeds__()
-    fields = struct_module.__schema__(:fields)
-    all_embeds = embeds ++ polymorphic_embeds
-
-    changeset =
-      message
-      |> Changeset.cast(attrs, fields -- all_embeds)
-      |> Changeset.validate_required(struct_module.__enforced_keys__() -- all_embeds)
-
-    changeset
-    |> cast_embeds(embeds, struct_module)
-    |> cast_polymorphic_embeds(polymorphic_embeds, struct_module)
+    message
+    |> Changeset.cast(attrs, struct_module.__cast_fields__())
+    |> Changeset.validate_required(struct_module.__required_fields__())
+    |> cast_embeds(struct_module.__schema__(:embeds), struct_module)
+    |> cast_polymorphic_embeds(struct_module.__polymorphic_embeds__(), struct_module)
     |> validate_required_polymorphic_embeds_many(struct_module)
   end
 

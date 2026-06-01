@@ -170,6 +170,11 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert {:error, changeset} = TestSupport.MyValueObject.new(%{amount: 0})
       assert %{amount: ["must be greater than 0"]} = TestSupport.errors_on(changeset)
     end
+
+    test "rejects an empty list for a required embeds_many field" do
+      assert {:error, changeset} = TestSupport.MessageFour.new(%{targets: []})
+      assert %{targets: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
   end
 
   describe "polymorphic_embed support" do
