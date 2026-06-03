@@ -2,7 +2,7 @@ defmodule Trogon.TypeProvider.MixProject do
   use Mix.Project
 
   @app :trogon_typeprovider
-  @version "0.3.1"
+  @version "1.0.0"
   @elixir_version "~> 1.13"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
