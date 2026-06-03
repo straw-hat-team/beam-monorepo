@@ -7,6 +7,13 @@
 
 * Support Elixir 1.20 ([#398](https://github.com/straw-hat-team/beam-monorepo/issues/398)) ([187d11e](https://github.com/straw-hat-team/beam-monorepo/commit/187d11e139ac918de7a6158e0b1b0d4753689090))
 
+## [0.2.2](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.2.1...eventstore_dashboard@v0.2.2) (2026-06-03)
+
+
+### Bug Fixes
+
+* Support Elixir 1.20 ([#398](https://github.com/straw-hat-team/beam-monorepo/issues/398)) ([187d11e](https://github.com/straw-hat-team/beam-monorepo/commit/187d11e139ac918de7a6158e0b1b0d4753689090))
+
 ## [0.2.1](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.2.0...eventstore_dashboard@v0.2.1) (2026-05-08)
 
 
