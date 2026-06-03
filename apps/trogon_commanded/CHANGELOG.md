@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.0.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.0.0...trogon_commanded@v1.0.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* Support Elixir 1.20 ([#398](https://github.com/straw-hat-team/beam-monorepo/issues/398)) ([187d11e](https://github.com/straw-hat-team/beam-monorepo/commit/187d11e139ac918de7a6158e0b1b0d4753689090))
+
 ## [1.0.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v0.39.0...trogon_commanded@v1.0.0) (2026-04-30)
 
 

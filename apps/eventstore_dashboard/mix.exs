@@ -2,7 +2,7 @@ defmodule EventStoreDashboard.MixProject do
   use Mix.Project
 
   @app :eventstore_dashboard
-  @version "0.2.1"
+  @version "0.2.2"
   @elixir_version "~> 1.18"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 

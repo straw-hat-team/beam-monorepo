@@ -113,7 +113,7 @@ defmodule Trogon.TypeProvider do
   def __add_to_type_funcs__() do
     quote unquote: false do
       @spec to_type(struct()) :: {:ok, String.t()} | {:error, term()}
-      for {_, type, struct_mod} <- Enum.uniq_by(@type_mapping, &Trogon.TypeProvider.__struct_module__/1) do
+      for {_, type, struct_mod} <- @type_mapping do
         def to_type(%unquote(struct_mod){}) do
           {:ok, unquote(type)}
         end
@@ -128,9 +128,6 @@ defmodule Trogon.TypeProvider do
       end
     end
   end
-
-  @doc false
-  def __struct_module__({_, _, struct_mod}), do: struct_mod
 
   def __add_type_conversion_funcs__() do
     quote unquote: false do
@@ -221,12 +218,17 @@ defmodule Trogon.TypeProvider do
   end
 
   defp add_mapping_or_raise!(mod, type, struct_mod, opts \\ []) do
-    case find_mapping_by_type(mod, type) do
-      nil ->
-        add_mapping(mod, type, struct_mod)
-
-      {_found_mod, _type, found_struct_mod} ->
+    cond do
+      mapping = find_mapping_by_type(mod, type) ->
+        {_found_mod, _type, found_struct_mod} = mapping
         raise ArgumentError, duplicate_type_error(mod, type, struct_mod, found_struct_mod, opts)
+
+      mapping = find_mapping_by_struct(mod, struct_mod) ->
+        {_found_mod, found_type, _found_struct_mod} = mapping
+        raise ArgumentError, duplicate_struct_error(mod, type, struct_mod, found_type, opts)
+
+      true ->
+        add_mapping(mod, type, struct_mod)
     end
   end
 
@@ -263,6 +265,37 @@ defmodule Trogon.TypeProvider do
     end
   end
 
+  defp duplicate_struct_error(mod, type, struct_mod, found_type, opts) do
+    case Keyword.get(opts, :import_from) do
+      nil ->
+        """
+        Duplicate struct registration for #{inspect(struct_mod)}
+
+        Already registered as type: #{inspect(found_type)} in #{inspect(mod)}
+        Attempted to register as type: #{inspect(type)} in #{inspect(mod)}
+
+        Each struct module must map to exactly one type within a TypeProvider.
+        Consider removing the duplicate registration.
+        """
+
+      provider_mod ->
+        """
+        Cannot import struct #{inspect(struct_mod)} - already registered
+
+        Trying to import from: #{inspect(provider_mod)}
+        Into TypeProvider: #{inspect(mod)}
+
+        CONFLICT:
+        • Struct #{inspect(struct_mod)} is already registered as type #{inspect(found_type)}
+        • Cannot import it again as type #{inspect(type)}
+
+        SOLUTIONS:
+        • Ensure each struct is registered under a single type
+        • Import types selectively instead of all at once
+        """
+    end
+  end
+
   defp find_mapping_by_type(mod, type) do
     mod
     |> Module.get_attribute(:type_mapping)
@@ -271,6 +304,16 @@ defmodule Trogon.TypeProvider do
 
   defp mapping?({_, current_type, _struct_mod}, type) do
     current_type == type
+  end
+
+  defp find_mapping_by_struct(mod, struct_mod) do
+    mod
+    |> Module.get_attribute(:type_mapping)
+    |> Enum.find(&struct_mapping?(&1, struct_mod))
+  end
+
+  defp struct_mapping?({_, _current_type, current_struct_mod}, struct_mod) do
+    current_struct_mod == struct_mod
   end
 
   defp type_provider?(mod) do
