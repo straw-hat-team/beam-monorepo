@@ -159,7 +159,7 @@ defmodule Trogon.Commanded.ValueObject do
 
   defp get_enforced_keys(env) do
     enforce_keys = Module.get_attribute(env.module, :enforce_keys) || []
-    enforce_keys ++ get_primary_key_name(env)
+    Enum.uniq(enforce_keys ++ get_primary_key_name(env))
   end
 
   defp get_primary_key_name(env) do
