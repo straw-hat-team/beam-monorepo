@@ -37,8 +37,8 @@ defmodule Trogon.TypeProvider.TestSupport do
     use Trogon.TypeProvider
 
     register_type "test_event", TestEvent
-    register_type "another_event", TestEvent
-    register_type "user_created", TestEvent
+    register_type "another_event", AccountClosed
+    register_type "user_created", LedgerClosed
   end
 
   defmodule AccountTypeProvider do

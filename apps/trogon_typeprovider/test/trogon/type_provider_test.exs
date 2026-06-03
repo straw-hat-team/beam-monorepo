@@ -47,6 +47,34 @@ defmodule Trogon.TypeProviderTest do
     end)
   end
 
+  test "given a type provider when registering the same struct under another type then raises an error" do
+    expected_message = """
+    Duplicate struct registration for DupStructEvent
+
+    Already registered as type: "type_one" in DuplicateStructTypeProvider
+    Attempted to register as type: "type_two" in DuplicateStructTypeProvider
+
+    Each struct module must map to exactly one type within a TypeProvider.
+    Consider removing the duplicate registration.
+    """
+
+    assert_raise(ArgumentError, expected_message, fn ->
+      Code.compile_quoted(
+        quote do
+          defmodule DupStructEvent do
+            defstruct [:id]
+          end
+
+          defmodule DuplicateStructTypeProvider do
+            use Trogon.TypeProvider
+            register_type "type_one", DupStructEvent
+            register_type "type_two", DupStructEvent
+          end
+        end
+      )
+    end)
+  end
+
   test "given a type provider when registering a module that does not implement a struct then raises an error" do
     expected_message = """
     Invalid struct registration for type "email_sent"

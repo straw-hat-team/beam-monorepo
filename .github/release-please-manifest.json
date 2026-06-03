@@ -1,10 +1,10 @@
 {
-  "apps/trogon_commanded": "1.0.0",
+  "apps/trogon_commanded": "1.0.1",
   "apps/trogon_result": "1.0.1",
   "apps/trogon_error": "0.8.1",
-  "apps/trogon_typeprovider": "0.3.0",
+  "apps/trogon_typeprovider": "1.0.0",
   "apps/trogon_proto": "0.13.1",
-  "apps/trogon_object_id": "0.1.0",
+  "apps/trogon_object_id": "0.1.1",
   "apps/trogon_ecto": "0.1.0",
   "apps/eventstore_dashboard": "0.2.1"
 }
