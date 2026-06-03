@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.3.0...trogon_typeprovider@v0.3.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* Support Elixir 1.20 ([#398](https://github.com/straw-hat-team/beam-monorepo/issues/398)) ([187d11e](https://github.com/straw-hat-team/beam-monorepo/commit/187d11e139ac918de7a6158e0b1b0d4753689090))
+
 ## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_typeprovider@v0.2.2...trogon_typeprovider@v0.3.0) (2026-01-10)
 
 
