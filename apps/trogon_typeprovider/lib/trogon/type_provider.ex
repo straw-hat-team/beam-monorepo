@@ -113,7 +113,7 @@ defmodule Trogon.TypeProvider do
   def __add_to_type_funcs__() do
     quote unquote: false do
       @spec to_type(struct()) :: {:ok, String.t()} | {:error, term()}
-      for {_, type, struct_mod} <- @type_mapping do
+      for {_, type, struct_mod} <- Enum.uniq_by(@type_mapping, &Trogon.TypeProvider.__struct_module__/1) do
         def to_type(%unquote(struct_mod){}) do
           {:ok, unquote(type)}
         end
@@ -128,6 +128,9 @@ defmodule Trogon.TypeProvider do
       end
     end
   end
+
+  @doc false
+  def __struct_module__({_, _, struct_mod}), do: struct_mod
 
   def __add_type_conversion_funcs__() do
     quote unquote: false do
