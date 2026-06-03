@@ -211,8 +211,6 @@ defmodule EventStoreDashboard.Components.EventModal do
     end
   end
 
-  defp fetch_id_counts(_node, nil, _event), do: {nil, nil}
-
   defp fetch_id_counts(node, %Context{} = ctx, event) do
     {count_for(node, ctx, :correlation_id, event.correlation_id),
      count_for(node, ctx, :causation_id, event.causation_id)}

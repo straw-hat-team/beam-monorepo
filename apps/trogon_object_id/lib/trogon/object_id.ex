@@ -524,7 +524,7 @@ defmodule Trogon.ObjectId do
           {:ok, struct()} | {:error, atom()}
   def parse(module, prefix, prefix_len, string, validate_format) do
     case string do
-      <<^prefix::binary-size(prefix_len), suffix::binary>> when suffix != "" ->
+      <<^prefix::binary-size(^prefix_len), suffix::binary>> when suffix != "" ->
         validate_and_build(module, suffix, validate_format)
 
       _ ->

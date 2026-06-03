@@ -409,9 +409,9 @@ defmodule Trogon.Proto.Env do
     )
   end
 
+  defp visibility_value(nil), do: Visibility.value(:VISIBILITY_UNSPECIFIED)
   defp visibility_value(atom) when is_atom(atom), do: Visibility.value(atom)
   defp visibility_value(int) when is_integer(int), do: int
-  defp visibility_value(nil), do: Visibility.value(:VISIBILITY_UNSPECIFIED)
 
   defp warn_unsupported_field(field_desc, field_type, is_repeated) do
     label_str =
@@ -437,13 +437,11 @@ defmodule Trogon.Proto.Env do
     delimiter && delimiter != ""
   end
 
-  defp valid_env_field?(field_type, is_repeated, env_var_option) when not is_nil(env_var_option) do
+  defp valid_env_field?(field_type, is_repeated, env_var_option) do
     scalar_supported = supported_env_type?(field_type)
     repeated_ok = not is_repeated || has_split_delimiter?(env_var_option)
     scalar_supported && repeated_ok
   end
-
-  defp valid_env_field?(_, _, _), do: false
 
   defp supported_env_type?(:TYPE_STRING), do: true
   defp supported_env_type?(:TYPE_INT32), do: true
