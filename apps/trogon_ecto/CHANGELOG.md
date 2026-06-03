@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.1.0...trogon_ecto@v0.1.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* Support Elixir 1.20 ([#398](https://github.com/straw-hat-team/beam-monorepo/issues/398)) ([187d11e](https://github.com/straw-hat-team/beam-monorepo/commit/187d11e139ac918de7a6158e0b1b0d4753689090))
+
 ## [0.1.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.0.1...trogon_ecto@v0.1.0) (2026-06-01)
 
 
