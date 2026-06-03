@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.13.0...trogon_proto@v0.13.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* Support Elixir 1.20 ([#398](https://github.com/straw-hat-team/beam-monorepo/issues/398)) ([187d11e](https://github.com/straw-hat-team/beam-monorepo/commit/187d11e139ac918de7a6158e0b1b0d4753689090))
+
 ## [0.13.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.12.0...trogon_proto@v0.13.0) (2026-05-12)
 
 
