@@ -227,11 +227,19 @@ defmodule EventStoreDashboard.Repo do
   the database CPU. `reltuples` is maintained by `ANALYZE`/autovacuum and is
   accurate enough for a monitoring view. A never-analyzed table reports `-1`,
   which is clamped to `0`. Returns `{:ok, non_neg_integer}` or `:error`.
+
+  The schema-qualified table name is interpolated into the `::regclass` literal
+  rather than passed as a parameter: `$1::regclass` makes PostgreSQL infer the
+  bind type as `oid`, and Postgrex then refuses to encode the textual name as an
+  integer oid. `schema` is trusted config and `table` is a fixed internal value,
+  so interpolation is safe here (matching the other queries in this module).
   """
   def estimate_count(node, %Context{} = ctx, table) when is_binary(table) do
-    sql = "SELECT GREATEST(reltuples, 0)::bigint FROM pg_class WHERE oid = $1::regclass"
+    sql =
+      "SELECT GREATEST(reltuples, 0)::bigint FROM pg_class " <>
+        "WHERE oid = '#{ctx.schema}.#{table}'::regclass"
 
-    case query(node, ctx.conn, sql, ["#{ctx.schema}.#{table}"]) do
+    case query(node, ctx.conn, sql, []) do
       {:ok, [[count]]} -> {:ok, count}
       _ -> :error
     end
