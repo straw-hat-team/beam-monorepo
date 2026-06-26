@@ -3,6 +3,7 @@ defmodule EventStoreDashboard.Repo do
 
   require Logger
 
+  alias EventStore.Sql.Statements
   alias EventStore.UUID
   alias EventStoreDashboard.{Event, Snapshot, Stream, Subscription}
   alias EventStoreDashboard.Repo.Context
@@ -215,6 +216,72 @@ defmodule EventStoreDashboard.Repo do
   end
 
   def string_to_uuid(_), do: :error
+
+  @doc """
+  Approximate row count for an entire table from PostgreSQL planner statistics
+  (`pg_class.reltuples`), avoiding a `COUNT(*)` sequential scan.
+
+  Used for unfiltered dashboard pagination totals. Event-store tables such as
+  `streams` and `events` are frequently very large and deliberately lightly
+  indexed for write throughput, so a full `COUNT(*)` reads every row and can peg
+  the database CPU. `reltuples` is maintained by `ANALYZE`/autovacuum and is
+  accurate enough for a monitoring view. A never-analyzed table reports `-1`,
+  which is clamped to `0`. Returns `{:ok, non_neg_integer}` or `:error`.
+  """
+  def estimate_count(node, %Context{} = ctx, table) when is_binary(table) do
+    sql = "SELECT GREATEST(reltuples, 0)::bigint FROM pg_class WHERE oid = $1::regclass"
+
+    case query(node, ctx.conn, sql, ["#{ctx.schema}.#{table}"]) do
+      {:ok, [[count]]} -> {:ok, count}
+      _ -> :error
+    end
+  end
+
+  @doc """
+  Total number of streams for the dashboard's streams table.
+
+  `"%"` is the match-all term used by the unfiltered view; it returns a fast
+  `estimate_count/3` rather than `COUNT(*)` over the entire streams table. A real
+  search term falls back to an exact filtered count. Returns `{:ok, non_neg_integer}`
+  or `:error`.
+  """
+  def count_streams(node, %Context{} = ctx, "%"), do: estimate_count(node, ctx, "streams")
+
+  def count_streams(node, %Context{} = ctx, search_term) do
+    sql = IO.iodata_to_binary(Statements.count_streams(ctx.schema))
+
+    case query(node, ctx.conn, sql, [search_term]) do
+      {:ok, [[count]]} -> {:ok, count}
+      _ -> :error
+    end
+  end
+
+  @doc """
+  Total number of subscriptions for the dashboard's subscriptions table.
+
+  With no search term, returns a fast `estimate_count/3`; a search term falls back
+  to an exact `ILIKE` filtered count. Returns `{:ok, non_neg_integer}` or `:error`.
+  """
+  def count_subscriptions(node, %Context{} = ctx, nil), do: estimate_count(node, ctx, "subscriptions")
+
+  def count_subscriptions(node, %Context{} = ctx, search_term) do
+    sql =
+      "SELECT COUNT(*) FROM #{ctx.schema}.subscriptions s " <>
+        "WHERE s.subscription_name ILIKE $1 OR s.stream_uuid ILIKE $1;"
+
+    case query(node, ctx.conn, sql, [search_term]) do
+      {:ok, [[count]]} -> {:ok, count}
+      _ -> :error
+    end
+  end
+
+  @doc """
+  Total number of snapshots for the dashboard's snapshots table.
+
+  With no search term, returns a fast `estimate_count/3`; a search term falls back
+  to an exact filtered count. Returns `{:ok, non_neg_integer}` or `:error`.
+  """
+  def count_snapshots(node, %Context{} = ctx, nil), do: estimate_count(node, ctx, "snapshots")
 
   def count_snapshots(node, %Context{} = ctx, search_term) do
     {where, params} = snapshot_search_clause(search_term, [], 1)

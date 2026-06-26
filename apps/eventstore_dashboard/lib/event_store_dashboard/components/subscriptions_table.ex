@@ -148,7 +148,7 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
     search_term = url_params |> TableParams.parse_search() |> like_pattern()
     offset = (page_number - 1) * limit
 
-    with {:ok, total_entries} <- count_subscriptions(node, ctx, search_term),
+    with {:ok, total_entries} <- Repo.count_subscriptions(node, ctx, search_term),
          {:ok, rows} <-
            query_subscriptions(
              node,
@@ -168,16 +168,6 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
       }
     else
       _ -> %{entries: [], total_entries: 0, total_pages: 0}
-    end
-  end
-
-  defp count_subscriptions(node, %Context{} = ctx, search_term) do
-    {where, params} = search_clause(search_term, [], 1)
-    sql = "SELECT COUNT(*) FROM #{ctx.schema}.subscriptions s#{where};"
-
-    case Repo.query(node, ctx.conn, sql, params) do
-      {:ok, [[count]]} -> {:ok, count}
-      _ -> :error
     end
   end
 
