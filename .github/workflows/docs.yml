@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: 1password/load-secrets-action@3a12b0ab99d9cd590a3e9b5a90ea017210ed9556 # v4
+      - uses: 1password/load-secrets-action@e544b780808654ba8ceba5fb2fe2897103d92ff4 # v4
         with:
           export-env: true
         env:
