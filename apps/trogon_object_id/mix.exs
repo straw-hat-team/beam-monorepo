@@ -55,11 +55,14 @@ defmodule Trogon.ObjectId.MixProject do
     ]
   end
 
+  # Hex consumers compile this file from deps/, so the Hex branch must be the
+  # default. Umbrella mode is opt-in via mise.toml locally and the
+  # mix-in-umbrella-deps input in CI.
   defp trogon_proto_dep do
-    if System.get_env("MIX_IN_UMBRELLA_DEPS") == "false" do
-      {:trogon_proto, "~> 0.4", optional: true}
-    else
+    if System.get_env("MIX_IN_UMBRELLA_DEPS") == "true" do
       {:trogon_proto, in_umbrella: true}
+    else
+      {:trogon_proto, "~> 0.4", optional: true}
     end
   end
 

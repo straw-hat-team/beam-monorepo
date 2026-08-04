@@ -10,4 +10,6 @@ on:
 
 jobs:
   qa:
-    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-quality-assurance.yml@0566a3861e8d30656cd902efd6208247df46bf60 # master
+    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-quality-assurance.yml@f93d234b888e3929141c5faed223e6071fe2c60e # v1.9.0
+    with:
+      mix-in-umbrella-deps: true
