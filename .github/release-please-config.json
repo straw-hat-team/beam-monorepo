@@ -52,5 +52,5 @@
   "prerelease": false,
   "pull-request-header": "An automated release has been created for you.",
   "separate-pull-requests": true,
-  "signoff": "Straw Hat Team Bot <61149376+sht-bot@users.noreply.github.com>"
+  "signoff": "SHT Bot <61149376+sht-bot@users.noreply.github.com>"
 }
