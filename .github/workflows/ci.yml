@@ -10,4 +10,6 @@ on:
 
 jobs:
   qa:
-    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-quality-assurance.yml@0566a3861e8d30656cd902efd6208247df46bf60 # master
+    uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-quality-assurance.yml@b6b38e0383f168adbac8af563f2a29a52de0d141 # yordis/feat-mix-in-umbrella-deps, re-pin to master after straw-hat-team/github-actions-workflows#28 merges
+    with:
+      mix-in-umbrella-deps: true
