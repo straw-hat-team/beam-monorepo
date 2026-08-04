@@ -27,7 +27,7 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           HEX_API_KEY: "${{ secrets.SECRETS_VAULT }}/HEX_API_KEY"
-      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@0566a3861e8d30656cd902efd6208247df46bf60 # master
+      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
           package-name: ${{ inputs.package-name }}
