@@ -525,24 +525,44 @@ defmodule Trogon.ObjectId do
     end
   end
 
-  defp __generator_expr__(:uuidv7), do: quote(do: Uniq.UUID.uuid7())
-  defp __generator_expr__(:uuidv4), do: quote(do: Uniq.UUID.uuid4())
-  defp __generator_expr__({module, function}), do: quote(do: unquote(module).unquote(function)())
-
   defp __generated_ecto_autogenerate__(nil), do: nil
 
-  defp __generated_ecto_autogenerate__(autogenerate) do
-    generator = __generator_expr__(autogenerate)
-
+  defp __generated_ecto_autogenerate__(:uuidv7) do
     quote location: :keep do
       @doc """
-      Generates a new ObjectId.
+      Generates a new ObjectId with a UUIDv7 id.
 
       Used by Ecto when the schema field is declared with `autogenerate: true`.
       """
       @impl Ecto.Type
       @spec autogenerate() :: t()
-      def autogenerate, do: new!(unquote(generator))
+      def autogenerate, do: new!(Uniq.UUID.uuid7())
+    end
+  end
+
+  defp __generated_ecto_autogenerate__(:uuidv4) do
+    quote location: :keep do
+      @doc """
+      Generates a new ObjectId with a UUIDv4 id.
+
+      Used by Ecto when the schema field is declared with `autogenerate: true`.
+      """
+      @impl Ecto.Type
+      @spec autogenerate() :: t()
+      def autogenerate, do: new!(Uniq.UUID.uuid4())
+    end
+  end
+
+  defp __generated_ecto_autogenerate__({module, function}) do
+    quote location: :keep do
+      @doc """
+      Generates a new ObjectId with an id from `#{inspect(unquote(module))}.#{unquote(function)}/0`.
+
+      Used by Ecto when the schema field is declared with `autogenerate: true`.
+      """
+      @impl Ecto.Type
+      @spec autogenerate() :: t()
+      def autogenerate, do: new!(unquote(module).unquote(function)())
     end
   end
 
