@@ -22,7 +22,7 @@ end
 {:ok, ^id} = MyApp.UserId.parse("user_abc-123")
 ```
 
-See `Trogon.ObjectId` module docs for all options (`separator`, `storage_format`, `json_format`, `validate`, `proto`).
+See `Trogon.ObjectId` module docs for all options (`separator`, `storage_format`, `json_format`, `validate`, `autogenerate`, `proto`).
 
 ### Define a union of ObjectId types
 

@@ -151,4 +151,41 @@ defmodule Trogon.ObjectId.TestSupport do
     @moduledoc false
     use Trogon.UnionObjectId, types: [UuidFormatId, TenantId]
   end
+
+  defmodule AutogenUuidId do
+    @moduledoc false
+    use Trogon.ObjectId,
+      object_type: "autogen",
+      validate: :uuid,
+      autogenerate: :uuid7
+  end
+
+  defmodule AutogenUuidV4Id do
+    @moduledoc false
+    use Trogon.ObjectId,
+      object_type: "autogenv4",
+      autogenerate: :uuid4
+  end
+
+  defmodule CustomGenerator do
+    @moduledoc false
+
+    def generate, do: "generated-123"
+  end
+
+  defmodule AutogenCustomId do
+    @moduledoc false
+    use Trogon.ObjectId,
+      object_type: "autogencustom",
+      autogenerate: {Trogon.ObjectId.TestSupport.CustomGenerator, :generate}
+  end
+
+  defmodule AutogenDropPrefixId do
+    @moduledoc false
+    use Trogon.ObjectId,
+      object_type: "autogendrop",
+      storage_format: :drop_prefix,
+      validate: :uuid,
+      autogenerate: :uuid7
+  end
 end

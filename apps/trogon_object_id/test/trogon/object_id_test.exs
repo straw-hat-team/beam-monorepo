@@ -601,6 +601,100 @@ defmodule Trogon.ObjectIdTest do
     end
   end
 
+  describe "autogenerate/0" do
+    test ":uuid7 generates a uuid7 wrapped in the struct" do
+      assert %TestSupport.AutogenUuidId{id: id} = TestSupport.AutogenUuidId.autogenerate()
+      assert {:ok, %Uniq.UUID{version: 7}} = Uniq.UUID.parse(id)
+    end
+
+    test ":uuid4 generates a uuid4 wrapped in the struct" do
+      assert %TestSupport.AutogenUuidV4Id{id: id} = TestSupport.AutogenUuidV4Id.autogenerate()
+      assert {:ok, %Uniq.UUID{version: 4}} = Uniq.UUID.parse(id)
+    end
+
+    test "custom generator wraps the returned value in the struct" do
+      assert %TestSupport.AutogenCustomId{id: "generated-123"} = TestSupport.AutogenCustomId.autogenerate()
+    end
+
+    test "generates unique values" do
+      ids = for _ <- 1..100, do: TestSupport.AutogenUuidId.autogenerate().id
+      assert length(Enum.uniq(ids)) == 100
+    end
+
+    test "generated values round-trip through dump and load" do
+      typeid = TestSupport.AutogenUuidId.autogenerate()
+      assert {:ok, dumped} = TestSupport.AutogenUuidId.dump(typeid)
+      assert {:ok, ^typeid} = TestSupport.AutogenUuidId.load(dumped)
+    end
+
+    test "generated values round-trip with storage_format: :drop_prefix" do
+      typeid = TestSupport.AutogenDropPrefixId.autogenerate()
+      assert {:ok, dumped} = TestSupport.AutogenDropPrefixId.dump(typeid)
+      assert dumped == typeid.id
+      assert {:ok, ^typeid} = TestSupport.AutogenDropPrefixId.load(dumped)
+    end
+
+    test "modules without autogenerate do not export autogenerate/0" do
+      refute function_exported?(TestSupport.UserId, :autogenerate, 0)
+    end
+  end
+
+  describe "autogenerate: compile-time errors" do
+    test "raises ArgumentError when generator function does not exist" do
+      assert_raise ArgumentError, ~r/String.nonexistent\/0 is not defined/, fn ->
+        Code.compile_string("""
+        defmodule TestNonexistentGenerator do
+          use Trogon.ObjectId, object_type: "test", autogenerate: {String, :nonexistent}
+        end
+        """)
+      end
+    end
+
+    test "raises NimbleOptions.ValidationError for invalid autogenerate value" do
+      assert_raise NimbleOptions.ValidationError, fn ->
+        Code.compile_string("""
+        defmodule TestInvalidAutogenerate do
+          use Trogon.ObjectId, object_type: "test", autogenerate: :invalid
+        end
+        """)
+      end
+    end
+
+    test "raises ArgumentError when the generator module is defined after the ObjectId" do
+      assert_raise ArgumentError, ~r/could not load module TestLateGenerator/, fn ->
+        Code.compile_string("""
+        defmodule TestLateGeneratorId do
+          use Trogon.ObjectId, object_type: "test", autogenerate: {TestLateGenerator, :generate}
+        end
+
+        defmodule TestLateGenerator do
+          def generate, do: "late-123"
+        end
+        """)
+      end
+    end
+
+    test "raises ArgumentError when the generator module does not exist" do
+      assert_raise ArgumentError, ~r/could not load module TestMissingGenerator/, fn ->
+        Code.compile_string("""
+        defmodule TestMissingGeneratorId do
+          use Trogon.ObjectId, object_type: "test", autogenerate: {TestMissingGenerator, :generate}
+        end
+        """)
+      end
+    end
+
+    test "raises ArgumentError when autogenerate: :uuid7 is combined with validate: :integer" do
+      assert_raise ArgumentError, ~r/autogenerate: :uuid7 is incompatible with validate: :integer/, fn ->
+        Code.compile_string("""
+        defmodule TestIncompatibleAutogenerate do
+          use Trogon.ObjectId, object_type: "test", validate: :integer, autogenerate: :uuid7
+        end
+        """)
+      end
+    end
+  end
+
   describe "proto: option" do
     test "derives object_type from proto enum value" do
       assert TestSupport.ProtoTicketId.object_type() == "ticket"
