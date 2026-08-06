@@ -525,15 +525,14 @@ defmodule Trogon.ObjectId do
     end
   end
 
+  defp __generator_expr__(:uuid_v7), do: quote(do: Uniq.UUID.uuid7())
+  defp __generator_expr__(:uuid_v4), do: quote(do: Uniq.UUID.uuid4())
+  defp __generator_expr__({module, function}), do: quote(do: unquote(module).unquote(function)())
+
   defp __generated_ecto_autogenerate__(nil), do: nil
 
   defp __generated_ecto_autogenerate__(autogenerate) do
-    generator =
-      case autogenerate do
-        :uuid_v7 -> quote(do: Uniq.UUID.uuid7())
-        :uuid_v4 -> quote(do: Uniq.UUID.uuid4())
-        {module, function} -> quote(do: unquote(module).unquote(function)())
-      end
+    generator = __generator_expr__(autogenerate)
 
     quote location: :keep do
       @doc """
