@@ -602,7 +602,7 @@ defmodule Trogon.ObjectIdTest do
   end
 
   describe "autogenerate/0" do
-    test ":uuid generates a UUIDv7 wrapped in the struct" do
+    test ":uuid_v7 generates a UUIDv7 wrapped in the struct" do
       assert %TestSupport.AutogenUuidId{id: id} = TestSupport.AutogenUuidId.autogenerate()
       assert {:ok, %Uniq.UUID{version: 7}} = Uniq.UUID.parse(id)
     end
@@ -660,11 +660,11 @@ defmodule Trogon.ObjectIdTest do
       end
     end
 
-    test "raises ArgumentError when autogenerate: :uuid is combined with validate: :integer" do
-      assert_raise ArgumentError, ~r/autogenerate: :uuid is incompatible with validate: :integer/, fn ->
+    test "raises ArgumentError when autogenerate: :uuid_v7 is combined with validate: :integer" do
+      assert_raise ArgumentError, ~r/autogenerate: :uuid_v7 is incompatible with validate: :integer/, fn ->
         Code.compile_string("""
         defmodule TestIncompatibleAutogenerate do
-          use Trogon.ObjectId, object_type: "test", validate: :integer, autogenerate: :uuid
+          use Trogon.ObjectId, object_type: "test", validate: :integer, autogenerate: :uuid_v7
         end
         """)
       end

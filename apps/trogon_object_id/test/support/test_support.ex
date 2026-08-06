@@ -157,7 +157,7 @@ defmodule Trogon.ObjectId.TestSupport do
     use Trogon.ObjectId,
       object_type: "autogen",
       validate: :uuid,
-      autogenerate: :uuid
+      autogenerate: :uuid_v7
   end
 
   defmodule AutogenUuidV4Id do
@@ -186,6 +186,6 @@ defmodule Trogon.ObjectId.TestSupport do
       object_type: "autogendrop",
       storage_format: :drop_prefix,
       validate: :uuid,
-      autogenerate: :uuid
+      autogenerate: :uuid_v7
   end
 end
