@@ -63,7 +63,7 @@ defmodule Trogon.ObjectId do
         use Trogon.ObjectId,
           object_type: "user",
           validate: :uuid,
-          autogenerate: :uuid_v7
+          autogenerate: :uuidv7
       end
 
       @primary_key {:id, MyApp.UserId, autogenerate: true}
@@ -137,15 +137,15 @@ defmodule Trogon.ObjectId do
                          """
                        ],
                        autogenerate: [
-                         type: {:or, [{:in, [nil, :uuid_v7, :uuid_v4]}, {:tuple, [:atom, :atom]}]},
+                         type: {:or, [{:in, [nil, :uuidv7, :uuidv4]}, {:tuple, [:atom, :atom]}]},
                          default: nil,
                          doc: """
                          Autogeneration for the raw id value (without prefix). When set, the module
                          exports `autogenerate/0` so the ObjectId can be used as an Ecto primary key
                          with `autogenerate: true`.
                          - `nil` - No autogeneration (default)
-                         - `:uuid_v7` - Generates a UUIDv7
-                         - `:uuid_v4` - Generates a UUIDv4
+                         - `:uuidv7` - Generates a UUIDv7
+                         - `:uuidv4` - Generates a UUIDv4
                          - `{Module, :function}` - Custom generator (compile-time optimized direct call).
                            The zero-arity function must return the raw id value as a string.
                          """
@@ -170,7 +170,7 @@ defmodule Trogon.ObjectId do
 
   defp validate_mf!(_, _arity), do: :ok
 
-  defp validate_autogenerate_compatibility!(autogenerate, :integer) when autogenerate in [:uuid_v7, :uuid_v4] do
+  defp validate_autogenerate_compatibility!(autogenerate, :integer) when autogenerate in [:uuidv7, :uuidv4] do
     raise ArgumentError,
           "autogenerate: #{inspect(autogenerate)} is incompatible with validate: :integer"
   end
@@ -525,8 +525,8 @@ defmodule Trogon.ObjectId do
     end
   end
 
-  defp __generator_expr__(:uuid_v7), do: quote(do: Uniq.UUID.uuid7())
-  defp __generator_expr__(:uuid_v4), do: quote(do: Uniq.UUID.uuid4())
+  defp __generator_expr__(:uuidv7), do: quote(do: Uniq.UUID.uuid7())
+  defp __generator_expr__(:uuidv4), do: quote(do: Uniq.UUID.uuid4())
   defp __generator_expr__({module, function}), do: quote(do: unquote(module).unquote(function)())
 
   defp __generated_ecto_autogenerate__(nil), do: nil
