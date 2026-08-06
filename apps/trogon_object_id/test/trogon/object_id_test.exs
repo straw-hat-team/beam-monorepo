@@ -660,6 +660,30 @@ defmodule Trogon.ObjectIdTest do
       end
     end
 
+    test "raises ArgumentError when the generator module is defined after the ObjectId" do
+      assert_raise ArgumentError, ~r/could not load module TestLateGenerator/, fn ->
+        Code.compile_string("""
+        defmodule TestLateGeneratorId do
+          use Trogon.ObjectId, object_type: "test", autogenerate: {TestLateGenerator, :generate}
+        end
+
+        defmodule TestLateGenerator do
+          def generate, do: "late-123"
+        end
+        """)
+      end
+    end
+
+    test "raises ArgumentError when the generator module does not exist" do
+      assert_raise ArgumentError, ~r/could not load module TestMissingGenerator/, fn ->
+        Code.compile_string("""
+        defmodule TestMissingGeneratorId do
+          use Trogon.ObjectId, object_type: "test", autogenerate: {TestMissingGenerator, :generate}
+        end
+        """)
+      end
+    end
+
     test "raises ArgumentError when autogenerate: :uuidv7 is combined with validate: :integer" do
       assert_raise ArgumentError, ~r/autogenerate: :uuidv7 is incompatible with validate: :integer/, fn ->
         Code.compile_string("""

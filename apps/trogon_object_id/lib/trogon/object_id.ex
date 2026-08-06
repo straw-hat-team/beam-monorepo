@@ -156,15 +156,18 @@ defmodule Trogon.ObjectId do
   defp expand_mf(other, _caller), do: other
 
   defp validate_mf!({module, function}, arity) do
-    cond do
-      not Code.ensure_loaded?(module) ->
-        :ok
+    case Code.ensure_compiled(module) do
+      {:module, _} ->
+        if function_exported?(module, function, arity) do
+          :ok
+        else
+          raise ArgumentError, "#{inspect(module)}.#{function}/#{arity} is not defined"
+        end
 
-      not function_exported?(module, function, arity) ->
-        raise ArgumentError, "#{inspect(module)}.#{function}/#{arity} is not defined"
-
-      true ->
-        :ok
+      {:error, reason} ->
+        raise ArgumentError,
+              "could not load module #{inspect(module)} due to reason #{inspect(reason)}. " <>
+                "Make sure the module is defined before it is referenced"
     end
   end
 
