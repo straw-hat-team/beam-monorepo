@@ -63,7 +63,7 @@ defmodule Trogon.ObjectId do
         use Trogon.ObjectId,
           object_type: "user",
           validate: :uuid,
-          autogenerate: :uuidv7
+          autogenerate: :uuid7
       end
 
       @primary_key {:id, MyApp.UserId, autogenerate: true}
@@ -137,15 +137,15 @@ defmodule Trogon.ObjectId do
                          """
                        ],
                        autogenerate: [
-                         type: {:or, [{:in, [nil, :uuidv7, :uuidv4]}, {:tuple, [:atom, :atom]}]},
+                         type: {:or, [{:in, [nil, :uuid7, :uuid4]}, {:tuple, [:atom, :atom]}]},
                          default: nil,
                          doc: """
                          Autogeneration for the raw id value (without prefix). When set, the module
                          exports `autogenerate/0` so the ObjectId can be used as an Ecto primary key
                          with `autogenerate: true`.
                          - `nil` - No autogeneration (default)
-                         - `:uuidv7` - Generates a uuid7 via `Uniq.UUID.uuid7/0`
-                         - `:uuidv4` - Generates a uuid4 via `Uniq.UUID.uuid4/0`
+                         - `:uuid7` - Generates a uuid7 via `Uniq.UUID.uuid7/0`
+                         - `:uuid4` - Generates a uuid4 via `Uniq.UUID.uuid4/0`
                          - `{Module, :function}` - Custom generator (compile-time optimized direct call).
                            The zero-arity function must return the raw id value as a string.
                          """
@@ -173,7 +173,7 @@ defmodule Trogon.ObjectId do
 
   defp validate_mf!(_, _arity), do: :ok
 
-  defp validate_autogenerate_compatibility!(autogenerate, :integer) when autogenerate in [:uuidv7, :uuidv4] do
+  defp validate_autogenerate_compatibility!(autogenerate, :integer) when autogenerate in [:uuid7, :uuid4] do
     raise ArgumentError,
           "autogenerate: #{inspect(autogenerate)} is incompatible with validate: :integer"
   end
@@ -530,7 +530,7 @@ defmodule Trogon.ObjectId do
 
   defp __generated_ecto_autogenerate__(nil), do: nil
 
-  defp __generated_ecto_autogenerate__(:uuidv7) do
+  defp __generated_ecto_autogenerate__(:uuid7) do
     quote location: :keep do
       @doc """
       Generates a new ObjectId with a uuid7 id via `Uniq.UUID.uuid7/0`.
@@ -543,7 +543,7 @@ defmodule Trogon.ObjectId do
     end
   end
 
-  defp __generated_ecto_autogenerate__(:uuidv4) do
+  defp __generated_ecto_autogenerate__(:uuid4) do
     quote location: :keep do
       @doc """
       Generates a new ObjectId with a uuid4 id via `Uniq.UUID.uuid4/0`.
