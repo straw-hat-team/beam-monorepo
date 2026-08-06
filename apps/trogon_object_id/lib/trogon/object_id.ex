@@ -144,8 +144,8 @@ defmodule Trogon.ObjectId do
                          exports `autogenerate/0` so the ObjectId can be used as an Ecto primary key
                          with `autogenerate: true`.
                          - `nil` - No autogeneration (default)
-                         - `:uuidv7` - Generates a UUIDv7
-                         - `:uuidv4` - Generates a UUIDv4
+                         - `:uuidv7` - Generates a uuid7 via `Uniq.UUID.uuid7/0`
+                         - `:uuidv4` - Generates a uuid4 via `Uniq.UUID.uuid4/0`
                          - `{Module, :function}` - Custom generator (compile-time optimized direct call).
                            The zero-arity function must return the raw id value as a string.
                          """
@@ -530,7 +530,7 @@ defmodule Trogon.ObjectId do
   defp __generated_ecto_autogenerate__(:uuidv7) do
     quote location: :keep do
       @doc """
-      Generates a new ObjectId with a UUIDv7 id.
+      Generates a new ObjectId with a uuid7 id via `Uniq.UUID.uuid7/0`.
 
       Used by Ecto when the schema field is declared with `autogenerate: true`.
       """
@@ -543,7 +543,7 @@ defmodule Trogon.ObjectId do
   defp __generated_ecto_autogenerate__(:uuidv4) do
     quote location: :keep do
       @doc """
-      Generates a new ObjectId with a UUIDv4 id.
+      Generates a new ObjectId with a uuid4 id via `Uniq.UUID.uuid4/0`.
 
       Used by Ecto when the schema field is declared with `autogenerate: true`.
       """

@@ -602,12 +602,12 @@ defmodule Trogon.ObjectIdTest do
   end
 
   describe "autogenerate/0" do
-    test ":uuidv7 generates a UUIDv7 wrapped in the struct" do
+    test ":uuidv7 generates a uuid7 wrapped in the struct" do
       assert %TestSupport.AutogenUuidId{id: id} = TestSupport.AutogenUuidId.autogenerate()
       assert {:ok, %Uniq.UUID{version: 7}} = Uniq.UUID.parse(id)
     end
 
-    test ":uuidv4 generates a UUIDv4 wrapped in the struct" do
+    test ":uuidv4 generates a uuid4 wrapped in the struct" do
       assert %TestSupport.AutogenUuidV4Id{id: id} = TestSupport.AutogenUuidV4Id.autogenerate()
       assert {:ok, %Uniq.UUID{version: 4}} = Uniq.UUID.parse(id)
     end
