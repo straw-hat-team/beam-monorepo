@@ -359,6 +359,17 @@ defmodule Trogon.UnionObjectIdTest do
       assert not TestSupport.ContextId.equal?(union, nil)
       assert not TestSupport.ContextId.equal?(union, "string")
     end
+
+    test "returns true for nil on both sides" do
+      assert TestSupport.ContextId.equal?(nil, nil)
+    end
+
+    test "returns false when only one side is nil" do
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
+      union = TestSupport.ContextId.new(tenant_id)
+
+      assert not TestSupport.ContextId.equal?(nil, union)
+    end
   end
 
   describe "embed_as/1" do
