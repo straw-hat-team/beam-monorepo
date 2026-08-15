@@ -106,39 +106,41 @@ defmodule Trogon.Ecto.ValueObjectTest do
     end
 
     test "surfaces a message when a map fails to cast" do
-      assert {:error, [message: "is invalid: title is invalid"]} = TestSupport.MessageOne.cast(%{title: 1})
+      assert {:error, [message: "is invalid: %{details}", details: "title is invalid"]} =
+               TestSupport.MessageOne.cast(%{title: 1})
     end
 
     test "surfaces a missing required field" do
-      assert {:error, [message: "is invalid: title can't be blank"]} = TestSupport.MessageTwo.cast(%{})
+      assert cast_details(TestSupport.MessageTwo.cast(%{})) == "title can't be blank"
     end
 
     test "interpolates the error message placeholders" do
-      assert {:error, [message: "is invalid: amount must be greater than 0"]} =
-               TestSupport.TransferableMoney.cast(%{amount: -5, currency: :USD})
+      assert cast_details(TestSupport.TransferableMoney.cast(%{amount: -5, currency: :USD})) ==
+               "amount must be greater than 0"
     end
 
     test "surfaces a nested embed error with a dotted path" do
-      assert {:error, [message: "is invalid: target.title is invalid"]} =
-               TestSupport.MessageThree.cast(%{target: %{title: 1}})
+      assert cast_details(TestSupport.MessageThree.cast(%{target: %{title: 1}})) == "target.title is invalid"
     end
 
     test "surfaces an embeds_many error with the index in the path" do
-      assert {:error, [message: "is invalid: targets.0.target.title is invalid"]} =
-               TestSupport.MessageFour.cast(%{targets: [%{target: %{title: 1}}]})
+      assert cast_details(TestSupport.MessageFour.cast(%{targets: [%{target: %{title: 1}}]})) ==
+               "targets.0.target.title is invalid"
     end
 
     test "surfaces a polymorphic embed error" do
-      assert {:error, [message: "is invalid: content.subject can't be blank"]} =
-               TestSupport.NotificationWithPolymorphicEmbed.cast(%{
-                 title: "Hello, World!",
-                 content: %{__type__: "email", body: "Body"}
-               })
+      result =
+        TestSupport.NotificationWithPolymorphicEmbed.cast(%{
+          title: "Hello, World!",
+          content: %{__type__: "email", body: "Body"}
+        })
+
+      assert cast_details(result) == "content.subject can't be blank"
     end
 
-    test "keeps the error metadata usable by the standard error interpolation helper" do
-      # Nested detail goes into the message as a binary rather than into the
-      # metadata, because the idiomatic helper calls to_string/1 on every opt.
+    test "renders the detail through the standard error interpolation helper" do
+      # The detail rides along as a binary in the metadata so that to_string/1
+      # over the opts, which is what the idiomatic helper does, stays safe.
       assert {:error, changeset} = TestSupport.BoxWithField.new(%{content: %{title: 1}})
 
       assert %{content: ["is invalid: title is invalid"]} = TestSupport.errors_on(changeset)
@@ -401,4 +403,6 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert notification.content.body == "Test Body"
     end
   end
+
+  defp cast_details({:error, opts}), do: Keyword.fetch!(opts, :details)
 end

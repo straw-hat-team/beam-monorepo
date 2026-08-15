@@ -511,7 +511,7 @@ defmodule Trogon.Ecto.ValueObject do
   def cast_error(%Changeset{} = changeset) do
     case describe_errors(changeset) do
       "" -> [message: "is invalid"]
-      details -> [message: "is invalid: " <> details]
+      details -> [message: "is invalid: %{details}", details: details]
     end
   end
 
