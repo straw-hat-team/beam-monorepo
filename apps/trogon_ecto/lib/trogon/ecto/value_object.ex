@@ -166,40 +166,13 @@ defmodule Trogon.Ecto.ValueObject do
     required_fields = enforced_keys -- all_embeds
 
     introspection =
-      quote unquote: false,
-            bind_quoted: [
-              enforced_keys: enforced_keys,
-              polymorphic_embeds: polymorphic_embeds,
-              polymorphic_embeds_many: polymorphic_embeds_many,
-              cast_fields: cast_fields,
-              required_fields: required_fields
-            ] do
-        for the_key <- enforced_keys do
-          def __enforced_keys__?(unquote(the_key)) do
-            true
-          end
-        end
-
-        def __enforced_keys__?(_) do
-          false
-        end
-
-        def __polymorphic_embeds__ do
-          unquote(polymorphic_embeds)
-        end
-
-        def __polymorphic_embeds_many__ do
-          unquote(polymorphic_embeds_many)
-        end
-
-        def __cast_fields__ do
-          unquote(cast_fields)
-        end
-
-        def __required_fields__ do
-          unquote(required_fields)
-        end
-      end
+      build_introspection(
+        cast_fields,
+        required_fields,
+        polymorphic_embeds,
+        polymorphic_embeds_many,
+        enforced_keys
+      )
 
     changeset_body =
       build_changeset_body(
@@ -225,6 +198,49 @@ defmodule Trogon.Ecto.ValueObject do
     end
   end
 
+  defp build_introspection(
+         cast_fields,
+         required_fields,
+         polymorphic_embeds,
+         polymorphic_embeds_many,
+         enforced_keys
+       ) do
+    quote unquote: false,
+          bind_quoted: [
+            enforced_keys: enforced_keys,
+            polymorphic_embeds: polymorphic_embeds,
+            polymorphic_embeds_many: polymorphic_embeds_many,
+            cast_fields: cast_fields,
+            required_fields: required_fields
+          ] do
+      for the_key <- enforced_keys do
+        def __enforced_keys__?(unquote(the_key)) do
+          true
+        end
+      end
+
+      def __enforced_keys__?(_) do
+        false
+      end
+
+      def __polymorphic_embeds__ do
+        unquote(polymorphic_embeds)
+      end
+
+      def __polymorphic_embeds_many__ do
+        unquote(polymorphic_embeds_many)
+      end
+
+      def __cast_fields__ do
+        unquote(cast_fields)
+      end
+
+      def __required_fields__ do
+        unquote(required_fields)
+      end
+    end
+  end
+
   defp build_changeset_body(
          cast_fields,
          required_fields,
@@ -234,12 +250,12 @@ defmodule Trogon.Ecto.ValueObject do
          enforced_keys
        ) do
     steps =
-      validate_required_step(required_fields) ++
-        Enum.map(embeds, &embed_step(&1, &1 in enforced_keys)) ++
-        Enum.map(polymorphic_embeds, &polymorphic_embed_step(&1, &1 in enforced_keys)) ++
-        Enum.map(Enum.filter(polymorphic_embeds_many, &(&1 in enforced_keys)), &required_many_step/1)
+      validate_required_steps(required_fields) ++
+        Enum.map(embeds, &{:embed, &1, &1 in enforced_keys}) ++
+        Enum.map(polymorphic_embeds, &{:polymorphic_embed, &1, &1 in enforced_keys}) ++
+        Enum.map(Enum.filter(polymorphic_embeds_many, &(&1 in enforced_keys)), &{:required_many, &1})
 
-    Enum.reduce(steps, cast_step(cast_fields), fn step, acc -> step.(acc) end)
+    Enum.reduce(steps, cast_step(cast_fields), &apply_step/2)
   end
 
   defp cast_step(cast_fields) do
@@ -249,39 +265,30 @@ defmodule Trogon.Ecto.ValueObject do
     quote do: Ecto.Changeset.cast(unquote(message), unquote(attrs), unquote(cast_fields))
   end
 
-  defp validate_required_step([]), do: []
+  defp validate_required_steps([]), do: []
+  defp validate_required_steps(required_fields), do: [{:required, required_fields}]
 
-  defp validate_required_step(required_fields) do
-    [
-      fn changeset ->
-        quote do
-          Ecto.Changeset.validate_required(unquote(changeset), unquote(required_fields))
-        end
-      end
-    ]
-  end
-
-  defp embed_step(field, required?) do
-    fn changeset ->
-      quote do
-        Ecto.Changeset.cast_embed(unquote(changeset), unquote(field), required: unquote(required?))
-      end
+  defp apply_step({:required, fields}, changeset) do
+    quote do
+      Ecto.Changeset.validate_required(unquote(changeset), unquote(fields))
     end
   end
 
-  defp polymorphic_embed_step(field, required?) do
-    fn changeset ->
-      quote do
-        PolymorphicEmbed.cast_polymorphic_embed(unquote(changeset), unquote(field), required: unquote(required?))
-      end
+  defp apply_step({:embed, field, required?}, changeset) do
+    quote do
+      Ecto.Changeset.cast_embed(unquote(changeset), unquote(field), required: unquote(required?))
     end
   end
 
-  defp required_many_step(field) do
-    fn changeset ->
-      quote do
-        Trogon.Ecto.ValueObject.validate_required_many(unquote(changeset), unquote(field))
-      end
+  defp apply_step({:polymorphic_embed, field, required?}, changeset) do
+    quote do
+      PolymorphicEmbed.cast_polymorphic_embed(unquote(changeset), unquote(field), required: unquote(required?))
+    end
+  end
+
+  defp apply_step({:required_many, field}, changeset) do
+    quote do
+      Trogon.Ecto.ValueObject.validate_required_many(unquote(changeset), unquote(field))
     end
   end
 
