@@ -122,7 +122,7 @@ defmodule Trogon.Ecto.ValueObject do
       def cast(value) when is_map(value) do
         case new(value) do
           {:ok, v} -> {:ok, v}
-          {:error, changeset} -> {:error, Trogon.Ecto.ValueObject.cast_error(changeset)}
+          {:error, changeset} -> {:error, Trogon.Ecto.ValueObject.to_cast_error(changeset)}
         end
       end
 
@@ -507,8 +507,8 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   @doc false
-  @spec cast_error(Ecto.Changeset.t()) :: keyword()
-  def cast_error(%Changeset{} = changeset) do
+  @spec to_cast_error(Ecto.Changeset.t()) :: keyword()
+  def to_cast_error(%Changeset{} = changeset) do
     case describe_errors(changeset) do
       "" -> [message: "is invalid"]
       details -> [message: "is invalid: %{details}", details: details]
@@ -523,27 +523,36 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   defp flatten_errors(errors, path) when is_map(errors) do
-    Enum.flat_map(errors, fn {field, value} ->
-      flatten_errors(value, join_path(path, to_string(field)))
-    end)
+    Enum.flat_map(errors, &flatten_field_errors(&1, path))
   end
 
   defp flatten_errors(errors, path) when is_list(errors) do
     errors
     |> Enum.with_index()
-    |> Enum.flat_map(fn
-      {message, _index} when is_binary(message) -> [path <> " " <> message]
-      {nested, index} -> flatten_errors(nested, join_path(path, Integer.to_string(index)))
-    end)
+    |> Enum.flat_map(&flatten_indexed_errors(&1, path))
+  end
+
+  defp flatten_field_errors({field, value}, path) do
+    flatten_errors(value, join_path(path, to_string(field)))
+  end
+
+  defp flatten_indexed_errors({message, _index}, path) when is_binary(message) do
+    [path <> " " <> message]
+  end
+
+  defp flatten_indexed_errors({nested, index}, path) do
+    flatten_errors(nested, join_path(path, Integer.to_string(index)))
   end
 
   defp join_path("", segment), do: segment
   defp join_path(path, segment), do: path <> "." <> segment
 
   defp interpolate_message({message, opts}) do
-    Enum.reduce(opts, message, fn {key, value}, acc ->
-      String.replace(acc, "%{#{key}}", stringify(value))
-    end)
+    Enum.reduce(opts, message, &replace_binding/2)
+  end
+
+  defp replace_binding({key, value}, message) do
+    String.replace(message, "%{#{key}}", stringify(value))
   end
 
   defp stringify(value) when is_binary(value), do: value
