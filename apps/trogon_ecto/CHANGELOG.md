@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.1.1...trogon_ecto@v0.2.0) (2026-08-15)
+
+
+### Features
+
+* **trogon_ecto:** Surface nested errors when casting a value object ([#431](https://github.com/straw-hat-team/beam-monorepo/issues/431)) ([3799331](https://github.com/straw-hat-team/beam-monorepo/commit/3799331737abed367f0d035f9d7ae16ec70b840f))
+
 ## [0.1.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.1.0...trogon_ecto@v0.1.1) (2026-06-03)
 
 
