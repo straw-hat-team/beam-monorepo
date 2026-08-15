@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_object_id@v0.2.0...trogon_object_id@v0.2.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* **trogon_object_id:** Align equal?/2 with the Ecto.Type nil contract ([#429](https://github.com/straw-hat-team/beam-monorepo/issues/429)) ([a391839](https://github.com/straw-hat-team/beam-monorepo/commit/a39183904a5bcb81f5ea09c24c49f8228eed15f1))
+
 ## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_object_id@v0.1.2...trogon_object_id@v0.2.0) (2026-08-06)
 
 
