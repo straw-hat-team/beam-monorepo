@@ -208,6 +208,32 @@ defmodule Trogon.Ecto.TestSupport do
     end
   end
 
+  defmodule InspectedMetadataMessage do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :code, :string
+    end
+
+    def validate(changeset, _attrs) do
+      Changeset.add_error(changeset, :code, "got %{value}", value: [1, 2])
+    end
+  end
+
+  defmodule MultiPlaceholderMessage do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :code, :string
+    end
+
+    def validate(changeset, _attrs) do
+      Changeset.add_error(changeset, :code, "%{count} of %{kind}", count: 2, kind: :list)
+    end
+  end
+
   defmodule WithPrimaryKey do
     @moduledoc false
     use Trogon.Ecto.ValueObject
