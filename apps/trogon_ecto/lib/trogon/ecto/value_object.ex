@@ -503,12 +503,22 @@ defmodule Trogon.Ecto.ValueObject do
   @doc false
   @spec validate_required_many(Ecto.Changeset.t(), atom()) :: Ecto.Changeset.t()
   def validate_required_many(changeset, field) do
-    if Changeset.get_field(changeset, field) == [] do
+    if Changeset.get_field(changeset, field) == [] and not required_error?(changeset, field) do
       Changeset.add_error(changeset, field, "can't be blank", validation: :required)
     else
       changeset
     end
   end
+
+  defp required_error?(changeset, field) do
+    Enum.any?(changeset.errors, &required_error_for?(&1, field))
+  end
+
+  defp required_error_for?({field, {_message, opts}}, field) do
+    Keyword.get(opts, :validation) == :required
+  end
+
+  defp required_error_for?(_error, _field), do: false
 
   @doc false
   @spec to_cast_error(Ecto.Changeset.t()) :: keyword()

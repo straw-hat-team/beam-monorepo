@@ -212,6 +212,25 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert {:error, changeset} = TestSupport.MessageFour.new(%{targets: []})
       assert %{targets: ["can't be blank"]} = TestSupport.errors_on(changeset)
     end
+
+    test "reports a required polymorphic_embeds_many field only once when it is nil" do
+      assert {:error, changeset} =
+               TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{title: "t", contents: nil})
+
+      assert %{contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "reports a required polymorphic_embeds_many field only once when it is omitted" do
+      assert {:error, changeset} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{title: "t"})
+      assert %{contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "reports a required polymorphic_embeds_many field only once when it is empty" do
+      assert {:error, changeset} =
+               TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{title: "t", contents: []})
+
+      assert %{contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
   end
 
   describe "optional embeds" do
