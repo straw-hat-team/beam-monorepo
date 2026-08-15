@@ -174,8 +174,8 @@ defmodule Trogon.Ecto.ValueObject do
         enforced_keys
       )
 
-    changeset_body =
-      build_changeset_body(
+    changeset =
+      build_changeset(
         cast_fields,
         required_fields,
         embed_names,
@@ -186,12 +186,7 @@ defmodule Trogon.Ecto.ValueObject do
 
     quote do
       unquote(introspection)
-
-      @doc false
-      @spec __value_object_changeset__(message :: struct(), attrs :: map()) :: Ecto.Changeset.t()
-      def __value_object_changeset__(message, attrs) do
-        unquote(changeset_body)
-      end
+      unquote(changeset)
     end
   end
 
@@ -238,7 +233,7 @@ defmodule Trogon.Ecto.ValueObject do
     end
   end
 
-  defp build_changeset_body(
+  defp build_changeset(
          cast_fields,
          required_fields,
          embeds,
@@ -252,7 +247,15 @@ defmodule Trogon.Ecto.ValueObject do
         Enum.map(polymorphic_embeds, &{:polymorphic_embed, &1, &1 in enforced_keys}) ++
         Enum.map(Enum.filter(polymorphic_embeds_many, &(&1 in enforced_keys)), &{:required_many, &1})
 
-    Enum.reduce(steps, cast_step(cast_fields), &apply_step/2)
+    body = Enum.reduce(steps, cast_step(cast_fields), &apply_step/2)
+
+    quote do
+      @doc false
+      @spec __value_object_changeset__(message :: struct(), attrs :: map()) :: Ecto.Changeset.t()
+      def __value_object_changeset__(message, attrs) do
+        unquote(body)
+      end
+    end
   end
 
   defp cast_step(cast_fields) do
