@@ -149,6 +149,24 @@ defmodule Trogon.Ecto.ValueObjectTest do
     test "casts an invalid input" do
       assert :error = TestSupport.MessageOne.cast(1)
     end
+
+    test "keeps a placeholder that has no matching metadata verbatim" do
+      # A leftover placeholder means the message author referenced a binding they
+      # never supplied. Surfacing it as written keeps that visible instead of
+      # rewriting a message the library does not own.
+      assert cast_details(TestSupport.BoxWithUninterpolatedMessage.cast(%{content: %{code: "x"}})) ==
+               "content is invalid: code bad %{zzz_never_an_existing_atom_qqq}"
+    end
+
+    test "renders a detail carrying an unknown placeholder without raising" do
+      # Interpolation makes a single pass over the original message, so the text
+      # substituted for %{details} is never rescanned and its placeholder never
+      # reaches String.to_existing_atom/1.
+      assert {:error, changeset} = TestSupport.BoxWithUninterpolatedMessage.new(%{content: %{code: "x"}})
+
+      assert %{content: ["is invalid: code bad %{zzz_never_an_existing_atom_qqq}"]} =
+               TestSupport.errors_on(changeset)
+    end
   end
 
   describe "load/1" do

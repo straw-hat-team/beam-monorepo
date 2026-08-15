@@ -186,6 +186,28 @@ defmodule Trogon.Ecto.TestSupport do
     end
   end
 
+  defmodule UninterpolatedMessage do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :code, :string
+    end
+
+    def validate(changeset, _attrs) do
+      Changeset.add_error(changeset, :code, "bad %{zzz_never_an_existing_atom_qqq}")
+    end
+  end
+
+  defmodule BoxWithUninterpolatedMessage do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :content, UninterpolatedMessage
+    end
+  end
+
   defmodule WithPrimaryKey do
     @moduledoc false
     use Trogon.Ecto.ValueObject
