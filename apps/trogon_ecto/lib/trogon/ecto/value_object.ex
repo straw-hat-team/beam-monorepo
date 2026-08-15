@@ -189,10 +189,7 @@ defmodule Trogon.Ecto.ValueObject do
 
       @doc false
       @spec __value_object_changeset__(message :: struct(), attrs :: map()) :: Ecto.Changeset.t()
-      def __value_object_changeset__(
-            unquote(Macro.var(:message, __MODULE__)),
-            unquote(Macro.var(:attrs, __MODULE__))
-          ) do
+      def __value_object_changeset__(message, attrs) do
         unquote(changeset_body)
       end
     end
@@ -259,10 +256,7 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   defp cast_step(cast_fields) do
-    message = Macro.var(:message, __MODULE__)
-    attrs = Macro.var(:attrs, __MODULE__)
-
-    quote do: Ecto.Changeset.cast(unquote(message), unquote(attrs), unquote(cast_fields))
+    quote do: Ecto.Changeset.cast(message, attrs, unquote(cast_fields))
   end
 
   defp validate_required_steps([]), do: []
