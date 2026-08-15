@@ -381,6 +381,17 @@ defmodule Trogon.ObjectIdTest do
 
       assert not TestSupport.UserId.equal?(uuid1, "invalid")
     end
+
+    test "returns true for nil on both sides" do
+      assert TestSupport.UserId.equal?(nil, nil)
+    end
+
+    test "returns false when only one side is nil" do
+      uuid1 = TestSupport.UserId.new!(@test_uuid)
+
+      assert not TestSupport.UserId.equal?(nil, uuid1)
+      assert not TestSupport.UserId.equal?(uuid1, nil)
+    end
   end
 
   describe "embed_as/1" do

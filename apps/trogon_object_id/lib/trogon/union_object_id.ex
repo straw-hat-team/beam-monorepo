@@ -311,6 +311,7 @@ defmodule Trogon.UnionObjectId do
     quote location: :keep do
       @impl Ecto.Type
       @spec equal?(any(), any()) :: boolean()
+      def equal?(nil, nil), do: true
       def equal?(%__MODULE__{id: a}, %__MODULE__{id: b}), do: a == b
       def equal?(_, _), do: false
 
