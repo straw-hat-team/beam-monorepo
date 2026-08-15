@@ -106,11 +106,101 @@ defmodule Trogon.Ecto.ValueObjectTest do
     end
 
     test "surfaces a message when a map fails to cast" do
-      assert {:error, [message: "is invalid"]} = TestSupport.MessageOne.cast(%{title: 1})
+      assert {:error, [message: "is invalid: %{details}", details: "title is invalid"]} =
+               TestSupport.MessageOne.cast(%{title: 1})
+    end
+
+    test "surfaces a missing required field" do
+      assert cast_details(TestSupport.MessageTwo.cast(%{})) == "title can't be blank"
+    end
+
+    test "interpolates the error message placeholders" do
+      assert cast_details(TestSupport.TransferableMoney.cast(%{amount: -5, currency: :USD})) ==
+               "amount must be greater than 0"
+    end
+
+    test "surfaces a nested embed error with a dotted path" do
+      assert cast_details(TestSupport.MessageThree.cast(%{target: %{title: 1}})) == "target.title is invalid"
+    end
+
+    test "surfaces an embeds_many error with the index in the path" do
+      assert cast_details(TestSupport.MessageFour.cast(%{targets: [%{target: %{title: 1}}]})) ==
+               "targets.0.target.title is invalid"
+    end
+
+    test "reports the position of the failing element in an embeds_many list" do
+      result = TestSupport.MessageFour.cast(%{targets: [%{target: %{title: "ok"}}, %{target: %{title: 1}}]})
+
+      assert cast_details(result) == "targets.1.target.title is invalid"
+    end
+
+    test "reports the position of the failing element in a polymorphic_embeds_many list" do
+      result =
+        TestSupport.MessageWithMultiplePolymorphicEmbeds.cast(%{
+          title: "t",
+          contents: [%{__type__: "email", subject: "s", body: "b"}, %{__type__: "sms", message: "m"}]
+        })
+
+      assert cast_details(result) == "contents.1.phone can't be blank"
+    end
+
+    test "joins sibling errors into a single detail" do
+      details = TestSupport.TransferableMoney.cast(%{amount: -5, currency: "nope"}) |> cast_details()
+
+      assert details |> String.split(", ") |> Enum.sort() == [
+               "amount must be greater than 0",
+               "currency is invalid"
+             ]
+    end
+
+    test "interpolates every placeholder a message carries" do
+      assert cast_details(TestSupport.MultiPlaceholderMessage.cast(%{code: "x"})) == "code 2 of list"
+    end
+
+    test "renders metadata that is not a scalar through inspect/1" do
+      # to_string/1 would turn [1, 2] into a two byte binary rather than fail, so
+      # the fallback has to inspect the value instead of stringifying it.
+      assert cast_details(TestSupport.InspectedMetadataMessage.cast(%{code: "x"})) == "code got [1, 2]"
+    end
+
+    test "surfaces a polymorphic embed error" do
+      result =
+        TestSupport.NotificationWithPolymorphicEmbed.cast(%{
+          title: "Hello, World!",
+          content: %{__type__: "email", body: "Body"}
+        })
+
+      assert cast_details(result) == "content.subject can't be blank"
+    end
+
+    test "renders the detail through the standard error interpolation helper" do
+      # The detail rides along as a binary in the metadata so that to_string/1
+      # over the opts, which is what the idiomatic helper does, stays safe.
+      assert {:error, changeset} = TestSupport.BoxWithField.new(%{content: %{title: 1}})
+
+      assert %{content: ["is invalid: title is invalid"]} = TestSupport.errors_on(changeset)
     end
 
     test "casts an invalid input" do
       assert :error = TestSupport.MessageOne.cast(1)
+    end
+
+    test "keeps a placeholder that has no matching metadata verbatim" do
+      # A leftover placeholder means the message author referenced a binding they
+      # never supplied. Surfacing it as written keeps that visible instead of
+      # rewriting a message the library does not own.
+      assert cast_details(TestSupport.BoxWithUninterpolatedMessage.cast(%{content: %{code: "x"}})) ==
+               "content is invalid: code bad %{zzz_never_an_existing_atom_qqq}"
+    end
+
+    test "renders a detail carrying an unknown placeholder without raising" do
+      # Interpolation makes a single pass over the original message, so the text
+      # substituted for %{details} is never rescanned and its placeholder never
+      # reaches String.to_existing_atom/1.
+      assert {:error, changeset} = TestSupport.BoxWithUninterpolatedMessage.new(%{content: %{code: "x"}})
+
+      assert %{content: ["is invalid: code bad %{zzz_never_an_existing_atom_qqq}"]} =
+               TestSupport.errors_on(changeset)
     end
   end
 
@@ -174,6 +264,112 @@ defmodule Trogon.Ecto.ValueObjectTest do
     test "rejects an empty list for a required embeds_many field" do
       assert {:error, changeset} = TestSupport.MessageFour.new(%{targets: []})
       assert %{targets: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "reports a required polymorphic_embeds_many field only once when it is nil" do
+      assert {:error, changeset} =
+               TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{title: "t", contents: nil})
+
+      assert %{contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "reports a required polymorphic_embeds_many field only once when it is omitted" do
+      assert {:error, changeset} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{title: "t"})
+      assert %{contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "reports a required polymorphic_embeds_many field only once when it is empty" do
+      assert {:error, changeset} =
+               TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{title: "t", contents: []})
+
+      assert %{contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "still reports a required polymorphic_embeds_many field when a sibling field is also blank" do
+      # The duplicate guard keys on the field, so a required error belonging to
+      # another field must not suppress this one.
+      assert {:error, changeset} = TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{})
+
+      assert %{title: ["can't be blank"], contents: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "accepts a required polymorphic_embeds_many field that is populated" do
+      assert {:ok, message} =
+               TestSupport.MessageWithMultiplePolymorphicEmbeds.new(%{
+                 title: "t",
+                 contents: [%{__type__: "sms", message: "m", phone: "p"}]
+               })
+
+      assert [%TestSupport.SmsContent{phone: "p"}] = message.contents
+    end
+  end
+
+  describe "optional embeds" do
+    test "does not require an embeds_one field that is not enforced" do
+      assert {:ok, %TestSupport.OptionalEmbeds{target: nil}} = TestSupport.OptionalEmbeds.new(%{title: "x"})
+    end
+
+    test "defaults an embeds_many field that is not enforced to an empty list" do
+      assert {:ok, %TestSupport.OptionalEmbeds{targets: []}} = TestSupport.OptionalEmbeds.new(%{title: "x"})
+    end
+
+    test "accepts an explicitly empty list for an embeds_many field that is not enforced" do
+      assert {:ok, %TestSupport.OptionalEmbeds{targets: []}} =
+               TestSupport.OptionalEmbeds.new(%{title: "x", targets: []})
+    end
+
+    test "still casts the embeds when they are given" do
+      assert {:ok, %TestSupport.OptionalEmbeds{target: target, targets: [item]}} =
+               TestSupport.OptionalEmbeds.new(%{
+                 title: "x",
+                 target: %{title: "t"},
+                 targets: [%{title: "a"}]
+               })
+
+      assert %TestSupport.MessageOne{title: "t"} = target
+      assert %TestSupport.MessageOne{title: "a"} = item
+    end
+
+    test "still surfaces errors from an optional embed that is given" do
+      assert {:error, changeset} = TestSupport.OptionalEmbeds.new(%{title: "x", target: %{title: 1}})
+      assert %{target: %{title: ["is invalid"]}} = TestSupport.errors_on(changeset)
+    end
+
+    test "does not require polymorphic embeds that are not enforced" do
+      assert {:ok, %TestSupport.OptionalPolymorphicEmbeds{content: nil, contents: []}} =
+               TestSupport.OptionalPolymorphicEmbeds.new(%{title: "x"})
+    end
+
+    test "reports no required fields" do
+      assert TestSupport.OptionalEmbeds.__required_fields__() == []
+      assert TestSupport.OptionalPolymorphicEmbeds.__required_fields__() == []
+    end
+  end
+
+  describe "primary key" do
+    test "enforces a primary key that is not autogenerated" do
+      assert TestSupport.WithPrimaryKey.__enforced_keys__?(:id)
+      assert TestSupport.WithPrimaryKey.__required_fields__() == [:id]
+    end
+
+    test "casts a primary key that is not autogenerated" do
+      assert {:ok, %TestSupport.WithPrimaryKey{id: "abc", title: "t"}} =
+               TestSupport.WithPrimaryKey.new(%{id: "abc", title: "t"})
+    end
+
+    test "rejects a missing primary key that is not autogenerated" do
+      assert {:error, changeset} = TestSupport.WithPrimaryKey.new(%{title: "t"})
+      assert %{id: ["can't be blank"]} = TestSupport.errors_on(changeset)
+    end
+
+    test "does not enforce an autogenerated primary key" do
+      refute TestSupport.WithAutogeneratedPrimaryKey.__enforced_keys__?(:id)
+      assert TestSupport.WithAutogeneratedPrimaryKey.__required_fields__() == []
+    end
+
+    test "accepts a missing autogenerated primary key" do
+      assert {:ok, %TestSupport.WithAutogeneratedPrimaryKey{id: nil, title: "t"}} =
+               TestSupport.WithAutogeneratedPrimaryKey.new(%{title: "t"})
     end
   end
 
@@ -366,4 +562,6 @@ defmodule Trogon.Ecto.ValueObjectTest do
       assert notification.content.body == "Test Body"
     end
   end
+
+  defp cast_details({:error, opts}), do: Keyword.fetch!(opts, :details)
 end

@@ -122,7 +122,7 @@ defmodule Trogon.Ecto.ValueObject do
       def cast(value) when is_map(value) do
         case new(value) do
           {:ok, v} -> {:ok, v}
-          {:error, _changeset} -> {:error, message: "is invalid"}
+          {:error, changeset} -> {:error, Trogon.Ecto.ValueObject.to_cast_error(changeset)}
         end
       end
 
@@ -165,6 +165,38 @@ defmodule Trogon.Ecto.ValueObject do
     cast_fields = field_names -- all_embeds
     required_fields = enforced_keys -- all_embeds
 
+    introspection =
+      build_introspection(
+        cast_fields,
+        required_fields,
+        polymorphic_embeds,
+        polymorphic_embeds_many,
+        enforced_keys
+      )
+
+    changeset =
+      build_changeset(
+        cast_fields,
+        required_fields,
+        embed_names,
+        polymorphic_embeds,
+        polymorphic_embeds_many,
+        enforced_keys
+      )
+
+    quote do
+      unquote(introspection)
+      unquote(changeset)
+    end
+  end
+
+  defp build_introspection(
+         cast_fields,
+         required_fields,
+         polymorphic_embeds,
+         polymorphic_embeds_many,
+         enforced_keys
+       ) do
     quote unquote: false,
           bind_quoted: [
             enforced_keys: enforced_keys,
@@ -173,10 +205,6 @@ defmodule Trogon.Ecto.ValueObject do
             cast_fields: cast_fields,
             required_fields: required_fields
           ] do
-      def __enforced_keys__ do
-        unquote(enforced_keys)
-      end
-
       for the_key <- enforced_keys do
         def __enforced_keys__?(unquote(the_key)) do
           true
@@ -202,6 +230,62 @@ defmodule Trogon.Ecto.ValueObject do
       def __required_fields__ do
         unquote(required_fields)
       end
+    end
+  end
+
+  defp build_changeset(
+         cast_fields,
+         required_fields,
+         embeds,
+         polymorphic_embeds,
+         polymorphic_embeds_many,
+         enforced_keys
+       ) do
+    steps =
+      validate_required_steps(required_fields) ++
+        Enum.map(embeds, &{:embed, &1, &1 in enforced_keys}) ++
+        Enum.map(polymorphic_embeds, &{:polymorphic_embed, &1, &1 in enforced_keys}) ++
+        Enum.map(Enum.filter(polymorphic_embeds_many, &(&1 in enforced_keys)), &{:required_many, &1})
+
+    body = Enum.reduce(steps, cast_step(cast_fields), &apply_step/2)
+
+    quote do
+      @doc false
+      @spec __value_object_changeset__(message :: struct(), attrs :: map()) :: Ecto.Changeset.t()
+      def __value_object_changeset__(message, attrs) do
+        unquote(body)
+      end
+    end
+  end
+
+  defp cast_step(cast_fields) do
+    quote do: Ecto.Changeset.cast(message, attrs, unquote(cast_fields))
+  end
+
+  defp validate_required_steps([]), do: []
+  defp validate_required_steps(required_fields), do: [{:required, required_fields}]
+
+  defp apply_step({:required, fields}, changeset) do
+    quote do
+      Ecto.Changeset.validate_required(unquote(changeset), unquote(fields))
+    end
+  end
+
+  defp apply_step({:embed, field, required?}, changeset) do
+    quote do
+      Ecto.Changeset.cast_embed(unquote(changeset), unquote(field), required: unquote(required?))
+    end
+  end
+
+  defp apply_step({:polymorphic_embed, field, required?}, changeset) do
+    quote do
+      PolymorphicEmbed.cast_polymorphic_embed(unquote(changeset), unquote(field), required: unquote(required?))
+    end
+  end
+
+  defp apply_step({:required_many, field}, changeset) do
+    quote do
+      Trogon.Ecto.ValueObject.validate_required_many(unquote(changeset), unquote(field))
     end
   end
 
@@ -413,53 +497,81 @@ defmodule Trogon.Ecto.ValueObject do
   end
 
   def changeset(%struct_module{} = message, attrs) do
-    message
-    |> Changeset.cast(attrs, struct_module.__cast_fields__())
-    |> Changeset.validate_required(struct_module.__required_fields__())
-    |> cast_embeds(struct_module.__schema__(:embeds), struct_module)
-    |> cast_polymorphic_embeds(struct_module.__polymorphic_embeds__(), struct_module)
-    |> validate_required_polymorphic_embeds_many(struct_module)
+    struct_module.__value_object_changeset__(message, attrs)
   end
 
-  defp cast_polymorphic_embeds(changeset, polymorphic_embeds, struct_module) do
-    Enum.reduce(
-      polymorphic_embeds,
-      changeset,
-      &cast_polymorphic_embed(&1, &2, struct_module)
-    )
-  end
-
-  defp validate_required_polymorphic_embeds_many(changeset, struct_module) do
-    Enum.reduce(
-      struct_module.__polymorphic_embeds_many__(),
-      changeset,
-      &validate_required_polymorphic_embed_many(&1, &2, struct_module)
-    )
-  end
-
-  defp validate_required_polymorphic_embed_many(field, changeset, struct_module) do
-    if struct_module.__enforced_keys__?(field) and Changeset.get_field(changeset, field) == [] do
+  @doc false
+  @spec validate_required_many(Ecto.Changeset.t(), atom()) :: Ecto.Changeset.t()
+  def validate_required_many(changeset, field) do
+    if Changeset.get_field(changeset, field) == [] and not required_error?(changeset, field) do
       Changeset.add_error(changeset, field, "can't be blank", validation: :required)
     else
       changeset
     end
   end
 
-  defp cast_embeds(changeset, embeds, struct_module) do
-    Enum.reduce(
-      embeds,
-      changeset,
-      &cast_embed(&1, &2, struct_module)
-    )
+  defp required_error?(changeset, field) do
+    Enum.any?(changeset.errors, &required_error_for?(&1, field))
   end
 
-  defp cast_embed(field, changeset, struct_module) do
-    Changeset.cast_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
+  defp required_error_for?({field, {_message, opts}}, field) do
+    Keyword.get(opts, :validation) == :required
   end
 
-  defp cast_polymorphic_embed(field, changeset, struct_module) do
-    PolymorphicEmbed.cast_polymorphic_embed(changeset, field, required: struct_module.__enforced_keys__?(field))
+  defp required_error_for?(_error, _field), do: false
+
+  @doc false
+  @spec to_cast_error(Ecto.Changeset.t()) :: keyword()
+  def to_cast_error(%Changeset{} = changeset) do
+    case describe_errors(changeset) do
+      "" -> [message: "is invalid"]
+      details -> [message: "is invalid: %{details}", details: details]
+    end
   end
+
+  defp describe_errors(changeset) do
+    changeset
+    |> PolymorphicEmbed.traverse_errors(&interpolate_message/1)
+    |> flatten_errors("")
+    |> Enum.join(", ")
+  end
+
+  defp flatten_errors(errors, path) when is_map(errors) do
+    Enum.flat_map(errors, &flatten_field_errors(&1, path))
+  end
+
+  defp flatten_errors(errors, path) when is_list(errors) do
+    errors
+    |> Enum.with_index()
+    |> Enum.flat_map(&flatten_indexed_errors(&1, path))
+  end
+
+  defp flatten_field_errors({field, value}, path) do
+    flatten_errors(value, join_path(path, to_string(field)))
+  end
+
+  defp flatten_indexed_errors({message, _index}, path) when is_binary(message) do
+    [path <> " " <> message]
+  end
+
+  defp flatten_indexed_errors({nested, index}, path) do
+    flatten_errors(nested, join_path(path, Integer.to_string(index)))
+  end
+
+  defp join_path("", segment), do: segment
+  defp join_path(path, segment), do: path <> "." <> segment
+
+  defp interpolate_message({message, opts}) do
+    Enum.reduce(opts, message, &replace_binding/2)
+  end
+
+  defp replace_binding({key, value}, message) do
+    String.replace(message, "%{#{key}}", stringify(value))
+  end
+
+  defp stringify(value) when is_binary(value), do: value
+  defp stringify(value) when is_atom(value) or is_number(value), do: to_string(value)
+  defp stringify(value), do: inspect(value)
 
   defp apply_changeset(struct_module, attrs) do
     struct(struct_module)
