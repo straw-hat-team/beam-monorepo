@@ -23,7 +23,7 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          HEX_API_KEY: "${{ secrets.SECRETS_VAULT }}/HEX_API_KEY"
+          HEX_API_KEY: "${{ secrets.SECRETS_VAULT_ID }}/ozrgpobr7rqqgg4inmqqurfgfy/HEX_API_KEY"
       - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
