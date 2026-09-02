@@ -34,6 +34,9 @@
     "apps/trogon_ecto": {
       "component": "trogon_ecto"
     },
+    "apps/trogon_telemetry": {
+      "component": "trogon_telemetry"
+    },
     "apps/eventstore_dashboard": {
       "component": "eventstore_dashboard"
     }
