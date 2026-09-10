@@ -58,18 +58,6 @@ defmodule Trogon.Ecto.Enum do
         end
       end
 
-    dump_functions_ast =
-      for value <- values do
-        value_string = Atom.to_string(value)
-
-        quote do
-          @impl Ecto.Type
-          def dump(%__MODULE__{value: unquote(value)}) do
-            {:ok, unquote(value_string)}
-          end
-        end
-      end
-
     cast_as_function_ast =
       for value <- values do
         value_string = Atom.to_string(value)
@@ -166,8 +154,9 @@ defmodule Trogon.Ecto.Enum do
       @impl Ecto.Type
       def load(_), do: :error
 
-      unquote_splicing(dump_functions_ast)
       @impl Ecto.Type
+      @spec dump(any()) :: {:ok, String.t()} | :error
+      def dump(%__MODULE__{value: value}) when value in unquote(values), do: {:ok, Atom.to_string(value)}
       def dump(_), do: :error
 
       @impl Ecto.Type
