@@ -82,6 +82,11 @@ defmodule Trogon.ObjectId.TestSupport do
     use Trogon.UnionObjectId, types: [TenantId, SystemId]
   end
 
+  defmodule MixedJsonFormatUnionId do
+    @moduledoc false
+    use Trogon.UnionObjectId, types: [TenantId, JsonDropPrefixId]
+  end
+
   defmodule PrincipalId do
     @moduledoc false
     use Trogon.UnionObjectId, types: [TenantId, SystemId, ServiceId]

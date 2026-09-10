@@ -69,6 +69,16 @@ defmodule Trogon.ObjectId do
       @primary_key {:id, MyApp.UserId, autogenerate: true}
       schema "users" do
       end
+
+  ## Protocols
+
+  Each generated ObjectId implements the following protocols:
+
+  - `String.Chars` - always the full prefixed form, regardless of any format option.
+  - `Jason.Encoder` and `JSON.Encoder` - follow `json_format`.
+  - `Ecto.Type` dump and `to_storage/1` - follow `storage_format`.
+  - `Phoenix.Param` and `Phoenix.HTML.Safe` - always the full prefixed form. `Phoenix.Param.to_param/1`
+    must roundtrip through `parse/1`, so it never respects `json_format` or `storage_format`.
   """
 
   alias Trogon.ObjectId.ProtoExtension
@@ -598,6 +608,30 @@ defmodule Trogon.ObjectId do
           def encode(%@for{id: id}, opts) when is_binary(id) do
             value = Trogon.ObjectId.format(unquote(json_format), unquote(prefix), id)
             Jason.Encode.string(value, opts)
+          end
+        end
+      end
+
+      defimpl JSON.Encoder do
+        @moduledoc false
+        def encode(%@for{id: id}, encoder) when is_binary(id) do
+          value = Trogon.ObjectId.format(unquote(json_format), unquote(prefix), id)
+          encoder.(value, encoder)
+        end
+      end
+
+      if Code.ensure_loaded?(Phoenix.Param) do
+        defimpl Phoenix.Param do
+          @moduledoc false
+          def to_param(%@for{id: id} = object_id) when is_binary(id), do: Kernel.to_string(object_id)
+        end
+      end
+
+      if Code.ensure_loaded?(Phoenix.HTML.Safe) do
+        defimpl Phoenix.HTML.Safe do
+          @moduledoc false
+          def to_iodata(%@for{id: id} = object_id) when is_binary(id) do
+            Phoenix.HTML.Safe.to_iodata(Kernel.to_string(object_id))
           end
         end
       end

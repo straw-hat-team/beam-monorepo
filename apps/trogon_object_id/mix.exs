@@ -42,6 +42,8 @@ defmodule Trogon.ObjectId.MixProject do
     [
       {:uniq, "~> 0.1"},
       {:jason, "~> 1.2", optional: true},
+      {:phoenix, "~> 1.7", optional: true},
+      {:phoenix_html, "~> 3.3 or ~> 4.0", optional: true},
       {:ecto, "~> 3.6"},
       {:nimble_options, "~> 1.0"},
       {:protobuf, "~> 0.16", optional: true},

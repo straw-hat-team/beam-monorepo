@@ -410,6 +410,58 @@ defmodule Trogon.UnionObjectIdTest do
     end
   end
 
+  describe "JSON.Encoder protocol" do
+    test "honors the member type's json_format: :full" do
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
+      union = TestSupport.MixedJsonFormatUnionId.new(tenant_id)
+
+      assert JSON.encode!(union) == ~s("tenant_#{@tenant_id_value}")
+      assert JSON.encode!(union) == Jason.encode!(union)
+    end
+
+    test "honors the member type's json_format: :drop_prefix" do
+      json_drop_id = TestSupport.JsonDropPrefixId.new!(@tenant_id_value)
+      union = TestSupport.MixedJsonFormatUnionId.new(json_drop_id)
+
+      assert JSON.encode!(union) == ~s("#{@tenant_id_value}")
+      assert JSON.encode!(union) == Jason.encode!(union)
+    end
+  end
+
+  describe "Phoenix.Param.to_param/1" do
+    test "returns the member's prefixed string" do
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
+      union = TestSupport.ContextId.new(tenant_id)
+
+      assert Phoenix.Param.to_param(union) == "tenant_#{@tenant_id_value}"
+    end
+
+    test "returns the member's prefixed string regardless of json_format" do
+      json_drop_id = TestSupport.JsonDropPrefixId.new!(@tenant_id_value)
+      union = TestSupport.MixedJsonFormatUnionId.new(json_drop_id)
+
+      assert Phoenix.Param.to_param(union) == "jsondrop_#{@tenant_id_value}"
+    end
+  end
+
+  describe "Phoenix.HTML.Safe.to_iodata/1" do
+    test "returns the member's prefixed string" do
+      tenant_id = TestSupport.TenantId.new!(@tenant_id_value)
+      union = TestSupport.ContextId.new(tenant_id)
+
+      assert union |> Phoenix.HTML.Safe.to_iodata() |> IO.iodata_to_binary() ==
+               "tenant_#{@tenant_id_value}"
+    end
+
+    test "HTML-escapes the member's value" do
+      tenant_id = TestSupport.TenantId.new!(~s(<script>"))
+      union = TestSupport.ContextId.new(tenant_id)
+
+      assert union |> Phoenix.HTML.Safe.to_iodata() |> IO.iodata_to_binary() ==
+               "tenant_&lt;script&gt;&quot;"
+    end
+  end
+
   describe "parse/1 with validated inner types" do
     test "rejects invalid value for a validated inner type" do
       assert {:error, _} = TestSupport.ValidatedUnionId.parse("uuid_not-a-uuid")

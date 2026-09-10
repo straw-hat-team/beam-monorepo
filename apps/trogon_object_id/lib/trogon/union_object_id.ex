@@ -336,6 +336,25 @@ defmodule Trogon.UnionObjectId do
           end
         end
       end
+
+      defimpl JSON.Encoder do
+        @moduledoc false
+        def encode(%@for{id: id}, encoder), do: JSON.Encoder.encode(id, encoder)
+      end
+
+      if Code.ensure_loaded?(Phoenix.Param) do
+        defimpl Phoenix.Param do
+          @moduledoc false
+          def to_param(%@for{id: id}), do: Kernel.to_string(id)
+        end
+      end
+
+      if Code.ensure_loaded?(Phoenix.HTML.Safe) do
+        defimpl Phoenix.HTML.Safe do
+          @moduledoc false
+          def to_iodata(%@for{id: id}), do: Phoenix.HTML.Safe.to_iodata(Kernel.to_string(id))
+        end
+      end
     end
   end
 
