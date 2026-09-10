@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.3.0...trogon_ecto@v0.4.0) (2026-09-10)
+
+
+### Features
+
+* **trogon_ecto:** Add enum type ([#439](https://github.com/straw-hat-team/beam-monorepo/issues/439)) ([59eed87](https://github.com/straw-hat-team/beam-monorepo/commit/59eed87ef6bdf8c34de2f69aa6936b47a38df804))
+
 ## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.2.0...trogon_ecto@v0.3.0) (2026-09-10)
 
 
