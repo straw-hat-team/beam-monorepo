@@ -68,8 +68,6 @@ defmodule Trogon.Ecto.DurationType do
 
   use Ecto.ParameterizedType
 
-  @component_atoms ~w(year month week day hour minute second microsecond)a
-  @component_strings Enum.map(@component_atoms, &Atom.to_string/1)
   @postgres_default_precision 6
 
   @type format :: :iso8601 | :map | :native
@@ -411,16 +409,22 @@ defmodule Trogon.Ecto.DurationType do
     end
   end
 
-  defp normalize_key(key) when key in @component_atoms, do: {:ok, key}
-
-  defp normalize_key(key) when is_binary(key) do
-    if key in @component_strings do
-      {:ok, String.to_existing_atom(key)}
-    else
-      :error
-    end
-  end
-
+  defp normalize_key(:year), do: {:ok, :year}
+  defp normalize_key(:month), do: {:ok, :month}
+  defp normalize_key(:week), do: {:ok, :week}
+  defp normalize_key(:day), do: {:ok, :day}
+  defp normalize_key(:hour), do: {:ok, :hour}
+  defp normalize_key(:minute), do: {:ok, :minute}
+  defp normalize_key(:second), do: {:ok, :second}
+  defp normalize_key(:microsecond), do: {:ok, :microsecond}
+  defp normalize_key("year"), do: {:ok, :year}
+  defp normalize_key("month"), do: {:ok, :month}
+  defp normalize_key("week"), do: {:ok, :week}
+  defp normalize_key("day"), do: {:ok, :day}
+  defp normalize_key("hour"), do: {:ok, :hour}
+  defp normalize_key("minute"), do: {:ok, :minute}
+  defp normalize_key("second"), do: {:ok, :second}
+  defp normalize_key("microsecond"), do: {:ok, :microsecond}
   defp normalize_key(_key), do: :error
 
   defp normalize_value(:microsecond, [value, precision]), do: {value, precision}
