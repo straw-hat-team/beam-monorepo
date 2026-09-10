@@ -426,25 +426,35 @@ defmodule Trogon.Ecto.DurationType do
   defp normalize_value(:microsecond, [value, precision]), do: {value, precision}
   defp normalize_value(_component, value), do: value
 
-  defp to_component_map(%Duration{} = duration) do
-    %{
-      "year" => duration.year,
-      "month" => duration.month,
-      "week" => duration.week,
-      "day" => duration.day,
-      "hour" => duration.hour,
-      "minute" => duration.minute,
-      "second" => duration.second,
-      "microsecond" => microsecond_list(duration.microsecond)
-    }
-    |> Enum.reject(&sparse_omit?/1)
-    |> Map.new()
+  @compile {:inline, put_component: 3, put_microsecond: 2}
+
+  defp to_component_map(%Duration{
+         year: year,
+         month: month,
+         week: week,
+         day: day,
+         hour: hour,
+         minute: minute,
+         second: second,
+         microsecond: microsecond
+       }) do
+    []
+    |> put_component("year", year)
+    |> put_component("month", month)
+    |> put_component("week", week)
+    |> put_component("day", day)
+    |> put_component("hour", hour)
+    |> put_component("minute", minute)
+    |> put_component("second", second)
+    |> put_microsecond(microsecond)
+    |> :maps.from_list()
   end
 
-  defp sparse_omit?({"microsecond", [0, 0]}), do: true
-  defp sparse_omit?({"microsecond", _value}), do: false
-  defp sparse_omit?({_key, 0}), do: true
-  defp sparse_omit?(_pair), do: false
+  defp put_component(components, _key, 0), do: components
+  defp put_component(components, key, value), do: [{key, value} | components]
 
-  defp microsecond_list({value, precision}), do: [value, precision]
+  defp put_microsecond(components, {0, 0}), do: components
+
+  defp put_microsecond(components, {value, precision}),
+    do: [{"microsecond", [value, precision]} | components]
 end
