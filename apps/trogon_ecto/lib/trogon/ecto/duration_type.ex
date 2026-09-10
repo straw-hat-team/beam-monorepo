@@ -1,4 +1,4 @@
-defmodule Trogon.Ecto.Type.Duration do
+defmodule Trogon.Ecto.DurationType do
   @moduledoc """
   An `Ecto.ParameterizedType` that wraps Elixir's `Duration`, persisted as an ISO
   8601 string, a map of its components, or a native PostgreSQL `interval`.
@@ -30,9 +30,9 @@ defmodule Trogon.Ecto.Type.Duration do
   `[value, precision]` (a tuple is not JSON encodable). Zero-valued components are
   omitted, including `"microsecond"` when it is `{0, 0}`.
 
-      field :cooldown, Trogon.Ecto.Type.Duration
-      field :cooldown, Trogon.Ecto.Type.Duration, format: :map
-      field :cooldown, Trogon.Ecto.Type.Duration, format: :native
+      field :cooldown, Trogon.Ecto.DurationType
+      field :cooldown, Trogon.Ecto.DurationType, format: :map
+      field :cooldown, Trogon.Ecto.DurationType, format: :native
 
   `load/3` accepts either stored shape (an ISO 8601 binary or a component map)
   regardless of the configured format, so a column holding a mix of both during a
@@ -83,17 +83,17 @@ defmodule Trogon.Ecto.Type.Duration do
 
   ## Examples
 
-      iex> Trogon.Ecto.Type.Duration.init([])
+      iex> Trogon.Ecto.DurationType.init([])
       %{format: :iso8601}
 
-      iex> Trogon.Ecto.Type.Duration.init(format: :map)
+      iex> Trogon.Ecto.DurationType.init(format: :map)
       %{format: :map}
 
-      iex> Trogon.Ecto.Type.Duration.init(format: :native)
+      iex> Trogon.Ecto.DurationType.init(format: :native)
       %{format: :native}
 
-      iex> Trogon.Ecto.Type.Duration.init(format: :bogus)
-      ** (ArgumentError) invalid :format :bogus for Trogon.Ecto.Type.Duration, expected one of :iso8601, :map, :native
+      iex> Trogon.Ecto.DurationType.init(format: :bogus)
+      ** (ArgumentError) invalid :format :bogus for Trogon.Ecto.DurationType, expected one of :iso8601, :map, :native
   """
   @impl Ecto.ParameterizedType
   @spec init(keyword()) :: params()
@@ -110,7 +110,7 @@ defmodule Trogon.Ecto.Type.Duration do
 
   defp validate_format!(other) do
     raise ArgumentError,
-          "invalid :format #{inspect(other)} for Trogon.Ecto.Type.Duration, " <>
+          "invalid :format #{inspect(other)} for Trogon.Ecto.DurationType, " <>
             "expected one of :iso8601, :map, :native"
   end
 
@@ -122,16 +122,16 @@ defmodule Trogon.Ecto.Type.Duration do
 
   ## Examples
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.type(params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.type(params)
       :string
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :map)
-      iex> Trogon.Ecto.Type.Duration.type(params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :map)
+      iex> Trogon.Ecto.DurationType.type(params)
       :map
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
-      iex> Trogon.Ecto.Type.Duration.type(params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :native)
+      iex> Trogon.Ecto.DurationType.type(params)
       :duration
   """
   @impl Ecto.ParameterizedType
@@ -151,36 +151,36 @@ defmodule Trogon.Ecto.Type.Duration do
 
   ## Examples
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.cast(Duration.new!(second: 10), params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.cast(Duration.new!(second: 10), params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.cast("PT10S", params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.cast("PT10S", params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.cast(%{"second" => 10}, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.cast(%{"second" => 10}, params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.cast(%{second: 10}, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.cast(%{second: 10}, params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
-      iex> Trogon.Ecto.Type.Duration.cast("PT10S", params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :native)
+      iex> Trogon.Ecto.DurationType.cast("PT10S", params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.cast(nil, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.cast(nil, params)
       {:ok, nil}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.cast("random value", params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.cast("random value", params)
       :error
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.cast(123, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.cast(123, params)
       :error
   """
   @impl Ecto.ParameterizedType
@@ -213,28 +213,28 @@ defmodule Trogon.Ecto.Type.Duration do
 
   ## Examples
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.load("PT10S", & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.load("PT10S", & &1, params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :iso8601)
-      iex> Trogon.Ecto.Type.Duration.load(%{"second" => 10}, & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :iso8601)
+      iex> Trogon.Ecto.DurationType.load(%{"second" => 10}, & &1, params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :map)
-      iex> Trogon.Ecto.Type.Duration.load("PT10S", & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :map)
+      iex> Trogon.Ecto.DurationType.load("PT10S", & &1, params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
-      iex> Trogon.Ecto.Type.Duration.load(%Postgrex.Interval{months: 0, days: 0, secs: 10, microsecs: 0}, & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :native)
+      iex> Trogon.Ecto.DurationType.load(%Postgrex.Interval{months: 0, days: 0, secs: 10, microsecs: 0}, & &1, params)
       {:ok, Duration.new!(second: 10, microsecond: {0, 6})}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.load(nil, & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.load(nil, & &1, params)
       {:ok, nil}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.load("random value", & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.load("random value", & &1, params)
       :error
   """
   @impl Ecto.ParameterizedType
@@ -275,24 +275,24 @@ defmodule Trogon.Ecto.Type.Duration do
 
   ## Examples
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.dump(Duration.new!(second: 10), & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.dump(Duration.new!(second: 10), & &1, params)
       {:ok, "PT10S"}
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :map)
-      iex> Trogon.Ecto.Type.Duration.dump(Duration.new!(second: 10), & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :map)
+      iex> Trogon.Ecto.DurationType.dump(Duration.new!(second: 10), & &1, params)
       {:ok, %{"second" => 10}}
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
-      iex> Trogon.Ecto.Type.Duration.dump(Duration.new!(second: 10), & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :native)
+      iex> Trogon.Ecto.DurationType.dump(Duration.new!(second: 10), & &1, params)
       {:ok, Duration.new!(second: 10)}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.dump(nil, & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.dump(nil, & &1, params)
       {:ok, nil}
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.dump("random value", & &1, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.dump("random value", & &1, params)
       :error
   """
   @impl Ecto.ParameterizedType
@@ -324,20 +324,20 @@ defmodule Trogon.Ecto.Type.Duration do
 
   ## Examples
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.equal?(Duration.new!(second: 10), Duration.new!(second: 10), params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(second: 10), Duration.new!(second: 10), params)
       true
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.equal?(Duration.new!(second: 10), Duration.new!(minute: 1), params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(second: 10), Duration.new!(minute: 1), params)
       false
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
-      iex> Trogon.Ecto.Type.Duration.equal?(Duration.new!(year: 1), Duration.new!(month: 12), params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :native)
+      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(year: 1), Duration.new!(month: 12), params)
       true
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
-      iex> Trogon.Ecto.Type.Duration.equal?(Duration.new!(month: 1), Duration.new!(day: 30), params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :native)
+      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(month: 1), Duration.new!(day: 30), params)
       false
   """
   @impl Ecto.ParameterizedType
@@ -368,23 +368,23 @@ defmodule Trogon.Ecto.Type.Duration do
 
   ## Examples
 
-      iex> params = Trogon.Ecto.Type.Duration.init([])
-      iex> Trogon.Ecto.Type.Duration.embed_as(:json, params)
+      iex> params = Trogon.Ecto.DurationType.init([])
+      iex> Trogon.Ecto.DurationType.embed_as(:json, params)
       :dump
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :map)
-      iex> Trogon.Ecto.Type.Duration.embed_as(:json, params)
+      iex> params = Trogon.Ecto.DurationType.init(format: :map)
+      iex> Trogon.Ecto.DurationType.embed_as(:json, params)
       :dump
 
-      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
-      iex> Trogon.Ecto.Type.Duration.embed_as(:json, params)
-      ** (ArgumentError) a :native Trogon.Ecto.Type.Duration cannot be stored inside an embed or value object; use format: :iso8601 or format: :map instead
+      iex> params = Trogon.Ecto.DurationType.init(format: :native)
+      iex> Trogon.Ecto.DurationType.embed_as(:json, params)
+      ** (ArgumentError) a :native Trogon.Ecto.DurationType cannot be stored inside an embed or value object; use format: :iso8601 or format: :map instead
   """
   @impl Ecto.ParameterizedType
   @spec embed_as(atom(), params()) :: :dump
   def embed_as(_format, %{format: :native}) do
     raise ArgumentError,
-          "a :native Trogon.Ecto.Type.Duration cannot be stored inside an embed or value " <>
+          "a :native Trogon.Ecto.DurationType cannot be stored inside an embed or value " <>
             "object; use format: :iso8601 or format: :map instead"
   end
 

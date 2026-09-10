@@ -259,7 +259,7 @@ defmodule Trogon.Ecto.TestSupport do
     use Trogon.Ecto.ValueObject
 
     embedded_schema do
-      field :length, Trogon.Ecto.Type.Duration
+      field :length, Trogon.Ecto.DurationType
     end
   end
 
@@ -268,7 +268,7 @@ defmodule Trogon.Ecto.TestSupport do
     use Trogon.Ecto.ValueObject
 
     embedded_schema do
-      field :length, Trogon.Ecto.Type.Duration, format: :map
+      field :length, Trogon.Ecto.DurationType, format: :map
     end
   end
 

@@ -1,9 +1,9 @@
-defmodule Trogon.Ecto.Type.DurationTest do
+defmodule Trogon.Ecto.DurationTypeTest do
   use ExUnit.Case, async: true
 
+  alias Trogon.Ecto.DurationType
   alias Trogon.Ecto.TestSupport.WithDuration
   alias Trogon.Ecto.TestSupport.WithMapDuration
-  alias Trogon.Ecto.Type.Duration, as: DurationType
 
   doctest DurationType
 
@@ -161,11 +161,11 @@ defmodule Trogon.Ecto.Type.DurationTest do
   end
 
   describe "schema field declarations" do
-    test "bare `field :x, Trogon.Ecto.Type.Duration` casts an ISO 8601 string" do
+    test "bare `field :x, Trogon.Ecto.DurationType` casts an ISO 8601 string" do
       assert {:ok, %WithDuration{length: %Duration{second: 10}}} = WithDuration.new(%{length: "PT10S"})
     end
 
-    test "`field :x, Trogon.Ecto.Type.Duration, format: :map` casts a component map" do
+    test "`field :x, Trogon.Ecto.DurationType, format: :map` casts a component map" do
       assert {:ok, %WithMapDuration{length: %Duration{second: 10}}} =
                WithMapDuration.new(%{length: %{"second" => 10}})
     end
