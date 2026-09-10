@@ -272,6 +272,27 @@ defmodule Trogon.Ecto.TestSupport do
     end
   end
 
+  defmodule BankAccountType do
+    @moduledoc false
+    use Trogon.Ecto.Enum, values: [:business, :personal]
+  end
+
+  defmodule BankAccountOpened do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    @enforce_keys [:uuid, :type]
+    embedded_schema do
+      field :uuid, :string
+      field :type, Trogon.Ecto.TestSupport.BankAccountType
+    end
+  end
+
+  defmodule BooleanNamedEnum do
+    @moduledoc false
+    use Trogon.Ecto.Enum, values: [true, false]
+  end
+
   def errors_on(changeset) do
     PolymorphicEmbed.traverse_errors(changeset, fn {message, opts} ->
       Regex.replace(~r"%{(\w+)}", message, fn _, key ->

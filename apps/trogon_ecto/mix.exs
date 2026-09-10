@@ -44,6 +44,9 @@ defmodule Trogon.Ecto.MixProject do
       {:ecto_sql, "~> 3.12", optional: true},
       {:postgrex, "~> 0.19 or ~> 1.0", optional: true},
       {:polymorphic_embed, "~> 5.0"},
+      {:jason, "~> 1.2", optional: true},
+      {:phoenix, "~> 1.7", optional: true},
+      {:phoenix_html, "~> 3.3 or ~> 4.0", optional: true},
 
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
