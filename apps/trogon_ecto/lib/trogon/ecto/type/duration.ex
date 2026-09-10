@@ -3,6 +3,14 @@ defmodule Trogon.Ecto.Type.Duration do
   An `Ecto.ParameterizedType` that wraps Elixir's `Duration`, persisted as an ISO
   8601 string, a map of its components, or a native PostgreSQL `interval`.
 
+  ## When NOT to use this type
+
+  If your column only ever holds a plain `interval`, you never feed it an ISO
+  8601 string or a component map, and you would rather not take on the
+  dependency, use Ecto's built-in `:duration` type directly instead. Otherwise,
+  reach for this type and pick the `:format` below that matches how you plan to
+  query and store the value.
+
   ## The `:format` option
 
   - `:iso8601` (the default) - persists as an ISO 8601 string, e.g. `"PT10S"`.
@@ -40,6 +48,11 @@ defmodule Trogon.Ecto.Type.Duration do
   arithmetically equal, not struct-equal. `:iso8601` and `:map` preserve the exact
   unit a duration was expressed in; prefer them unless you specifically need
   SQL-level arithmetic over the column.
+
+  Postgrex also decodes `interval` columns to `%Postgrex.Interval{}` by default,
+  not `Duration`; this type's `load/3` accepts both. If you would rather have
+  Postgrex hand you a `Duration` directly (outside of this type), set
+  `interval_decode_type: Duration` on the connection.
 
   Because dumping a `:native` duration yields a bare `%Duration{}` struct with no
   JSON encoder, `:native` cannot be used inside an embed or value object; `embed_as/2`
