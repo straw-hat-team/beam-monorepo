@@ -37,6 +37,11 @@ defmodule Trogon.Ecto.EnumTest do
         BankAccountType.new(%MessageOne{title: "Hello"})
       end
     end
+
+    test "rejects a hand-built struct holding an unsupported value" do
+      assert {:error, changeset} = BankAccountType.new(%BankAccountType{value: :invalid})
+      assert %{value: ["is invalid"]} = Trogon.Ecto.TestSupport.errors_on(changeset)
+    end
   end
 
   describe "new!/1" do
@@ -68,6 +73,12 @@ defmodule Trogon.Ecto.EnumTest do
     test "raises an ArgumentError for a foreign struct" do
       assert_raise ArgumentError, fn ->
         BankAccountType.new!(%MessageOne{title: "Hello"})
+      end
+    end
+
+    test "raises for a hand-built struct holding an unsupported value" do
+      assert_raise Ecto.InvalidChangesetError, fn ->
+        BankAccountType.new!(%BankAccountType{value: :invalid})
       end
     end
   end
@@ -107,6 +118,10 @@ defmodule Trogon.Ecto.EnumTest do
     test "casts existing struct" do
       existing = %BankAccountType{value: :business}
       assert BankAccountType.cast(existing) == {:ok, existing}
+    end
+
+    test "rejects a hand-built struct holding an unsupported value" do
+      assert BankAccountType.cast(%BankAccountType{value: :invalid}) == :error
     end
   end
 

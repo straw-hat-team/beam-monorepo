@@ -94,6 +94,10 @@ defmodule Trogon.Ecto.Enum do
       Creates a `t:t/0`.
       """
       @spec new(attrs :: %{required(:value) => value()}) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
+      def new(%__MODULE__{} = value) do
+        ValueObject.new(__MODULE__, Map.from_struct(value))
+      end
+
       def new(attrs) when is_map(attrs) do
         ValueObject.new(__MODULE__, attrs)
       end
@@ -107,6 +111,10 @@ defmodule Trogon.Ecto.Enum do
       Creates a `t:t/0`.
       """
       @spec new!(attrs :: %{required(:value) => value()}) :: %__MODULE__{}
+      def new!(%__MODULE__{} = value) do
+        ValueObject.new!(__MODULE__, Map.from_struct(value))
+      end
+
       def new!(attrs) when is_map(attrs) do
         ValueObject.new!(__MODULE__, attrs)
       end
@@ -135,8 +143,8 @@ defmodule Trogon.Ecto.Enum do
       def type, do: :string
 
       @impl Ecto.Type
-      def cast(value) when is_struct(value, __MODULE__) do
-        {:ok, value}
+      def cast(%__MODULE__{value: value} = enum) when value in unquote(values) do
+        {:ok, enum}
       end
 
       @impl Ecto.Type
