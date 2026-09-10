@@ -311,15 +311,16 @@ defmodule Trogon.Ecto.Type.Duration do
   trip the exact unit a duration was expressed in and so a change of unit is a real
   change worth persisting.
 
-  For `:native` both sides are first reduced to the `Duration.new!/1` arguments
-  PostgreSQL would hand back after a round trip, that is the same `month`, `day`,
-  `second` and `microsecond` an `interval` decodes into, since the unit does not
-  survive the column. Without this, a value loaded back as `%Duration{month: 12}`
-  would never compare equal to the `Duration.new!(year: 1)` it was written from,
-  and Ecto would issue an update on every save.
+  For `:native` both sides are first reduced to the `Duration.new!/1` arguments an
+  `interval` collapses them into, folding years into `month`, weeks into `day` and
+  hours and minutes into `second`, since those units do not survive the column.
+  Without this, a value loaded back as `%Duration{month: 12}` would never compare
+  equal to the `Duration.new!(year: 1)` it was written from, and Ecto would issue
+  an update on every save.
 
-  Microsecond precision is a property of the column's type modifier rather than of
-  the value, so it is normalized away too and never on its own makes a field dirty.
+  Microsecond precision is carried through the comparison rather than normalized
+  away, so two durations holding the same microsecond count at different precisions
+  are not equal.
 
   ## Examples
 
@@ -348,16 +349,11 @@ defmodule Trogon.Ecto.Type.Duration do
   def equal?(value1, value2, _params), do: value1 == value2
 
   defp postgres_components(%Duration{} = duration) do
-    {microseconds, _precision} = duration.microsecond
-
-    total_microseconds =
-      1_000_000 * (3600 * duration.hour + 60 * duration.minute + duration.second) + microseconds
-
     [
       month: 12 * duration.year + duration.month,
       day: 7 * duration.week + duration.day,
-      second: div(total_microseconds, 1_000_000),
-      microsecond: {rem(total_microseconds, 1_000_000), @postgres_default_precision}
+      second: 3600 * duration.hour + 60 * duration.minute + duration.second,
+      microsecond: duration.microsecond
     ]
   end
 

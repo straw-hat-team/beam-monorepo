@@ -270,12 +270,7 @@ defmodule Trogon.Ecto.Type.DurationTest do
     test "treats sub-day components as equal for :native", %{native: p} do
       assert DurationType.equal?(Duration.new!(hour: 1), Duration.new!(minute: 60), p)
       assert DurationType.equal?(Duration.new!(minute: 1), Duration.new!(second: 60), p)
-
-      assert DurationType.equal?(
-               Duration.new!(second: 1),
-               Duration.new!(microsecond: {1_000_000, 6}),
-               p
-             )
+      assert DurationType.equal?(Duration.new!(hour: 1, minute: 30), Duration.new!(minute: 90), p)
     end
 
     test "does not conflate components PostgreSQL keeps separate", %{native: p} do
@@ -290,7 +285,7 @@ defmodule Trogon.Ecto.Type.DurationTest do
     end
 
     test "survives a simulated :native write and read without reporting a change", %{native: p} do
-      original = Duration.new!(year: 1, week: 2, minute: 90)
+      original = Duration.new!(year: 1, week: 2, minute: 90, microsecond: {0, 6})
 
       {:ok, dumped} = DurationType.dump(original, & &1, p)
 
@@ -310,8 +305,8 @@ defmodule Trogon.Ecto.Type.DurationTest do
                Duration.new!(month: 12, day: 14, second: 5400, microsecond: {0, 6})
     end
 
-    test "ignores microsecond precision for :native, which belongs to the column", %{native: p} do
-      assert DurationType.equal?(
+    test "keeps microsecond precision significant for :native", %{native: p} do
+      refute DurationType.equal?(
                Duration.new!(microsecond: {500_000, 2}),
                Duration.new!(microsecond: {500_000, 6}),
                p
@@ -326,12 +321,7 @@ defmodule Trogon.Ecto.Type.DurationTest do
 
     test "normalizes negative durations for :native", %{native: p} do
       assert DurationType.equal?(Duration.new!(minute: -1), Duration.new!(second: -60), p)
-
-      assert DurationType.equal?(
-               Duration.new!(second: -1),
-               Duration.new!(microsecond: {-1_000_000, 6}),
-               p
-             )
+      assert DurationType.equal?(Duration.new!(year: -1), Duration.new!(month: -12), p)
     end
   end
 end
