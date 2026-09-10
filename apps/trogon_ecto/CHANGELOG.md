@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.2.0...trogon_ecto@v0.3.0) (2026-09-10)
+
+
+### Features
+
+* **trogon_ecto:** Add duration type and migration helpers ([#437](https://github.com/straw-hat-team/beam-monorepo/issues/437)) ([f2dc2b9](https://github.com/straw-hat-team/beam-monorepo/commit/f2dc2b9466f4ee8c47089e9623e14d3b0c6b638f))
+
 ## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_ecto@v0.1.1...trogon_ecto@v0.2.0) (2026-08-15)
 
 
