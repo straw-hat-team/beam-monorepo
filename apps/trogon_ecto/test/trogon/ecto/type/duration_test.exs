@@ -251,4 +251,60 @@ defmodule Trogon.Ecto.Type.DurationTest do
                DurationType.load(interval, & &1, params)
     end
   end
+
+  describe "equal?/3" do
+    setup do
+      %{native: DurationType.init(format: :native), iso8601: DurationType.init([])}
+    end
+
+    test "treats year and month as equal for :native, as PostgreSQL stores them", %{native: p} do
+      assert DurationType.equal?(Duration.new!(year: 1), Duration.new!(month: 12), p)
+      assert DurationType.equal?(Duration.new!(year: 2, month: 1), Duration.new!(month: 25), p)
+    end
+
+    test "treats week and day as equal for :native", %{native: p} do
+      assert DurationType.equal?(Duration.new!(week: 2), Duration.new!(day: 14), p)
+      assert DurationType.equal?(Duration.new!(week: 1, day: 3), Duration.new!(day: 10), p)
+    end
+
+    test "treats sub-day components as equal for :native", %{native: p} do
+      assert DurationType.equal?(Duration.new!(hour: 1), Duration.new!(minute: 60), p)
+      assert DurationType.equal?(Duration.new!(minute: 1), Duration.new!(second: 60), p)
+
+      assert DurationType.equal?(
+               Duration.new!(second: 1),
+               Duration.new!(microsecond: {1_000_000, 6}),
+               p
+             )
+    end
+
+    test "does not conflate components PostgreSQL keeps separate", %{native: p} do
+      refute DurationType.equal?(Duration.new!(month: 1), Duration.new!(day: 30), p)
+      refute DurationType.equal?(Duration.new!(day: 1), Duration.new!(hour: 24), p)
+    end
+
+    test "keeps structural equality for :iso8601, which preserves the unit", %{iso8601: p} do
+      refute DurationType.equal?(Duration.new!(year: 1), Duration.new!(month: 12), p)
+      refute DurationType.equal?(Duration.new!(minute: 1), Duration.new!(second: 60), p)
+      assert DurationType.equal?(Duration.new!(second: 10), Duration.new!(second: 10), p)
+    end
+
+    test "survives a simulated :native write and read without reporting a change", %{native: p} do
+      original = Duration.new!(year: 1, week: 2, minute: 90)
+
+      {:ok, dumped} = DurationType.dump(original, & &1, p)
+
+      encoded = %Postgrex.Interval{
+        months: 12 * dumped.year + dumped.month,
+        days: 7 * dumped.week + dumped.day,
+        secs: 3600 * dumped.hour + 60 * dumped.minute + dumped.second,
+        microsecs: elem(dumped.microsecond, 0)
+      }
+
+      {:ok, reloaded} = DurationType.load(encoded, & &1, p)
+
+      refute reloaded == original
+      assert DurationType.equal?(original, reloaded, p)
+    end
+  end
 end

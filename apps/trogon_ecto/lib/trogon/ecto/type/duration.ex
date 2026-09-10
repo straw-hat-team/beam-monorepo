@@ -35,8 +35,15 @@ defmodule Trogon.Ecto.Type.Duration do
       field :cooldown, Trogon.Ecto.Type.Duration, format: :native
 
   `load/3` accepts either stored shape (an ISO 8601 binary or a component map)
-  regardless of the configured format. This is deliberate, so a field's `:format`
-  can be changed later without a data migration.
+  regardless of the configured format, so a column holding a mix of both during a
+  transition still reads cleanly.
+
+  That leniency is about reading, not about switching formats for free. Each format
+  selects a different underlying Ecto type (`:string`, `:map`, `:duration`), so
+  changing a field's `:format` still requires migrating the column and its existing
+  values. A `text` column will reject the map that `format: :map` dumps, however
+  liberally `load/3` reads. Cross-shape loading only helps where the database
+  representation is already compatible with both.
 
   ## `:native` is lossy across a database round trip
 
@@ -293,6 +300,16 @@ defmodule Trogon.Ecto.Type.Duration do
   @doc """
   Checks whether two durations are equal.
 
+  For `:iso8601` and `:map`, equality is structural, because those formats round
+  trip the exact unit a duration was expressed in and so a change of unit is a real
+  change worth persisting.
+
+  For `:native` it compares the flattened components PostgreSQL would actually
+  store, since the unit does not survive the column. Without this, a value loaded
+  back as `%Duration{month: 12}` would never compare equal to the
+  `Duration.new!(year: 1)` it was written from, and Ecto would issue an update on
+  every save.
+
   ## Examples
 
       iex> params = Trogon.Ecto.Type.Duration.init([])
@@ -302,10 +319,32 @@ defmodule Trogon.Ecto.Type.Duration do
       iex> params = Trogon.Ecto.Type.Duration.init([])
       iex> Trogon.Ecto.Type.Duration.equal?(Duration.new!(second: 10), Duration.new!(minute: 1), params)
       false
+
+      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
+      iex> Trogon.Ecto.Type.Duration.equal?(Duration.new!(year: 1), Duration.new!(month: 12), params)
+      true
+
+      iex> params = Trogon.Ecto.Type.Duration.init(format: :native)
+      iex> Trogon.Ecto.Type.Duration.equal?(Duration.new!(month: 1), Duration.new!(day: 30), params)
+      false
   """
   @impl Ecto.ParameterizedType
   @spec equal?(term(), term(), params()) :: boolean()
+  def equal?(%Duration{} = value1, %Duration{} = value2, %{format: :native}) do
+    flatten_like_postgres(value1) == flatten_like_postgres(value2)
+  end
+
   def equal?(value1, value2, _params), do: value1 == value2
+
+  defp flatten_like_postgres(%Duration{} = duration) do
+    {microseconds, _precision} = duration.microsecond
+
+    %{
+      months: 12 * duration.year + duration.month,
+      days: 7 * duration.week + duration.day,
+      microseconds: 1_000_000 * (3600 * duration.hour + 60 * duration.minute + duration.second) + microseconds
+    }
+  end
 
   @doc """
   Returns how the value is persisted when the type is used inside an embed.
