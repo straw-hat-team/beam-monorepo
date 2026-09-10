@@ -6,7 +6,7 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
   import Phoenix.LiveDashboard.PageBuilder
 
   alias EventStoreDashboard.Components.{EventLink, Pagination, SubscriptionModal, TableParams}
-  alias EventStoreDashboard.{Params, Repo, Subscription}
+  alias EventStoreDashboard.{Params, Repo, RowCount, Subscription}
   alias EventStoreDashboard.Repo.Context
 
   @page_param :subscriptions_page
@@ -138,7 +138,7 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
   defp lag_class(_), do: "badge-danger"
 
   defp paginate_subscriptions(nil, _node, _page_number, _url_params),
-    do: %{entries: [], total_entries: 0, total_pages: 0}
+    do: %{entries: [], total_entries: RowCount.zero(), total_pages: 0}
 
   defp paginate_subscriptions(%Context{} = ctx, node, page_number, url_params) do
     sort_by = TableParams.parse_sort_by(url_params, @sort_columns, :subscription_id)
@@ -148,7 +148,7 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
     search_term = url_params |> TableParams.parse_search() |> like_pattern()
     offset = (page_number - 1) * limit
 
-    with {:ok, total_entries} <- Repo.count_subscriptions(node, ctx, search_term),
+    with {:ok, total_entries} <- count_subscriptions(node, ctx, search_term),
          {:ok, rows} <-
            query_subscriptions(
              node,
@@ -159,7 +159,7 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
              limit,
              offset
            ) do
-      total_pages = if total_entries == 0, do: 0, else: div(total_entries - 1, limit) + 1
+      total_pages = RowCount.total_pages(total_entries, limit)
 
       %{
         entries: Enum.map(rows, &row_to_subscription/1),
@@ -167,7 +167,27 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
         total_pages: total_pages
       }
     else
-      _ -> %{entries: [], total_entries: 0, total_pages: 0}
+      _ -> %{entries: [], total_entries: RowCount.zero(), total_pages: 0}
+    end
+  end
+
+  defp count_subscriptions(node, %Context{} = ctx, nil = search_term) do
+    Repo.estimate_count(node, ctx, "subscriptions", fn ->
+      exact_count_subscriptions(node, ctx, search_term)
+    end)
+  end
+
+  defp count_subscriptions(node, %Context{} = ctx, search_term) do
+    exact_count_subscriptions(node, ctx, search_term)
+  end
+
+  defp exact_count_subscriptions(node, %Context{} = ctx, search_term) do
+    {where, params} = search_clause(search_term, [], 1)
+    sql = "SELECT COUNT(*) FROM #{ctx.schema}.subscriptions s#{where};"
+
+    case Repo.query(node, ctx.conn, sql, params) do
+      {:ok, [[count]]} -> {:ok, RowCount.exact(count)}
+      _ -> :error
     end
   end
 
@@ -219,7 +239,7 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
 
   defp subscription_lag(%Subscription{} = entry), do: {entry.subscription_id, entry.lag}
 
-  defp fetch_rows(_params, _node, result), do: {result.entries, result.total_entries}
+  defp fetch_rows(_params, _node, result), do: {result.entries, to_string(result.total_entries)}
 
   defp like_pattern(nil), do: nil
   defp like_pattern(term), do: "%" <> term <> "%"

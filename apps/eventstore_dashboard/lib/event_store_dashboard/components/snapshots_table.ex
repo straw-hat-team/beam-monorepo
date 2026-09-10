@@ -8,6 +8,7 @@ defmodule EventStoreDashboard.Components.SnapshotsTable do
   alias EventStoreDashboard.Components.{EventLink, Pagination, SnapshotModal, TableParams}
   alias EventStoreDashboard.Repo
   alias EventStoreDashboard.Repo.Context
+  alias EventStoreDashboard.RowCount
 
   @page_param :snapshots_page
   @sort_columns ~w(source_uuid source_type source_version created_at)
@@ -81,7 +82,7 @@ defmodule EventStoreDashboard.Components.SnapshotsTable do
   end
 
   defp paginate_snapshots(nil, _node, _page_number, _url_params),
-    do: %{entries: [], total_entries: 0, total_pages: 0}
+    do: %{entries: [], total_entries: RowCount.zero(), total_pages: 0}
 
   defp paginate_snapshots(%Context{} = ctx, node, page_number, url_params) do
     sort_by = TableParams.parse_sort_by(url_params, @sort_columns, :created_at)
@@ -102,7 +103,7 @@ defmodule EventStoreDashboard.Components.SnapshotsTable do
              limit,
              offset
            ) do
-      total_pages = if total_entries == 0, do: 0, else: div(total_entries - 1, limit) + 1
+      total_pages = RowCount.total_pages(total_entries, limit)
 
       %{
         entries: Enum.map(rows, &Repo.row_to_snapshot_summary/1),
@@ -110,14 +111,14 @@ defmodule EventStoreDashboard.Components.SnapshotsTable do
         total_pages: total_pages
       }
     else
-      _ -> %{entries: [], total_entries: 0, total_pages: 0}
+      _ -> %{entries: [], total_entries: RowCount.zero(), total_pages: 0}
     end
   end
 
   defp like_pattern(nil), do: nil
   defp like_pattern(term), do: "%" <> term <> "%"
 
-  defp fetch_rows(_params, _node, result), do: {result.entries, result.total_entries}
+  defp fetch_rows(_params, _node, result), do: {result.entries, to_string(result.total_entries)}
 
   defp row_attrs(row) do
     [

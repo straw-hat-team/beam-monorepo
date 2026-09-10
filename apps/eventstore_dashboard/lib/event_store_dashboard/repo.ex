@@ -3,9 +3,8 @@ defmodule EventStoreDashboard.Repo do
 
   require Logger
 
-  alias EventStore.Sql.Statements
   alias EventStore.UUID
-  alias EventStoreDashboard.{Event, Snapshot, Stream, Subscription}
+  alias EventStoreDashboard.{Event, RowCount, Snapshot, Stream, Subscription}
   alias EventStoreDashboard.Repo.Context
 
   def fetch_conn(node, {_module, opts} = event_store) do
@@ -221,83 +220,46 @@ defmodule EventStoreDashboard.Repo do
   Approximate row count for an entire table from PostgreSQL planner statistics
   (`pg_class.reltuples`), avoiding a `COUNT(*)` sequential scan.
 
-  Used for unfiltered dashboard pagination totals. Event-store tables such as
-  `streams` and `events` are frequently very large and deliberately lightly
-  indexed for write throughput, so a full `COUNT(*)` reads every row and can peg
-  the database CPU. `reltuples` is maintained by `ANALYZE`/autovacuum and is
-  accurate enough for a monitoring view. A never-analyzed table reports `-1`,
-  which is clamped to `0`. Returns `{:ok, non_neg_integer}` or `:error`.
+  Event-store tables such as `streams` and `events` are frequently very large and
+  deliberately lightly indexed for write throughput, so a full `COUNT(*)` reads
+  every row and can peg the database CPU. `reltuples` is maintained by
+  `ANALYZE`/autovacuum and is accurate enough for a monitoring view.
 
-  The schema-qualified table name is interpolated into the `::regclass` literal
-  rather than passed as a parameter: `$1::regclass` makes PostgreSQL infer the
-  bind type as `oid`, and Postgrex then refuses to encode the textual name as an
-  integer oid. `schema` is trusted config and `table` is a fixed internal value,
-  so interpolation is safe here (matching the other queries in this module).
+  A non-positive or missing `reltuples` means the estimate is unusable: the table
+  was never analyzed (`-1`), it is a partitioned parent whose rows live in the
+  partitions (`0`), `pg_class` is not readable, or the table is genuinely empty.
+  All of those fall through to `exact_count`, which is the cheap answer for an
+  empty table and the correct one otherwise.
+
+  `to_regclass/1` takes the schema-qualified name as `text`, so the table name
+  stays a bind parameter, and it returns `NULL` rather than raising when the
+  relation does not exist.
   """
-  def estimate_count(node, %Context{} = ctx, table) when is_binary(table) do
-    sql =
-      "SELECT GREATEST(reltuples, 0)::bigint FROM pg_class " <>
-        "WHERE oid = '#{ctx.schema}.#{table}'::regclass"
+  def estimate_count(node, %Context{} = ctx, table, exact_count)
+      when is_binary(table) and is_function(exact_count, 0) do
+    sql = "SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass($1)::oid;"
 
-    case query(node, ctx.conn, sql, []) do
-      {:ok, [[count]]} -> {:ok, count}
-      _ -> :error
+    case query(node, ctx.conn, sql, ["#{ctx.schema}.#{table}"]) do
+      {:ok, [[count]]} when is_integer(count) and count > 0 -> {:ok, RowCount.estimated(count)}
+      _ -> exact_count.()
     end
   end
 
-  @doc """
-  Total number of streams for the dashboard's streams table.
-
-  `"%"` is the match-all term used by the unfiltered view; it returns a fast
-  `estimate_count/3` rather than `COUNT(*)` over the entire streams table. A real
-  search term falls back to an exact filtered count. Returns `{:ok, non_neg_integer}`
-  or `:error`.
-  """
-  def count_streams(node, %Context{} = ctx, "%"), do: estimate_count(node, ctx, "streams")
-
-  def count_streams(node, %Context{} = ctx, search_term) do
-    sql = IO.iodata_to_binary(Statements.count_streams(ctx.schema))
-
-    case query(node, ctx.conn, sql, [search_term]) do
-      {:ok, [[count]]} -> {:ok, count}
-      _ -> :error
-    end
+  def count_snapshots(node, %Context{} = ctx, nil = search_term) do
+    estimate_count(node, ctx, "snapshots", fn -> exact_count_snapshots(node, ctx, search_term) end)
   end
-
-  @doc """
-  Total number of subscriptions for the dashboard's subscriptions table.
-
-  With no search term, returns a fast `estimate_count/3`; a search term falls back
-  to an exact `ILIKE` filtered count. Returns `{:ok, non_neg_integer}` or `:error`.
-  """
-  def count_subscriptions(node, %Context{} = ctx, nil), do: estimate_count(node, ctx, "subscriptions")
-
-  def count_subscriptions(node, %Context{} = ctx, search_term) do
-    sql =
-      "SELECT COUNT(*) FROM #{ctx.schema}.subscriptions s " <>
-        "WHERE s.subscription_name ILIKE $1 OR s.stream_uuid ILIKE $1;"
-
-    case query(node, ctx.conn, sql, [search_term]) do
-      {:ok, [[count]]} -> {:ok, count}
-      _ -> :error
-    end
-  end
-
-  @doc """
-  Total number of snapshots for the dashboard's snapshots table.
-
-  With no search term, returns a fast `estimate_count/3`; a search term falls back
-  to an exact filtered count. Returns `{:ok, non_neg_integer}` or `:error`.
-  """
-  def count_snapshots(node, %Context{} = ctx, nil), do: estimate_count(node, ctx, "snapshots")
 
   def count_snapshots(node, %Context{} = ctx, search_term) do
+    exact_count_snapshots(node, ctx, search_term)
+  end
+
+  defp exact_count_snapshots(node, %Context{} = ctx, search_term) do
     {where, params} = snapshot_search_clause(search_term, [], 1)
 
     sql = "SELECT COUNT(*) FROM #{ctx.schema}.snapshots#{where};"
 
     case query(node, ctx.conn, sql, params) do
-      {:ok, [[count]]} -> {:ok, count}
+      {:ok, [[count]]} -> {:ok, RowCount.exact(count)}
       _ -> :error
     end
   end

@@ -9,6 +9,7 @@ defmodule EventStoreDashboard.Components.StreamsTable do
   alias EventStoreDashboard.Components.{EventLink, Pagination, TableParams}
   alias EventStoreDashboard.Repo
   alias EventStoreDashboard.Repo.Context
+  alias EventStoreDashboard.RowCount
   alias Phoenix.LiveDashboard.PageBuilder
   alias Phoenix.LiveView.Socket
 
@@ -81,10 +82,10 @@ defmodule EventStoreDashboard.Components.StreamsTable do
     search_term = url_params |> TableParams.parse_search() |> prefix_pattern()
     offset = (page_number - 1) * limit
 
-    with {:ok, total_entries} <- Repo.count_streams(node, ctx, search_term),
+    with {:ok, total_entries} <- count_streams(node, ctx, search_term),
          {:ok, rows} <-
            query_streams(node, ctx, sort_by, sort_dir, search_term, limit, offset) do
-      total_pages = if total_entries == 0, do: 0, else: div(total_entries - 1, limit) + 1
+      total_pages = RowCount.total_pages(total_entries, limit)
 
       %{
         entries: Enum.map(rows, &row_to_stream/1),
@@ -92,7 +93,24 @@ defmodule EventStoreDashboard.Components.StreamsTable do
         total_pages: total_pages
       }
     else
-      _ -> %{entries: [], total_entries: 0, total_pages: 0}
+      _ -> %{entries: [], total_entries: RowCount.zero(), total_pages: 0}
+    end
+  end
+
+  defp count_streams(node, %Context{} = ctx, "%" = search_term) do
+    Repo.estimate_count(node, ctx, "streams", fn -> exact_count_streams(node, ctx, search_term) end)
+  end
+
+  defp count_streams(node, %Context{} = ctx, search_term) do
+    exact_count_streams(node, ctx, search_term)
+  end
+
+  defp exact_count_streams(node, %Context{} = ctx, search_term) do
+    sql = IO.iodata_to_binary(Statements.count_streams(ctx.schema))
+
+    case Repo.query(node, ctx.conn, sql, [search_term]) do
+      {:ok, [[count]]} -> {:ok, RowCount.exact(count)}
+      _ -> :error
     end
   end
 
@@ -123,7 +141,7 @@ defmodule EventStoreDashboard.Components.StreamsTable do
   defp prefix_pattern(nil), do: "%"
   defp prefix_pattern(search), do: search <> "%"
 
-  defp fetch_rows(_params, _node, result), do: {result.entries, result.total_entries}
+  defp fetch_rows(_params, _node, result), do: {result.entries, to_string(result.total_entries)}
 
   defp row_attrs(row) do
     [
