@@ -250,15 +250,13 @@ defmodule Trogon.Ecto.DurationType do
 
   if Code.ensure_loaded?(Postgrex.Interval) do
     def load(%Postgrex.Interval{} = value, _loader, _params) do
-      %Postgrex.Interval{months: months, days: days, secs: secs, microsecs: microsecs} = value
-
       {:ok,
-       Duration.new!(
-         month: months,
-         day: days,
-         second: secs,
-         microsecond: {microsecs, @postgres_default_precision}
-       )}
+       %Duration{
+         month: value.months,
+         day: value.days,
+         second: value.secs,
+         microsecond: {value.microsecs, @postgres_default_precision}
+       }}
     end
   end
 
@@ -388,47 +386,76 @@ defmodule Trogon.Ecto.DurationType do
 
   def embed_as(_format, _params), do: :dump
 
-  defp duration_from_map(map) do
-    case normalize_components(Map.to_list(map), []) do
-      {:ok, opts} -> build_duration(opts)
+  defp duration_from_map(map), do: duration_from_pairs(Map.to_list(map), %Duration{})
+
+  defp duration_from_pairs([], duration), do: {:ok, duration}
+
+  defp duration_from_pairs([{key, value} | rest], duration) do
+    case put_duration_component(duration, key, value) do
+      {:ok, duration} -> duration_from_pairs(rest, duration)
       :error -> :error
     end
   end
 
-  defp build_duration(opts) do
-    {:ok, Duration.new!(opts)}
-  rescue
-    ArgumentError -> :error
-  end
+  defp put_duration_component(duration, :year, value) when is_integer(value),
+    do: {:ok, %{duration | year: value}}
 
-  defp normalize_components([], acc), do: {:ok, acc}
+  defp put_duration_component(duration, "year", value) when is_integer(value),
+    do: {:ok, %{duration | year: value}}
 
-  defp normalize_components([{key, value} | rest], acc) do
-    with {:ok, component} <- normalize_key(key) do
-      normalize_components(rest, [{component, normalize_value(component, value)} | acc])
-    end
-  end
+  defp put_duration_component(duration, :month, value) when is_integer(value),
+    do: {:ok, %{duration | month: value}}
 
-  defp normalize_key(:year), do: {:ok, :year}
-  defp normalize_key(:month), do: {:ok, :month}
-  defp normalize_key(:week), do: {:ok, :week}
-  defp normalize_key(:day), do: {:ok, :day}
-  defp normalize_key(:hour), do: {:ok, :hour}
-  defp normalize_key(:minute), do: {:ok, :minute}
-  defp normalize_key(:second), do: {:ok, :second}
-  defp normalize_key(:microsecond), do: {:ok, :microsecond}
-  defp normalize_key("year"), do: {:ok, :year}
-  defp normalize_key("month"), do: {:ok, :month}
-  defp normalize_key("week"), do: {:ok, :week}
-  defp normalize_key("day"), do: {:ok, :day}
-  defp normalize_key("hour"), do: {:ok, :hour}
-  defp normalize_key("minute"), do: {:ok, :minute}
-  defp normalize_key("second"), do: {:ok, :second}
-  defp normalize_key("microsecond"), do: {:ok, :microsecond}
-  defp normalize_key(_key), do: :error
+  defp put_duration_component(duration, "month", value) when is_integer(value),
+    do: {:ok, %{duration | month: value}}
 
-  defp normalize_value(:microsecond, [value, precision]), do: {value, precision}
-  defp normalize_value(_component, value), do: value
+  defp put_duration_component(duration, :week, value) when is_integer(value),
+    do: {:ok, %{duration | week: value}}
+
+  defp put_duration_component(duration, "week", value) when is_integer(value),
+    do: {:ok, %{duration | week: value}}
+
+  defp put_duration_component(duration, :day, value) when is_integer(value),
+    do: {:ok, %{duration | day: value}}
+
+  defp put_duration_component(duration, "day", value) when is_integer(value),
+    do: {:ok, %{duration | day: value}}
+
+  defp put_duration_component(duration, :hour, value) when is_integer(value),
+    do: {:ok, %{duration | hour: value}}
+
+  defp put_duration_component(duration, "hour", value) when is_integer(value),
+    do: {:ok, %{duration | hour: value}}
+
+  defp put_duration_component(duration, :minute, value) when is_integer(value),
+    do: {:ok, %{duration | minute: value}}
+
+  defp put_duration_component(duration, "minute", value) when is_integer(value),
+    do: {:ok, %{duration | minute: value}}
+
+  defp put_duration_component(duration, :second, value) when is_integer(value),
+    do: {:ok, %{duration | second: value}}
+
+  defp put_duration_component(duration, "second", value) when is_integer(value),
+    do: {:ok, %{duration | second: value}}
+
+  defp put_duration_component(duration, :microsecond, {value, precision})
+       when is_integer(value) and precision in 0..6,
+       do: {:ok, %{duration | microsecond: {value, precision}}}
+
+  defp put_duration_component(duration, :microsecond, [value, precision])
+       when is_integer(value) and precision in 0..6,
+       do: {:ok, %{duration | microsecond: {value, precision}}}
+
+  defp put_duration_component(duration, "microsecond", {value, precision})
+       when is_integer(value) and precision in 0..6,
+       do: {:ok, %{duration | microsecond: {value, precision}}}
+
+  defp put_duration_component(duration, "microsecond", [value, precision])
+       when is_integer(value) and precision in 0..6,
+       do: {:ok, %{duration | microsecond: {value, precision}}}
+
+  defp put_duration_component(_duration, _key, _value), do: :error
 
   @compile {:inline, put_component: 3, put_microsecond: 2}
 

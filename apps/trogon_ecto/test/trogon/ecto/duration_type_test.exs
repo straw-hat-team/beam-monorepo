@@ -158,6 +158,19 @@ defmodule Trogon.Ecto.DurationTypeTest do
     test "rejects a value of an unsupported type", %{params: params} do
       assert :error = DurationType.cast(123, params)
     end
+
+    test "rejects an out of range microsecond precision", %{params: params} do
+      assert :error = DurationType.cast(%{"microsecond" => [1, 99]}, params)
+      assert :error = DurationType.cast(%{"microsecond" => [1, -1]}, params)
+      assert :error = DurationType.cast(%{"microsecond" => ["x", 6]}, params)
+    end
+
+    test "returns :error rather than raising on malformed component values", %{params: params} do
+      for value <- [nil, "abc", 1.5, :atom, [], [1], [1, 2, 3], %{}, true] do
+        assert :error = DurationType.cast(%{"second" => value}, params)
+        assert :error = DurationType.cast(%{"microsecond" => value}, params)
+      end
+    end
   end
 
   describe "schema field declarations" do
