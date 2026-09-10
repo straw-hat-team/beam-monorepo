@@ -254,6 +254,15 @@ defmodule Trogon.Ecto.TestSupport do
     end
   end
 
+  defmodule WithDuration do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :length, Trogon.Ecto.Type.Duration
+    end
+  end
+
   def errors_on(changeset) do
     PolymorphicEmbed.traverse_errors(changeset, fn {message, opts} ->
       Regex.replace(~r"%{(\w+)}", message, fn _, key ->

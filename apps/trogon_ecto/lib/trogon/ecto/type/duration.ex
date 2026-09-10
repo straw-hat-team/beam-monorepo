@@ -101,4 +101,20 @@ defmodule Trogon.Ecto.Type.Duration do
   def dump(%Duration{} = value), do: {:ok, Duration.to_iso8601(value)}
   def dump(nil), do: {:ok, nil}
   def dump(_value), do: :error
+
+  @doc """
+  Returns how the value is persisted when the type is used inside an embed.
+
+  `:dump`, so a `Duration` nested in a value object or embedded schema is persisted
+  as its ISO 8601 string. The default of `:self` would keep the struct, which JSON
+  encoders cannot serialize.
+
+  ## Examples
+
+      iex> Trogon.Ecto.Type.Duration.embed_as(:json)
+      :dump
+  """
+  @impl Ecto.Type
+  @spec embed_as(atom()) :: :dump
+  def embed_as(_format), do: :dump
 end
