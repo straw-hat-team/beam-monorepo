@@ -489,6 +489,73 @@ defmodule Trogon.ObjectIdTest do
     end
   end
 
+  describe "JSON.Encoder.encode/1" do
+    test "encodes with json_format: :full (default), matching Jason" do
+      typeid = TestSupport.UserId.new!(@test_uuid)
+
+      assert JSON.encode!(typeid) == ~s("user_#{@test_uuid}")
+      assert JSON.encode!(typeid) == Jason.encode!(typeid)
+    end
+
+    test "encodes with json_format: :drop_prefix, matching Jason" do
+      typeid = TestSupport.JsonDropPrefixId.new!(@test_uuid)
+
+      assert JSON.encode!(typeid) == ~s("#{@test_uuid}")
+      assert JSON.encode!(typeid) == Jason.encode!(typeid)
+    end
+
+    test "encodes within a map" do
+      typeid = TestSupport.UserId.new!(@test_uuid)
+      map = %{id: typeid, name: "test"}
+
+      assert JSON.encode!(map) == ~s({"id":"user_#{@test_uuid}","name":"test"})
+    end
+
+    test "raises FunctionClauseError for struct with nil id" do
+      assert_raise FunctionClauseError, fn ->
+        JSON.encode!(%TestSupport.UserId{id: nil})
+      end
+    end
+  end
+
+  describe "Phoenix.Param.to_param/1" do
+    test "returns the fully prefixed string" do
+      typeid = TestSupport.UserId.new!(@test_uuid)
+
+      assert Phoenix.Param.to_param(typeid) == "user_#{@test_uuid}"
+    end
+
+    test "returns the fully prefixed string for json_format: :drop_prefix" do
+      typeid = TestSupport.JsonDropPrefixId.new!(@test_uuid)
+
+      assert Phoenix.Param.to_param(typeid) == "jsondrop_#{@test_uuid}"
+    end
+
+    test "roundtrips through parse/1" do
+      typeid = TestSupport.JsonDropPrefixId.new!(@test_uuid)
+
+      param = Phoenix.Param.to_param(typeid)
+
+      assert {:ok, ^typeid} = TestSupport.JsonDropPrefixId.parse(param)
+    end
+  end
+
+  describe "Phoenix.HTML.Safe.to_iodata/1" do
+    test "returns the prefixed string" do
+      typeid = TestSupport.UserId.new!(@test_uuid)
+
+      assert Phoenix.HTML.Safe.to_iodata(typeid) |> IO.iodata_to_binary() == "user_#{@test_uuid}"
+    end
+
+    test "HTML-escapes the value" do
+      typeid = TestSupport.UserId.new!(~s(<script>"))
+
+      escaped = Phoenix.HTML.Safe.to_iodata(typeid) |> IO.iodata_to_binary()
+
+      assert escaped == "user_&lt;script&gt;&quot;"
+    end
+  end
+
   describe "format validation: :uuid" do
     @valid_uuid "550e8400-e29b-41d4-a716-446655440000"
 

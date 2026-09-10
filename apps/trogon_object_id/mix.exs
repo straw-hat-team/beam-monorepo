@@ -42,6 +42,8 @@ defmodule Trogon.ObjectId.MixProject do
     [
       {:uniq, "~> 0.1"},
       {:jason, "~> 1.2", optional: true},
+      {:phoenix, "~> 1.7", optional: true},
+      {:phoenix_html, "~> 3.3 or ~> 4.0", optional: true},
       {:ecto, "~> 3.6"},
       {:nimble_options, "~> 1.0"},
       {:protobuf, "~> 0.16", optional: true},
@@ -100,6 +102,7 @@ defmodule Trogon.ObjectId.MixProject do
       name: @app,
       files: [
         ".formatter.exs",
+        "docs",
         "lib",
         "mix.exs",
         "README*",
@@ -121,6 +124,7 @@ defmodule Trogon.ObjectId.MixProject do
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: [
         "README.md",
+        "docs/references/protocols.md",
         "CHANGELOG.md"
       ],
       groups_for_extras: [
