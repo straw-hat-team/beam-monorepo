@@ -428,25 +428,16 @@ defmodule Trogon.Ecto.DurationType do
 
   @compile {:inline, put_component: 3, put_microsecond: 2}
 
-  defp to_component_map(%Duration{
-         year: year,
-         month: month,
-         week: week,
-         day: day,
-         hour: hour,
-         minute: minute,
-         second: second,
-         microsecond: microsecond
-       }) do
+  defp to_component_map(%Duration{} = duration) do
     []
-    |> put_component("year", year)
-    |> put_component("month", month)
-    |> put_component("week", week)
-    |> put_component("day", day)
-    |> put_component("hour", hour)
-    |> put_component("minute", minute)
-    |> put_component("second", second)
-    |> put_microsecond(microsecond)
+    |> put_component("year", duration.year)
+    |> put_component("month", duration.month)
+    |> put_component("week", duration.week)
+    |> put_component("day", duration.day)
+    |> put_component("hour", duration.hour)
+    |> put_component("minute", duration.minute)
+    |> put_component("second", duration.second)
+    |> put_microsecond(duration.microsecond)
     |> :maps.from_list()
   end
 
