@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_object_id@v0.2.1...trogon_object_id@v0.3.0) (2026-09-10)
+
+
+### Features
+
+* **trogon_object_id:** Add Phoenix.Param, Phoenix.HTML.Safe, and JSON.Encoder protocols ([#435](https://github.com/straw-hat-team/beam-monorepo/issues/435)) ([eabdfea](https://github.com/straw-hat-team/beam-monorepo/commit/eabdfea35e6b08f2bdd915054c6c04cc20e81393))
+
 ## [0.2.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_object_id@v0.2.0...trogon_object_id@v0.2.1) (2026-08-15)
 
 
