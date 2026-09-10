@@ -22,6 +22,28 @@ defmodule Trogon.Ecto.DurationTypeTest do
         DurationType.init(format: :bogus)
       end
     end
+
+    test "raises ArgumentError for an unsupported equality" do
+      assert_raise ArgumentError, ~r/invalid :equality :bogus/, fn ->
+        DurationType.init(format: :native, equality: :bogus)
+      end
+    end
+
+    test "requires :equality for :native, which has no safe default" do
+      assert_raise ArgumentError, ~r/missing :equality/, fn ->
+        DurationType.init(format: :native)
+      end
+    end
+
+    test "defaults :equality to :strict for the formats that preserve precision" do
+      assert DurationType.init([]) == %{format: :iso8601, equality: :strict}
+      assert DurationType.init(format: :map) == %{format: :map, equality: :strict}
+    end
+
+    test "keeps an explicit :equality for the other formats" do
+      assert DurationType.init(format: :map, equality: :storage) ==
+               %{format: :map, equality: :storage}
+    end
   end
 
   describe "round trip" do
@@ -218,7 +240,7 @@ defmodule Trogon.Ecto.DurationTypeTest do
     end
 
     test "raises for :native, since a Duration struct cannot be JSON encoded" do
-      params = DurationType.init(format: :native)
+      params = DurationType.init(format: :native, equality: :storage)
 
       assert_raise ArgumentError, ~r/cannot be stored inside an embed or value object/, fn ->
         DurationType.embed_as(:json, params)
@@ -228,7 +250,7 @@ defmodule Trogon.Ecto.DurationTypeTest do
 
   describe ":native format" do
     setup do
-      %{params: DurationType.init(format: :native)}
+      %{params: DurationType.init(format: :native, equality: :storage)}
     end
 
     test "type/1 is :duration", %{params: params} do
@@ -267,7 +289,11 @@ defmodule Trogon.Ecto.DurationTypeTest do
 
   describe "equal?/3" do
     setup do
-      %{native: DurationType.init(format: :native), iso8601: DurationType.init([])}
+      %{
+        native: DurationType.init(format: :native, equality: :storage),
+        native_strict: DurationType.init(format: :native, equality: :strict),
+        iso8601: DurationType.init([])
+      }
     end
 
     test "treats year and month as equal for :native, as PostgreSQL stores them", %{native: p} do
@@ -298,9 +324,33 @@ defmodule Trogon.Ecto.DurationTypeTest do
     end
 
     test "survives a simulated :native write and read without reporting a change", %{native: p} do
-      original = Duration.new!(year: 1, week: 2, minute: 90, microsecond: {0, 6})
+      for original <- [
+            Duration.new!(year: 1, week: 2, minute: 90),
+            Duration.new!(second: 10),
+            Duration.new!(hour: 1, minute: 30),
+            Duration.new!(microsecond: {500_000, 2})
+          ] do
+        assert DurationType.equal?(original, simulate_round_trip(original, p), p)
+      end
+    end
 
-      {:ok, dumped} = DurationType.dump(original, & &1, p)
+    test "reports a change on every save under :strict, which is why :native must choose",
+         %{native_strict: p} do
+      original = Duration.new!(second: 10)
+
+      refute DurationType.equal?(original, simulate_round_trip(original, p), p)
+    end
+
+    test "collapses the units PostgreSQL drops on the way in", %{native: p} do
+      original = Duration.new!(year: 1, week: 2, minute: 90)
+      reloaded = simulate_round_trip(original, p)
+
+      refute reloaded == original
+      assert reloaded == Duration.new!(month: 12, day: 14, second: 5400, microsecond: {0, 6})
+    end
+
+    defp simulate_round_trip(duration, params) do
+      {:ok, dumped} = DurationType.dump(duration, & &1, params)
 
       encoded = %Postgrex.Interval{
         months: 12 * dumped.year + dumped.month,
@@ -309,17 +359,12 @@ defmodule Trogon.Ecto.DurationTypeTest do
         microsecs: elem(dumped.microsecond, 0)
       }
 
-      {:ok, reloaded} = DurationType.load(encoded, & &1, p)
-
-      refute reloaded == original
-      assert DurationType.equal?(original, reloaded, p)
-
-      assert reloaded ==
-               Duration.new!(month: 12, day: 14, second: 5400, microsecond: {0, 6})
+      {:ok, reloaded} = DurationType.load(encoded, & &1, params)
+      reloaded
     end
 
-    test "keeps microsecond precision significant for :native", %{native: p} do
-      refute DurationType.equal?(
+    test "ignores microsecond precision for :native under :storage", %{native: p} do
+      assert DurationType.equal?(
                Duration.new!(microsecond: {500_000, 2}),
                Duration.new!(microsecond: {500_000, 6}),
                p
@@ -330,6 +375,20 @@ defmodule Trogon.Ecto.DurationTypeTest do
                Duration.new!(microsecond: {2, 6}),
                p
              )
+    end
+
+    test "keeps microsecond precision significant for :native under :strict",
+         %{native_strict: p} do
+      refute DurationType.equal?(
+               Duration.new!(microsecond: {500_000, 2}),
+               Duration.new!(microsecond: {500_000, 6}),
+               p
+             )
+    end
+
+    test "does not fold units for :native under :strict", %{native_strict: p} do
+      refute DurationType.equal?(Duration.new!(year: 1), Duration.new!(month: 12), p)
+      assert DurationType.equal?(Duration.new!(year: 1), Duration.new!(year: 1), p)
     end
 
     test "normalizes negative durations for :native", %{native: p} do
