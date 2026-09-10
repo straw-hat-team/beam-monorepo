@@ -362,12 +362,13 @@ defmodule Trogon.Ecto.DurationType do
   precision a duration was expressed in, so a change of either is a real change
   worth persisting.
 
-  Under `:storage` with `format: :native`, both sides are first reduced to what the
-  column can actually tell apart: years fold into `month`, weeks into `day`, hours
-  and minutes into `second`, and the microsecond precision is dropped. None of those
-  survive an `interval`, which stores months, days and a microsecond count and takes
-  its precision from the column type rather than the value. Without this, a value
-  written as `Duration.new!(year: 1)` would never compare equal to the
+  Under `:storage` with `format: :native`, both sides are first reduced to the three
+  buckets an `interval` actually keeps: a month count, a day count, and a single
+  microsecond count. Years fold into months, weeks into days, and everything below a
+  day collapses into microseconds, so a `second` and the microseconds that overflow
+  into it are indistinguishable, as they are in the column. Precision is dropped too,
+  since an `interval` takes it from the column type rather than the value. Without
+  this, a value written as `Duration.new!(year: 1)` would never compare equal to the
   `%Duration{month: 12}` it reads back as, and Ecto would issue an update on every
   save.
 
@@ -399,6 +400,13 @@ defmodule Trogon.Ecto.DurationType do
       iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :strict)
       iex> Trogon.Ecto.DurationType.equal?(Duration.new!(second: 10), Duration.new!(second: 10, microsecond: {0, 6}), params)
       false
+
+  Microseconds that overflow into a second are the same interval, so `:storage`
+  treats them as equal:
+
+      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
+      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(microsecond: {1_500_000, 6}), Duration.new!(second: 1, microsecond: {500_000, 6}), params)
+      true
   """
   @impl Ecto.ParameterizedType
   @spec equal?(term(), term(), params()) :: boolean()
@@ -410,12 +418,12 @@ defmodule Trogon.Ecto.DurationType do
 
   defp postgres_components(%Duration{} = duration) do
     {microsecond, _precision} = duration.microsecond
+    second = 3600 * duration.hour + 60 * duration.minute + duration.second
 
     [
       month: 12 * duration.year + duration.month,
       day: 7 * duration.week + duration.day,
-      second: 3600 * duration.hour + 60 * duration.minute + duration.second,
-      microsecond: microsecond
+      microsecond: 1_000_000 * second + microsecond
     ]
   end
 

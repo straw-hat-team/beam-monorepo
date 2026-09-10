@@ -328,7 +328,13 @@ defmodule Trogon.Ecto.DurationTypeTest do
             Duration.new!(year: 1, week: 2, minute: 90),
             Duration.new!(second: 10),
             Duration.new!(hour: 1, minute: 30),
-            Duration.new!(microsecond: {500_000, 2})
+            Duration.new!(microsecond: {500_000, 2}),
+            Duration.new!(microsecond: {1_500_000, 6}),
+            Duration.new!(second: 1, microsecond: {-500_000, 6}),
+            Duration.add(
+              Duration.new!(microsecond: {600_000, 6}),
+              Duration.new!(microsecond: {600_000, 6})
+            )
           ] do
         assert DurationType.equal?(original, simulate_round_trip(original, p), p)
       end
@@ -352,15 +358,62 @@ defmodule Trogon.Ecto.DurationTypeTest do
     defp simulate_round_trip(duration, params) do
       {:ok, dumped} = DurationType.dump(duration, & &1, params)
 
+      total_microsecs =
+        1_000_000 * (3600 * dumped.hour + 60 * dumped.minute + dumped.second) +
+          elem(dumped.microsecond, 0)
+
       encoded = %Postgrex.Interval{
         months: 12 * dumped.year + dumped.month,
         days: 7 * dumped.week + dumped.day,
-        secs: 3600 * dumped.hour + 60 * dumped.minute + dumped.second,
-        microsecs: elem(dumped.microsecond, 0)
+        secs: div(total_microsecs, 1_000_000),
+        microsecs: rem(total_microsecs, 1_000_000)
       }
 
       {:ok, reloaded} = DurationType.load(encoded, & &1, params)
       reloaded
+    end
+
+    test "carries overflowing microseconds into the second, as the column does",
+         %{native: p} do
+      assert DurationType.equal?(
+               Duration.new!(microsecond: {1_500_000, 6}),
+               Duration.new!(second: 1, microsecond: {500_000, 6}),
+               p
+             )
+
+      assert DurationType.equal?(
+               Duration.new!(microsecond: {1_000_000, 6}),
+               Duration.new!(second: 1),
+               p
+             )
+
+      assert DurationType.equal?(
+               Duration.new!(minute: 1),
+               Duration.new!(microsecond: {60_000_000, 6}),
+               p
+             )
+    end
+
+    test "borrows across a mixed-sign second and microsecond", %{native: p} do
+      assert DurationType.equal?(
+               Duration.new!(second: 1, microsecond: {-500_000, 6}),
+               Duration.new!(microsecond: {500_000, 6}),
+               p
+             )
+
+      assert DurationType.equal?(
+               Duration.new!(second: -1, microsecond: {500_000, 6}),
+               Duration.new!(microsecond: {-500_000, 6}),
+               p
+             )
+    end
+
+    test "still separates values the column keeps apart after the carry", %{native: p} do
+      refute DurationType.equal?(
+               Duration.new!(microsecond: {1_500_000, 6}),
+               Duration.new!(second: 1, microsecond: {500_001, 6}),
+               p
+             )
     end
 
     test "ignores microsecond precision for :native under :storage", %{native: p} do
