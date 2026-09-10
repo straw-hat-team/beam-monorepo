@@ -43,38 +43,24 @@ defmodule Trogon.Ecto.Enum do
   defmacro __using__(opts) do
     values = Keyword.fetch!(opts, :values)
 
+    quote generated: true do
+      unquote(__generated_schema__(values))
+      unquote(__generated_constructors__())
+      unquote(__generated_changeset__())
+      unquote(__generated_values__(values))
+      unquote(__generated_ecto_type__())
+      unquote(__generated_ecto_cast__(values))
+      unquote(__generated_ecto_load__(values))
+      unquote(__generated_ecto_dump__(values))
+      unquote(__generated_ecto_comparison__())
+      unquote(__generated_protocols__())
+    end
+  end
+
+  defp __generated_schema__(values) do
     type_ast = Enum.reduce(values, &{:|, [], [&1, &2]})
 
-    value_functions_ast =
-      for value <- values do
-        quote do
-          def unquote(value)(), do: %__MODULE__{value: unquote(value)}
-        end
-      end
-
-    load_functions_ast =
-      for value <- values do
-        quote do
-          @impl Ecto.Type
-          def load(unquote(Atom.to_string(value))) do
-            {:ok, %__MODULE__{value: unquote(value)}}
-          end
-        end
-      end
-
-    cast_as_function_ast =
-      for value <- values do
-        value_string = Atom.to_string(value)
-
-        quote do
-          @impl Ecto.Type
-          def cast(unquote(value_string)) do
-            {:ok, %__MODULE__{value: unquote(value)}}
-          end
-        end
-      end
-
-    quote generated: true do
+    quote generated: true, location: :keep do
       alias Trogon.Ecto.ValueObject
       alias Ecto.Changeset
 
@@ -89,41 +75,33 @@ defmodule Trogon.Ecto.Enum do
 
       @type value :: unquote(type_ast)
       @type t :: %__MODULE__{value: value()}
+    end
+  end
 
+  defp __generated_constructors__ do
+    quote generated: true, location: :keep do
       @doc """
       Creates a `t:t/0`.
       """
       @spec new(attrs :: %{required(:value) => value()}) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
-      def new(%__MODULE__{} = value) do
-        ValueObject.new(__MODULE__, Map.from_struct(value))
-      end
-
-      def new(attrs) when is_map(attrs) do
-        ValueObject.new(__MODULE__, attrs)
-      end
-
       @spec new(value :: value()) :: {:ok, %__MODULE__{}} | {:error, Ecto.Changeset.t()}
-      def new(value) do
-        ValueObject.new(__MODULE__, %{value: value})
-      end
+      def new(%__MODULE__{} = value), do: ValueObject.new(__MODULE__, Map.from_struct(value))
+      def new(attrs) when is_map(attrs), do: ValueObject.new(__MODULE__, attrs)
+      def new(value), do: ValueObject.new(__MODULE__, %{value: value})
 
       @doc """
       Creates a `t:t/0`.
       """
       @spec new!(attrs :: %{required(:value) => value()}) :: %__MODULE__{}
-      def new!(%__MODULE__{} = value) do
-        ValueObject.new!(__MODULE__, Map.from_struct(value))
-      end
-
-      def new!(attrs) when is_map(attrs) do
-        ValueObject.new!(__MODULE__, attrs)
-      end
-
       @spec new!(value :: value()) :: %__MODULE__{}
-      def new!(value) do
-        ValueObject.new!(__MODULE__, %{value: value})
-      end
+      def new!(%__MODULE__{} = value), do: ValueObject.new!(__MODULE__, Map.from_struct(value))
+      def new!(attrs) when is_map(attrs), do: ValueObject.new!(__MODULE__, attrs)
+      def new!(value), do: ValueObject.new!(__MODULE__, %{value: value})
+    end
+  end
 
+  defp __generated_changeset__ do
+    quote generated: true, location: :keep do
       @doc """
       Returns an `t:Ecto.Changeset.t/0` for a given `t:t/0` value object.
       """
@@ -133,52 +111,93 @@ defmodule Trogon.Ecto.Enum do
         |> Changeset.cast(attrs, [:value])
         |> Changeset.validate_required([:value])
       end
+    end
+  end
 
+  defp __generated_values__(values) do
+    type_ast = Enum.reduce(values, &{:|, [], [&1, &2]})
+
+    value_functions =
+      for value <- values do
+        quote generated: true, location: :keep do
+          @doc """
+          Returns the `#{inspect(unquote(value))}` `t:t/0`.
+          """
+          @spec unquote(value)() :: t()
+          def unquote(value)(), do: %__MODULE__{value: unquote(value)}
+        end
+      end
+
+    quote generated: true, location: :keep do
+      @doc """
+      Returns every supported value.
+      """
       @spec values() :: [unquote(type_ast)]
       def values, do: unquote(values)
 
-      unquote_splicing(value_functions_ast)
+      unquote_splicing(value_functions)
+    end
+  end
 
+  defp __generated_ecto_type__ do
+    quote generated: true, location: :keep do
       @impl Ecto.Type
       def type, do: :string
+    end
+  end
 
-      @impl Ecto.Type
-      def cast(%__MODULE__{value: value} = enum) when value in unquote(values) do
-        {:ok, enum}
+  defp __generated_ecto_cast__(values) do
+    value_clauses =
+      for value <- values do
+        quote generated: true, location: :keep do
+          def cast(unquote(Atom.to_string(value))), do: {:ok, %__MODULE__{value: unquote(value)}}
+        end
       end
 
+    quote generated: true, location: :keep do
       @impl Ecto.Type
-      def cast(%{value: value}) do
-        cast(value)
-      end
-
-      unquote_splicing(cast_as_function_ast)
-
-      @impl Ecto.Type
-      def cast(value) when value in unquote(values) do
-        {:ok, %__MODULE__{value: value}}
-      end
-
-      @impl Ecto.Type
+      def cast(%__MODULE__{value: value} = enum) when value in unquote(values), do: {:ok, enum}
+      def cast(%{value: value}), do: cast(value)
+      unquote_splicing(value_clauses)
+      def cast(value) when value in unquote(values), do: {:ok, %__MODULE__{value: value}}
       def cast(_), do: :error
+    end
+  end
 
-      unquote_splicing(load_functions_ast)
+  defp __generated_ecto_load__(values) do
+    value_clauses =
+      for value <- values do
+        quote generated: true, location: :keep do
+          def load(unquote(Atom.to_string(value))), do: {:ok, %__MODULE__{value: unquote(value)}}
+        end
+      end
+
+    quote generated: true, location: :keep do
       @impl Ecto.Type
+      unquote_splicing(value_clauses)
       def load(_), do: :error
+    end
+  end
 
+  defp __generated_ecto_dump__(values) do
+    quote generated: true, location: :keep do
       @impl Ecto.Type
       @spec dump(any()) :: {:ok, String.t()} | :error
       def dump(%__MODULE__{value: value}) when value in unquote(values), do: {:ok, Atom.to_string(value)}
       def dump(_), do: :error
+    end
+  end
 
+  defp __generated_ecto_comparison__ do
+    quote generated: true, location: :keep do
       @impl Ecto.Type
-      def equal?(%__MODULE__{value: value1}, %__MODULE__{value: value1}) do
-        true
-      end
-
-      @impl Ecto.Type
+      def equal?(%__MODULE__{value: value}, %__MODULE__{value: value}), do: true
       def equal?(_term1, _term2), do: false
+    end
+  end
 
+  defp __generated_protocols__ do
+    quote generated: true, location: :keep do
       unquote(__generated_string_chars_impl__())
       unquote(__generated_jason_impl__())
       unquote(__generated_json_impl__())
