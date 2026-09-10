@@ -70,6 +70,7 @@ defmodule Trogon.Ecto.Type.Duration do
 
   @component_atoms ~w(year month week day hour minute second microsecond)a
   @component_strings Enum.map(@component_atoms, &Atom.to_string/1)
+  @postgres_default_precision 6
 
   @type format :: :iso8601 | :map | :native
   @type params :: %{format: format()}
@@ -253,7 +254,13 @@ defmodule Trogon.Ecto.Type.Duration do
     def load(%Postgrex.Interval{} = value, _loader, _params) do
       %Postgrex.Interval{months: months, days: days, secs: secs, microsecs: microsecs} = value
 
-      {:ok, Duration.new!(month: months, day: days, second: secs, microsecond: {microsecs, 6})}
+      {:ok,
+       Duration.new!(
+         month: months,
+         day: days,
+         second: secs,
+         microsecond: {microsecs, @postgres_default_precision}
+       )}
     end
   end
 
@@ -304,11 +311,15 @@ defmodule Trogon.Ecto.Type.Duration do
   trip the exact unit a duration was expressed in and so a change of unit is a real
   change worth persisting.
 
-  For `:native` it compares the flattened components PostgreSQL would actually
-  store, since the unit does not survive the column. Without this, a value loaded
-  back as `%Duration{month: 12}` would never compare equal to the
-  `Duration.new!(year: 1)` it was written from, and Ecto would issue an update on
-  every save.
+  For `:native` both sides are first reduced to the `Duration.new!/1` arguments
+  PostgreSQL would hand back after a round trip, that is the same `month`, `day`,
+  `second` and `microsecond` an `interval` decodes into, since the unit does not
+  survive the column. Without this, a value loaded back as `%Duration{month: 12}`
+  would never compare equal to the `Duration.new!(year: 1)` it was written from,
+  and Ecto would issue an update on every save.
+
+  Microsecond precision is a property of the column's type modifier rather than of
+  the value, so it is normalized away too and never on its own makes a field dirty.
 
   ## Examples
 
@@ -331,19 +342,23 @@ defmodule Trogon.Ecto.Type.Duration do
   @impl Ecto.ParameterizedType
   @spec equal?(term(), term(), params()) :: boolean()
   def equal?(%Duration{} = value1, %Duration{} = value2, %{format: :native}) do
-    flatten_like_postgres(value1) == flatten_like_postgres(value2)
+    postgres_components(value1) == postgres_components(value2)
   end
 
   def equal?(value1, value2, _params), do: value1 == value2
 
-  defp flatten_like_postgres(%Duration{} = duration) do
+  defp postgres_components(%Duration{} = duration) do
     {microseconds, _precision} = duration.microsecond
 
-    %{
-      months: 12 * duration.year + duration.month,
-      days: 7 * duration.week + duration.day,
-      microseconds: 1_000_000 * (3600 * duration.hour + 60 * duration.minute + duration.second) + microseconds
-    }
+    total_microseconds =
+      1_000_000 * (3600 * duration.hour + 60 * duration.minute + duration.second) + microseconds
+
+    [
+      month: 12 * duration.year + duration.month,
+      day: 7 * duration.week + duration.day,
+      second: div(total_microseconds, 1_000_000),
+      microsecond: {rem(total_microseconds, 1_000_000), @postgres_default_precision}
+    ]
   end
 
   @doc """

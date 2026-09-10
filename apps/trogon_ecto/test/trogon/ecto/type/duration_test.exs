@@ -305,6 +305,33 @@ defmodule Trogon.Ecto.Type.DurationTest do
 
       refute reloaded == original
       assert DurationType.equal?(original, reloaded, p)
+
+      assert reloaded ==
+               Duration.new!(month: 12, day: 14, second: 5400, microsecond: {0, 6})
+    end
+
+    test "ignores microsecond precision for :native, which belongs to the column", %{native: p} do
+      assert DurationType.equal?(
+               Duration.new!(microsecond: {500_000, 2}),
+               Duration.new!(microsecond: {500_000, 6}),
+               p
+             )
+
+      refute DurationType.equal?(
+               Duration.new!(microsecond: {1, 6}),
+               Duration.new!(microsecond: {2, 6}),
+               p
+             )
+    end
+
+    test "normalizes negative durations for :native", %{native: p} do
+      assert DurationType.equal?(Duration.new!(minute: -1), Duration.new!(second: -60), p)
+
+      assert DurationType.equal?(
+               Duration.new!(second: -1),
+               Duration.new!(microsecond: {-1_000_000, 6}),
+               p
+             )
     end
   end
 end
