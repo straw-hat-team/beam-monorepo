@@ -1,6 +1,6 @@
 # Trogon.Ecto
 
-Extend Ecto with value object helpers.
+Extend Ecto with value object, type, and migration helpers.
 
 ## Installation
 
