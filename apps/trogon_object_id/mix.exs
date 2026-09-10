@@ -102,6 +102,7 @@ defmodule Trogon.ObjectId.MixProject do
       name: @app,
       files: [
         ".formatter.exs",
+        "docs",
         "lib",
         "mix.exs",
         "README*",
@@ -123,6 +124,7 @@ defmodule Trogon.ObjectId.MixProject do
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: [
         "README.md",
+        "docs/references/protocols.md",
         "CHANGELOG.md"
       ],
       groups_for_extras: [

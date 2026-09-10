@@ -323,11 +323,25 @@ defmodule Trogon.UnionObjectId do
 
   defp __generated_protocols__() do
     quote location: :keep do
+      unquote(__generated_string_chars_impl__())
+      unquote(__generated_jason_impl__())
+      unquote(__generated_json_impl__())
+      unquote(__generated_phoenix_param_impl__())
+      unquote(__generated_phoenix_html_safe_impl__())
+    end
+  end
+
+  defp __generated_string_chars_impl__() do
+    quote location: :keep do
       defimpl String.Chars do
         @moduledoc false
         def to_string(%@for{id: id}), do: Kernel.to_string(id)
       end
+    end
+  end
 
+  defp __generated_jason_impl__() do
+    quote location: :keep do
       if Code.ensure_loaded?(Jason.Encoder) do
         defimpl Jason.Encoder do
           @moduledoc false
@@ -336,19 +350,33 @@ defmodule Trogon.UnionObjectId do
           end
         end
       end
+    end
+  end
 
-      defimpl JSON.Encoder do
-        @moduledoc false
-        def encode(%@for{id: id}, encoder), do: JSON.Encoder.encode(id, encoder)
+  defp __generated_json_impl__() do
+    quote location: :keep do
+      if Code.ensure_loaded?(JSON.Encoder) do
+        defimpl JSON.Encoder do
+          @moduledoc false
+          def encode(%@for{id: id}, encoder), do: JSON.Encoder.encode(id, encoder)
+        end
       end
+    end
+  end
 
+  defp __generated_phoenix_param_impl__() do
+    quote location: :keep do
       if Code.ensure_loaded?(Phoenix.Param) do
         defimpl Phoenix.Param do
           @moduledoc false
           def to_param(%@for{id: id}), do: Kernel.to_string(id)
         end
       end
+    end
+  end
 
+  defp __generated_phoenix_html_safe_impl__() do
+    quote location: :keep do
       if Code.ensure_loaded?(Phoenix.HTML.Safe) do
         defimpl Phoenix.HTML.Safe do
           @moduledoc false

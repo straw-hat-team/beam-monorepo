@@ -72,13 +72,13 @@ defmodule Trogon.ObjectId do
 
   ## Protocols
 
-  Each generated ObjectId implements the following protocols:
+  Each generated ObjectId implements `String.Chars`, `Ecto.Type`, `Jason.Encoder`,
+  `JSON.Encoder`, `Phoenix.Param` and `Phoenix.HTML.Safe`. The emitted form differs per
+  protocol: `json_format` governs the two JSON encoders, `storage_format` governs Ecto, and
+  the rest always emit the full prefixed form.
 
-  - `String.Chars` - always the full prefixed form, regardless of any format option.
-  - `Jason.Encoder` and `JSON.Encoder` - follow `json_format`.
-  - `Ecto.Type` dump and `to_storage/1` - follow `storage_format`.
-  - `Phoenix.Param` and `Phoenix.HTML.Safe` - always the full prefixed form. `Phoenix.Param.to_param/1`
-    must roundtrip through `parse/1`, so it never respects `json_format` or `storage_format`.
+  See [Protocols](docs/references/protocols.md) for the full table, the optional dependencies
+  each one needs, and why `Phoenix.Param` ignores `json_format`.
   """
 
   alias Trogon.ObjectId.ProtoExtension
@@ -595,13 +595,27 @@ defmodule Trogon.ObjectId do
 
   defp __generated_protocols__(prefix, json_format) do
     quote location: :keep do
+      unquote(__generated_string_chars_impl__(prefix))
+      unquote(__generated_jason_impl__(prefix, json_format))
+      unquote(__generated_json_impl__(prefix, json_format))
+      unquote(__generated_phoenix_param_impl__())
+      unquote(__generated_phoenix_html_safe_impl__())
+    end
+  end
+
+  defp __generated_string_chars_impl__(prefix) do
+    quote location: :keep do
       defimpl String.Chars do
         @moduledoc false
         def to_string(%@for{id: id}) when is_binary(id) do
           "#{unquote(prefix)}#{id}"
         end
       end
+    end
+  end
 
+  defp __generated_jason_impl__(prefix, json_format) do
+    quote location: :keep do
       if Code.ensure_loaded?(Jason.Encoder) do
         defimpl Jason.Encoder do
           @moduledoc false
@@ -611,22 +625,36 @@ defmodule Trogon.ObjectId do
           end
         end
       end
+    end
+  end
 
-      defimpl JSON.Encoder do
-        @moduledoc false
-        def encode(%@for{id: id}, encoder) when is_binary(id) do
-          value = Trogon.ObjectId.format(unquote(json_format), unquote(prefix), id)
-          encoder.(value, encoder)
+  defp __generated_json_impl__(prefix, json_format) do
+    quote location: :keep do
+      if Code.ensure_loaded?(JSON.Encoder) do
+        defimpl JSON.Encoder do
+          @moduledoc false
+          def encode(%@for{id: id}, encoder) when is_binary(id) do
+            value = Trogon.ObjectId.format(unquote(json_format), unquote(prefix), id)
+            encoder.(value, encoder)
+          end
         end
       end
+    end
+  end
 
+  defp __generated_phoenix_param_impl__ do
+    quote location: :keep do
       if Code.ensure_loaded?(Phoenix.Param) do
         defimpl Phoenix.Param do
           @moduledoc false
           def to_param(%@for{id: id} = object_id) when is_binary(id), do: Kernel.to_string(object_id)
         end
       end
+    end
+  end
 
+  defp __generated_phoenix_html_safe_impl__ do
+    quote location: :keep do
       if Code.ensure_loaded?(Phoenix.HTML.Safe) do
         defimpl Phoenix.HTML.Safe do
           @moduledoc false
