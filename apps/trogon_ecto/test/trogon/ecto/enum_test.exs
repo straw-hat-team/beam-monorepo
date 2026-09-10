@@ -173,6 +173,27 @@ defmodule Trogon.Ecto.EnumTest do
     end
   end
 
+  describe "String.Chars.to_string/1" do
+    test "renders the string form of the value" do
+      assert to_string(%BankAccountType{value: :business}) == "business"
+      assert to_string(%BooleanNamedEnum{value: true}) == "true"
+    end
+  end
+
+  describe "Phoenix.Param.to_param/1" do
+    test "returns the string form of the value" do
+      assert Phoenix.Param.to_param(%BankAccountType{value: :business}) == "business"
+    end
+  end
+
+  describe "Phoenix.HTML.Safe.to_iodata/1" do
+    test "renders the string form of the value" do
+      assert %BankAccountType{value: :business}
+             |> Phoenix.HTML.Safe.to_iodata()
+             |> IO.iodata_to_binary() == "business"
+    end
+  end
+
   test "works with embedded schemas" do
     expected_value = %BankAccountOpened{
       uuid: "123",

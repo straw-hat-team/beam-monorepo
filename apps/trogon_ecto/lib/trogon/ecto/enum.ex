@@ -29,11 +29,15 @@ defmodule Trogon.Ecto.Enum do
         end
       end
 
-  ## JSON Encoding
+  ## Protocols
 
-  When `Jason` or the native `JSON` module is available, the generated
-  module implements `Jason.Encoder` and `JSON.Encoder` respectively,
-  encoding the value object as the string form of its `:value`.
+  The generated module always implements `String.Chars`, rendering as the
+  string form of its `:value`, the same form `dump/1` returns.
+
+  It also implements `Jason.Encoder`, `JSON.Encoder`, `Phoenix.Param` and
+  `Phoenix.HTML.Safe` when each is available, so an enum can be encoded,
+  used in a route helper, or rendered in a template without the consumer
+  taking on any of those dependencies.
   """
   @spec __using__(opts :: Keyword.t()) :: Macro.t()
   defmacro __using__(opts) do
@@ -167,20 +171,67 @@ defmodule Trogon.Ecto.Enum do
       @impl Ecto.Type
       def equal?(_term1, _term2), do: false
 
+      unquote(__generated_string_chars_impl__())
+      unquote(__generated_jason_impl__())
+      unquote(__generated_json_impl__())
+      unquote(__generated_phoenix_param_impl__())
+      unquote(__generated_phoenix_html_safe_impl__())
+    end
+  end
+
+  defp __generated_string_chars_impl__ do
+    quote location: :keep do
+      defimpl String.Chars do
+        @moduledoc false
+        def to_string(%@for{value: value}) when is_atom(value), do: Atom.to_string(value)
+      end
+    end
+  end
+
+  defp __generated_jason_impl__ do
+    quote location: :keep do
       if Code.ensure_loaded?(Jason.Encoder) do
         defimpl Jason.Encoder do
           @moduledoc false
-          def encode(%@for{value: value}, opts) do
+          def encode(%@for{value: value}, opts) when is_atom(value) do
             Jason.Encode.string(Atom.to_string(value), opts)
           end
         end
       end
+    end
+  end
 
+  defp __generated_json_impl__ do
+    quote location: :keep do
       if Code.ensure_loaded?(JSON.Encoder) do
         defimpl JSON.Encoder do
           @moduledoc false
-          def encode(%@for{value: value}, encoder) do
+          def encode(%@for{value: value}, encoder) when is_atom(value) do
             encoder.(Atom.to_string(value), encoder)
+          end
+        end
+      end
+    end
+  end
+
+  defp __generated_phoenix_param_impl__ do
+    quote location: :keep do
+      if Code.ensure_loaded?(Phoenix.Param) do
+        defimpl Phoenix.Param do
+          @moduledoc false
+          def to_param(%@for{value: value} = enum) when is_atom(value), do: Kernel.to_string(enum)
+        end
+      end
+    end
+  end
+
+  defp __generated_phoenix_html_safe_impl__ do
+    quote location: :keep do
+      if Code.ensure_loaded?(Phoenix.HTML.Safe) do
+        defimpl Phoenix.HTML.Safe do
+          @moduledoc false
+          def to_iodata(%@for{value: value} = enum) when is_atom(value) do
+            Phoenix.HTML.Safe.to_iodata(Kernel.to_string(enum))
           end
         end
       end
