@@ -13,7 +13,7 @@ defmodule Trogon.Ecto.MixProject do
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
       name: "Trogon.Ecto",
-      description: "Extend Ecto with value object helpers",
+      description: "Extend Ecto with value object, type, and migration helpers",
       app: @app,
       version: @version,
       elixir: @elixir_version,
@@ -41,6 +41,8 @@ defmodule Trogon.Ecto.MixProject do
   defp deps do
     [
       {:ecto, "~> 3.12"},
+      {:ecto_sql, "~> 3.12", optional: true},
+      {:postgrex, "~> 0.19 or ~> 1.0", optional: true},
       {:polymorphic_embed, "~> 5.0"},
 
       # Tools
