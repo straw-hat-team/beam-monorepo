@@ -131,7 +131,28 @@ defmodule Trogon.Ecto.MigrationTest do
       assert command == {:alter, table, [{:add, :balance_amount, :integer, []}]}
     end
 
-    test "add_annotations_column/1 adds an :annotations :map column defaulting to \"{}\"", %{
+    test "add_string_map_column/2 adds a :jsonb column defaulting to \"{}\"", %{
+      runner: runner,
+      table: table
+    } do
+      command =
+        MigrationTestSupport.capture_command(runner, table, fn ->
+          Trogon.Ecto.Migration.add_string_map_column(:labels)
+        end)
+
+      assert command == {:alter, table, [{:add, :labels, :jsonb, [default: "{}"]}]}
+    end
+
+    test "add_string_map_column/2 lets caller opts override the default", %{runner: runner, table: table} do
+      command =
+        MigrationTestSupport.capture_command(runner, table, fn ->
+          Trogon.Ecto.Migration.add_string_map_column(:labels, default: nil, null: false)
+        end)
+
+      assert command == {:alter, table, [{:add, :labels, :jsonb, [default: nil, null: false]}]}
+    end
+
+    test "add_annotations_column/1 adds an :annotations :jsonb column defaulting to \"{}\"", %{
       runner: runner,
       table: table
     } do
@@ -140,7 +161,7 @@ defmodule Trogon.Ecto.MigrationTest do
           Trogon.Ecto.Migration.add_annotations_column()
         end)
 
-      assert command == {:alter, table, [{:add, :annotations, :map, [default: "{}"]}]}
+      assert command == {:alter, table, [{:add, :annotations, :jsonb, [default: "{}"]}]}
     end
 
     test "add_annotations_column/1 lets caller opts override the default", %{runner: runner, table: table} do
@@ -149,7 +170,7 @@ defmodule Trogon.Ecto.MigrationTest do
           Trogon.Ecto.Migration.add_annotations_column(default: nil)
         end)
 
-      assert command == {:alter, table, [{:add, :annotations, :map, [default: nil]}]}
+      assert command == {:alter, table, [{:add, :annotations, :jsonb, [default: nil]}]}
     end
 
     test "add_uuid_column/2 adds a :binary_id column", %{runner: runner, table: table} do

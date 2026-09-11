@@ -13,7 +13,8 @@ defmodule Trogon.Ecto.Migration do
         add_object_id_column(:owner_id, null: false)
         add_currency_code_column()
         add_money_amount_column(:balance)
-        add_annotations_column()
+        add_string_map_column(:labels, null: false)
+        add_string_map_column(:annotations)
         add_timestamps()
       end
     end
@@ -135,13 +136,36 @@ defmodule Trogon.Ecto.Migration do
   end
 
   @doc """
-  Adds an `:annotations` column, typed as `:map`, for free-form metadata.
+  Adds a `:jsonb` column for a `Trogon.Ecto.StringMap`, `Trogon.Ecto.LabelMap`, or
+  `Trogon.Ecto.AnnotationMap` field.
+
+  Defaults to `default: "{}"`; caller opts win. An empty map rather than `NULL`
+  keeps a read from having to tell an absent map from one with no entries.
+
+  `:jsonb` rather than Ecto's `:map`, which PostgreSQL renders as whatever
+  `config :ecto_sql, :postgres_map_type` says, `"jsonb"` unless an application
+  sets it to `"json"`. A map that lands in a `json` column keeps duplicate keys
+  and insertion order verbatim, so two writes of the same map are two different
+  stored values, and it cannot take the GIN index a lookup by label needs.
+
+  ## Examples
+
+      add_string_map_column(:labels, null: false)
+  """
+  @spec add_string_map_column(name :: atom(), opts :: Keyword.t()) :: term()
+  def add_string_map_column(name, opts \\ []) when is_atom(name) do
+    Ecto.Migration.add(name, :jsonb, Keyword.merge([default: "{}"], opts))
+  end
+
+  @doc """
+  Adds an `:annotations` column, typed as `:jsonb`, for free-form metadata.
 
   Defaults to `default: "{}"`; caller opts win.
   """
+  @deprecated "Use add_string_map_column/2 instead"
   @spec add_annotations_column(opts :: Keyword.t()) :: term()
   def add_annotations_column(opts \\ []) do
-    Ecto.Migration.add(:annotations, :map, Keyword.merge([default: "{}"], opts))
+    add_string_map_column(:annotations, opts)
   end
 
   @doc """
