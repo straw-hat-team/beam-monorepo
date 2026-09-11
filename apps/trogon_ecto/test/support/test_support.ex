@@ -311,6 +311,40 @@ defmodule Trogon.Ecto.TestSupport do
     end
   end
 
+  defmodule WithStringMap do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :labels, Trogon.Ecto.StringMap
+    end
+  end
+
+  defmodule WithConfiguredStringMap do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :labels, Trogon.Ecto.StringMap,
+        key_format: :qualified_name,
+        value_format: :label_value
+
+      field :annotations, Trogon.Ecto.StringMap,
+        key_format: :qualified_name,
+        max_value_length: 64
+    end
+  end
+
+  defmodule WithKubernetesMetadata do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :labels, Trogon.Ecto.LabelMap
+      field :annotations, Trogon.Ecto.AnnotationMap, max_value_length: 64
+    end
+  end
+
   defmodule Basket do
     @moduledoc false
     use Ecto.Schema
