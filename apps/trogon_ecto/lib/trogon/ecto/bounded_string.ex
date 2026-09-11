@@ -1,18 +1,24 @@
 defmodule Trogon.Ecto.BoundedString do
+  alias Trogon.Ecto.FieldOptions
+
+  @own_keys [:max_length, :truncate]
+
   @opts_schema NimbleOptions.new!(
-                 max_length: [
-                   type: :pos_integer,
-                   required: true,
-                   doc: """
-                   Maximum length, counted in characters rather than bytes, so
-                   `max_length: 80` can outgrow a `varchar(80)` column.
-                   """
-                 ],
-                 truncate: [
-                   type: :boolean,
-                   default: false,
-                   doc: "Cut oversized values to fit instead of rejecting them."
-                 ]
+                 [
+                   max_length: [
+                     type: :pos_integer,
+                     required: true,
+                     doc: """
+                     Maximum length, counted in characters rather than bytes, so
+                     `max_length: 80` can outgrow a `varchar(80)` column.
+                     """
+                   ],
+                   truncate: [
+                     type: :boolean,
+                     default: false,
+                     doc: "Cut oversized values to fit instead of rejecting them."
+                   ]
+                 ] ++ FieldOptions.nimble_schema()
                )
 
   @moduledoc """
@@ -52,8 +58,8 @@ defmodule Trogon.Ecto.BoundedString do
   @spec init(keyword()) :: params()
   def init(opts) do
     opts
-    |> Keyword.take([:max_length, :truncate])
     |> NimbleOptions.validate!(@opts_schema)
+    |> Keyword.take(@own_keys)
     |> Map.new()
   end
 
