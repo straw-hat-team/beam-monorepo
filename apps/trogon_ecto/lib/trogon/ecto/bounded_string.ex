@@ -1,18 +1,44 @@
 defmodule Trogon.Ecto.BoundedString do
+  # Ecto skips its own `field/3` option check for parameterized types, so these
+  # have to be accepted here. Mirrors `@field_opts` in `Ecto.Schema`.
+  @ecto_field_opts [
+    :default,
+    :source,
+    :autogenerate,
+    :read_after_writes,
+    :virtual,
+    :primary_key,
+    :load_in_query,
+    :redact,
+    :foreign_key,
+    :on_replace,
+    :defaults,
+    :type,
+    :where,
+    :references,
+    :skip_default_validation,
+    :writable,
+    :on_writable_violation,
+    :field,
+    :schema
+  ]
+
   @opts_schema NimbleOptions.new!(
-                 max_length: [
-                   type: :pos_integer,
-                   required: true,
-                   doc: """
-                   Maximum length, counted in characters rather than bytes, so
-                   `max_length: 80` can outgrow a `varchar(80)` column.
-                   """
-                 ],
-                 truncate: [
-                   type: :boolean,
-                   default: false,
-                   doc: "Cut oversized values to fit instead of rejecting them."
-                 ]
+                 [
+                   max_length: [
+                     type: :pos_integer,
+                     required: true,
+                     doc: """
+                     Maximum length, counted in characters rather than bytes, so
+                     `max_length: 80` can outgrow a `varchar(80)` column.
+                     """
+                   ],
+                   truncate: [
+                     type: :boolean,
+                     default: false,
+                     doc: "Cut oversized values to fit instead of rejecting them."
+                   ]
+                 ] ++ Enum.map(@ecto_field_opts, &{&1, [type: :any, doc: false]})
                )
 
   @moduledoc """
@@ -52,8 +78,8 @@ defmodule Trogon.Ecto.BoundedString do
   @spec init(keyword()) :: params()
   def init(opts) do
     opts
-    |> Keyword.take([:max_length, :truncate])
     |> NimbleOptions.validate!(@opts_schema)
+    |> Keyword.take([:max_length, :truncate])
     |> Map.new()
   end
 
