@@ -1,7 +1,7 @@
 defmodule Trogon.Ecto.BoundedString do
   @moduledoc """
-  A string field with a maximum length, declared on the field instead of
-  restated in every changeset.
+  A string field with a maximum length, enforced by the field rather than by
+  every changeset that touches it.
 
       defmodule Product do
         use Ecto.Schema
@@ -12,62 +12,28 @@ defmodule Trogon.Ecto.BoundedString do
         end
       end
 
-  `:max_length` is required and must be a positive integer. `:truncate` is
-  optional and defaults to `false`.
+  ## Options
 
-  ## When a value is too long
+  - `:max_length` - required, a positive integer. Counted in characters, not
+    bytes, so `max_length: 80` can outgrow a `varchar(80)` column.
+  - `:truncate` - cut oversized values to fit instead of rejecting them.
+    Defaults to `false`.
 
-  The changeset fails the way `Ecto.Changeset.validate_length/3` fails on a
-  `:max` violation: the message `"should be at most %{count} character(s)"`,
-  alongside `count`, `validation: :length` and `kind: :max`. Whatever already
-  renders your validation errors keeps working, and the wording stays consistent
-  with the fields you bound by hand.
+  An oversized value fails the changeset the way
+  `Ecto.Changeset.validate_length/3` does on a `:max` violation, with
+  `"should be at most %{count} character(s)"`, `count`, `validation: :length`
+  and `kind: :max`. Match on those rather than on `:type`.
 
-  The reason to declare the bound here rather than call `validate_length/3` is
-  that it cannot be forgotten. It applies to every changeset that touches the
-  field, and to code that writes the field without a changeset at all, which
-  would otherwise reach the database unchecked.
+  Under `truncate: true` the value is cut during `cast`, so the changeset holds
+  the shortened string. Graphemes are never split.
 
-  If you render errors by matching on metadata, match `validation: :length` and
-  `kind: :max`. Avoid matching on `:type`, which holds this type rather than
-  `:string` when the error comes from a changeset.
-
-  ## Truncating instead of failing
-
-  With `truncate: true` an oversized value is cut to fit instead of rejected.
-
-  Reach for it when the text is something you are recording rather than
-  validating, and losing the tail beats losing the write: a vendor's error
-  message, an upstream description, a log line. Leave it off for anything a
-  person typed and expects back verbatim, where silently changing their input is
-  worse than telling them it was too long.
-
-  The value is cut as it is cast, so the shortened string is what the changeset
-  holds and what every later validation sees, not a surprise applied on the way
-  to the database. Characters are never split in half.
-
-  ## Rows that are already too long
-
-  Reads are never bounded, so adding a bound, or tightening one, does not break
-  existing rows. Updating other fields on such a row keeps working too.
-
-  Writing the too-long value back is what fails, which is usually what you want,
-  since that row no longer satisfies the field. Migrate it, widen the bound, or
-  set `truncate: true` to accept the loss.
-
-  ## Sizing the column
-
-  The bound counts characters, while a `varchar(n)` column counts bytes, and
-  multi-byte text takes more bytes than it has characters. Give the column room
-  to spare, or make it `text` and let this type be the limit.
+  Reads are unbounded, so adding or tightening a bound never breaks existing
+  rows. Writing a too-long value back is what fails.
   """
 
   use Ecto.ParameterizedType
 
-  @typedoc """
-  The bound and policy for a field, built by Ecto from the options given to
-  `field/3`.
-  """
+  @typedoc "A field's bound and truncation policy, built by Ecto from `field/3`."
   @type params :: %{max_length: pos_integer(), truncate: boolean()}
 
   @impl Ecto.ParameterizedType
