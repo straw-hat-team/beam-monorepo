@@ -311,6 +311,30 @@ defmodule Trogon.Ecto.TestSupport do
     end
   end
 
+  defmodule Basket do
+    @moduledoc false
+    use Ecto.Schema
+
+    @primary_key false
+    embedded_schema do
+      embeds_many :items, Item, on_replace: :delete, primary_key: {:id, :string, []} do
+        field :sku, :string
+      end
+    end
+
+    def changeset(basket, attrs) do
+      basket
+      |> Ecto.Changeset.cast(attrs, [])
+      |> Ecto.Changeset.cast_embed(:items, with: &item_changeset/2)
+    end
+
+    defp item_changeset(item, attrs) do
+      item
+      |> Ecto.Changeset.cast(attrs, [:id, :sku])
+      |> Ecto.Changeset.validate_required([:sku])
+    end
+  end
+
   def errors_on(changeset) do
     PolymorphicEmbed.traverse_errors(changeset, fn {message, opts} ->
       Regex.replace(~r"%{(\w+)}", message, fn _, key ->
