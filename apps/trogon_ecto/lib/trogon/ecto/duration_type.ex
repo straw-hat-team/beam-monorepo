@@ -1,17 +1,55 @@
 defmodule Trogon.Ecto.DurationType do
+  alias Trogon.Ecto.FieldOptions
+
+  @opts_schema NimbleOptions.new!(
+                 [
+                   format: [
+                     type: {:in, [:iso8601, :map, :native]},
+                     default: :iso8601,
+                     doc: """
+                     How the duration is persisted: `:iso8601` as a string, `:map` as a map of
+                     its components, `:native` as a PostgreSQL `interval`.
+                     """
+                   ],
+                   equality: [
+                     type: {:in, [:storage, :strict]},
+                     doc: """
+                     What `equal?/3` treats as a change, and therefore when Ecto writes.
+                     `:strict` compares the `Duration` structs as they are, `:storage` compares
+                     only what the column can tell apart. Defaults to `:strict`, except for
+                     `format: :native`, where it is required.
+                     """
+                   ]
+                 ] ++ FieldOptions.nimble_schema()
+               )
+
   @moduledoc """
-  An `Ecto.ParameterizedType` that wraps Elixir's `Duration`, persisted as an ISO
-  8601 string, a map of its components, or a native PostgreSQL `interval`.
+  A `Duration` field, persisted as an ISO 8601 string, a map of its components,
+  or a native PostgreSQL `interval`.
+
+      defmodule Offer do
+        use Ecto.Schema
+
+        schema "offers" do
+          field :cooldown, Trogon.Ecto.DurationType
+          field :window, Trogon.Ecto.DurationType, format: :map
+          field :ttl, Trogon.Ecto.DurationType, format: :native, equality: :storage
+        end
+      end
+
+  ## Options
+
+  #{NimbleOptions.docs(@opts_schema)}
 
   ## When NOT to use this type
 
   If your column only ever holds a plain `interval`, you never feed it an ISO
   8601 string or a component map, and you would rather not take on the
   dependency, use Ecto's built-in `:duration` type directly instead. Otherwise,
-  reach for this type and pick the `:format` below that matches how you plan to
-  query and store the value.
+  reach for this type and pick the `:format` that matches how you plan to query
+  and store the value.
 
-  ## The `:format` option
+  ## Choosing a `:format`
 
   - `:iso8601` (the default) - persists as an ISO 8601 string, e.g. `"PT10S"`.
     `type/1` is `:string`. Exact round trip, embeddable, portable, and still
@@ -30,13 +68,15 @@ defmodule Trogon.Ecto.DurationType do
   `[value, precision]` (a tuple is not JSON encodable). Zero-valued components are
   omitted, including `"microsecond"` when it is `{0, 0}`.
 
-      field :cooldown, Trogon.Ecto.DurationType
-      field :cooldown, Trogon.Ecto.DurationType, format: :map
-      field :cooldown, Trogon.Ecto.DurationType, format: :native, equality: :storage
+  ## What a field accepts
 
-  `load/3` accepts either stored shape (an ISO 8601 binary or a component map)
-  regardless of the configured format, so a column holding a mix of both during a
-  transition still reads cleanly.
+  Casting takes a `Duration`, an ISO 8601 string, a component map with either
+  string or atom keys, and `nil`, whatever the format. So `format: :native` accepts
+  an ISO 8601 string where Ecto's built-in `:duration` would not.
+
+  Reads are just as lenient: `load/3` accepts either stored shape regardless of the
+  configured format, so a column holding a mix of both during a transition still
+  reads cleanly.
 
   That leniency is about reading, not about switching formats for free. Each format
   selects a different underlying Ecto type (`:string`, `:map`, `:duration`), so
@@ -62,23 +102,18 @@ defmodule Trogon.Ecto.DurationType do
   `interval_decode_type: Duration` on the connection.
 
   Because dumping a `:native` duration yields a bare `%Duration{}` struct with no
-  JSON encoder, `:native` cannot be used inside an embed or value object; `embed_as/2`
-  raises for it.
+  JSON encoder, `:native` cannot be used inside an embed or value object; using it
+  there raises.
 
-  ## The `:equality` option
-
-  Decides what `equal?/3` treats as a change, and therefore when Ecto writes.
-
-  - `:storage` - compare only what the column can tell apart. For `:native` that
-    means folding years into `month`, weeks into `day`, hours and minutes into
-    `second`, and ignoring the microsecond precision, none of which an `interval`
-    keeps.
-  - `:strict` - compare the `Duration` structs as they are.
+  ## Choosing an `:equality`
 
   `format: :native` must state one, because the two genuinely differ there and the
   wrong one is expensive: under `:strict`, a `Duration.new!(second: 10)` reads back
   from the column as `%Duration{second: 10, microsecond: {0, 6}}` and never compares
-  equal to itself, so Ecto issues an update on every save.
+  equal to itself, so Ecto issues an update on every save. Under `:storage` both
+  sides are first reduced to the three buckets an `interval` keeps, a month count, a
+  day count, and a single microsecond count, so years fold into months, weeks into
+  days, and everything below a day collapses into microseconds.
 
   For `:iso8601` and `:map` the option defaults to `:strict` and the two settings
   coincide, because both formats preserve the exact unit and the exact precision:
@@ -92,58 +127,23 @@ defmodule Trogon.Ecto.DurationType do
 
   @type format :: :iso8601 | :map | :native
   @type equality :: :storage | :strict
+
+  @typedoc "A field's format and equality policy, built by Ecto from `field/3`."
   @type params :: %{format: format(), equality: equality()}
 
-  @doc """
-  Initializes the parameterized type from the `:format` and `:equality` options.
-
-  Ecto injects extra keys (`:field`, `:schema`) into `opts`; they are ignored.
-  Raises `ArgumentError` when either option is not one of the supported values, or
-  when `:equality` is missing for `format: :native`, which has no safe default.
-
-  ## Examples
-
-      iex> Trogon.Ecto.DurationType.init([])
-      %{equality: :strict, format: :iso8601}
-
-      iex> Trogon.Ecto.DurationType.init(format: :map)
-      %{equality: :strict, format: :map}
-
-      iex> Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      %{equality: :storage, format: :native}
-
-      iex> Trogon.Ecto.DurationType.init(format: :bogus)
-      ** (ArgumentError) invalid :format :bogus for Trogon.Ecto.DurationType, expected one of :iso8601, :map, :native
-
-      iex> Trogon.Ecto.DurationType.init(format: :native)
-      ** (ArgumentError) missing :equality for Trogon.Ecto.DurationType with format: :native, expected one of :storage, :strict
-
-      iex> Trogon.Ecto.DurationType.init(format: :native, equality: :bogus)
-      ** (ArgumentError) invalid :equality :bogus for Trogon.Ecto.DurationType, expected one of :storage, :strict
-  """
   @impl Ecto.ParameterizedType
   @spec init(keyword()) :: params()
   def init(opts) do
-    format =
-      opts
-      |> Keyword.get(:format, :iso8601)
-      |> validate_format!()
+    opts = NimbleOptions.validate!(opts, @opts_schema)
+    format = Keyword.fetch!(opts, :format)
 
     %{format: format, equality: equality!(opts, format)}
-  end
-
-  defp validate_format!(format) when format in [:iso8601, :map, :native], do: format
-
-  defp validate_format!(other) do
-    raise ArgumentError,
-          "invalid :format #{inspect(other)} for Trogon.Ecto.DurationType, " <>
-            "expected one of :iso8601, :map, :native"
   end
 
   defp equality!(opts, :native) do
     case Keyword.fetch(opts, :equality) do
       {:ok, equality} ->
-        validate_equality!(equality)
+        equality
 
       :error ->
         raise ArgumentError,
@@ -152,89 +152,14 @@ defmodule Trogon.Ecto.DurationType do
     end
   end
 
-  defp equality!(opts, _format) do
-    opts
-    |> Keyword.get(:equality, :strict)
-    |> validate_equality!()
-  end
+  defp equality!(opts, _format), do: Keyword.get(opts, :equality, :strict)
 
-  defp validate_equality!(equality) when equality in [:storage, :strict], do: equality
-
-  defp validate_equality!(other) do
-    raise ArgumentError,
-          "invalid :equality #{inspect(other)} for Trogon.Ecto.DurationType, " <>
-            "expected one of :storage, :strict"
-  end
-
-  @doc """
-  Returns the underlying Ecto type used to persist the value.
-
-  `:string` for `:iso8601`, `:map` for `:map`, `:duration` (a native interval)
-  for `:native`.
-
-  ## Examples
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.type(params)
-      :string
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :map)
-      iex> Trogon.Ecto.DurationType.type(params)
-      :map
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.type(params)
-      :duration
-  """
   @impl Ecto.ParameterizedType
   @spec type(params()) :: :string | :map | :duration
   def type(%{format: :iso8601}), do: :string
   def type(%{format: :map}), do: :map
   def type(%{format: :native}), do: :duration
 
-  @doc """
-  Casts a value into a `t:Duration.t/0`, regardless of the configured format.
-
-  Accepts a `Duration` struct as-is, an ISO 8601 binary, a component map with
-  either string or atom keys, and `nil`. Anything else, or a map that does not
-  describe a valid duration, returns `:error`. This holds for `:native` too: unlike
-  Ecto's built-in `:duration`, which only casts a `Duration` struct, this type
-  also accepts an ISO 8601 string.
-
-  ## Examples
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.cast(Duration.new!(second: 10), params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.cast("PT10S", params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.cast(%{"second" => 10}, params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.cast(%{second: 10}, params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.cast("PT10S", params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.cast(nil, params)
-      {:ok, nil}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.cast("random value", params)
-      :error
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.cast(123, params)
-      :error
-  """
   @impl Ecto.ParameterizedType
   @spec cast(term(), params()) :: {:ok, Duration.t() | nil} | :error
   def cast(%Duration{} = value, _params), do: {:ok, value}
@@ -250,45 +175,6 @@ defmodule Trogon.Ecto.DurationType do
   def cast(value, _params) when is_map(value), do: duration_from_map(value)
   def cast(_value, _params), do: :error
 
-  @doc """
-  Loads a value from the database into a `t:Duration.t/0`.
-
-  Accepts either stored shape (an ISO 8601 binary or a component map), regardless
-  of the configured format, plus a `Duration` struct and `nil`. This is deliberate:
-  it lets a field's `:format` be changed later without a data migration.
-
-  For `:native`, also accepts a `Postgrex.Interval` - what Postgrex decodes an
-  `interval` column into by default (it only returns a `Duration` when the
-  connection is configured with `interval_decode_type: Duration`), converted to a
-  `Duration` with `month`, `day`, `second`, and `microsecond` set from its
-  `months`, `days`, `secs`, and `microsecs` fields.
-
-  ## Examples
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.load("PT10S", & &1, params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :iso8601)
-      iex> Trogon.Ecto.DurationType.load(%{"second" => 10}, & &1, params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :map)
-      iex> Trogon.Ecto.DurationType.load("PT10S", & &1, params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.load(%Postgrex.Interval{months: 0, days: 0, secs: 10, microsecs: 0}, & &1, params)
-      {:ok, Duration.new!(second: 10, microsecond: {0, 6})}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.load(nil, & &1, params)
-      {:ok, nil}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.load("random value", & &1, params)
-      :error
-  """
   @impl Ecto.ParameterizedType
   @spec load(term(), (Ecto.Type.t(), term() -> {:ok, term()} | :error), params()) ::
           {:ok, Duration.t() | nil} | :error
@@ -317,34 +203,6 @@ defmodule Trogon.Ecto.DurationType do
   def load(value, _loader, _params) when is_map(value), do: duration_from_map(value)
   def load(_value, _loader, _params), do: :error
 
-  @doc """
-  Dumps a `t:Duration.t/0` using the configured format, strictly.
-
-  For `:native`, the `Duration` struct is passed straight through; Postgrex
-  encodes it for the `interval` column.
-
-  ## Examples
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.dump(Duration.new!(second: 10), & &1, params)
-      {:ok, "PT10S"}
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :map)
-      iex> Trogon.Ecto.DurationType.dump(Duration.new!(second: 10), & &1, params)
-      {:ok, %{"second" => 10}}
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.dump(Duration.new!(second: 10), & &1, params)
-      {:ok, Duration.new!(second: 10)}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.dump(nil, & &1, params)
-      {:ok, nil}
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.dump("random value", & &1, params)
-      :error
-  """
   @impl Ecto.ParameterizedType
   @spec dump(term(), (Ecto.Type.t(), term() -> {:ok, term()} | :error), params()) ::
           {:ok, String.t() | map() | Duration.t() | nil} | :error
@@ -354,60 +212,6 @@ defmodule Trogon.Ecto.DurationType do
   def dump(%Duration{} = value, _dumper, %{format: :native}), do: {:ok, value}
   def dump(_value, _dumper, _params), do: :error
 
-  @doc """
-  Checks whether two durations are equal, as decided by the `:equality` option.
-
-  Under `:strict`, and for every format other than `:native`, the structs are
-  compared as they are, because `:iso8601` and `:map` round trip the exact unit and
-  precision a duration was expressed in, so a change of either is a real change
-  worth persisting.
-
-  Under `:storage` with `format: :native`, both sides are first reduced to the three
-  buckets an `interval` actually keeps: a month count, a day count, and a single
-  microsecond count. Years fold into months, weeks into days, and everything below a
-  day collapses into microseconds, so a `second` and the microseconds that overflow
-  into it are indistinguishable, as they are in the column. Precision is dropped too,
-  since an `interval` takes it from the column type rather than the value. Without
-  this, a value written as `Duration.new!(year: 1)` would never compare equal to the
-  `%Duration{month: 12}` it reads back as, and Ecto would issue an update on every
-  save.
-
-  ## Examples
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(second: 10), Duration.new!(second: 10), params)
-      true
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(second: 10), Duration.new!(minute: 1), params)
-      false
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(year: 1), Duration.new!(month: 12), params)
-      true
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(month: 1), Duration.new!(day: 30), params)
-      false
-
-  Precision is ignored under `:storage`, which is what keeps a round-tripped value
-  from looking dirty:
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(second: 10), Duration.new!(second: 10, microsecond: {0, 6}), params)
-      true
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :strict)
-      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(second: 10), Duration.new!(second: 10, microsecond: {0, 6}), params)
-      false
-
-  Microseconds that overflow into a second are the same interval, so `:storage`
-  treats them as equal:
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.equal?(Duration.new!(microsecond: {1_500_000, 6}), Duration.new!(second: 1, microsecond: {500_000, 6}), params)
-      true
-  """
   @impl Ecto.ParameterizedType
   @spec equal?(term(), term(), params()) :: boolean()
   def equal?(%Duration{} = value1, %Duration{} = value2, %{format: :native, equality: :storage}) do
@@ -427,29 +231,6 @@ defmodule Trogon.Ecto.DurationType do
     ]
   end
 
-  @doc """
-  Returns how the value is persisted when the type is used inside an embed.
-
-  `:dump` for `:iso8601` and `:map`, so a `Duration` nested in a value object or
-  embedded schema is persisted as its ISO 8601 string or component map rather than
-  as a bare struct. `:native` raises `ArgumentError`: dumping it yields a
-  `%Duration{}` struct, which has no JSON encoder, so it cannot be stored inside an
-  embed or value object.
-
-  ## Examples
-
-      iex> params = Trogon.Ecto.DurationType.init([])
-      iex> Trogon.Ecto.DurationType.embed_as(:json, params)
-      :dump
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :map)
-      iex> Trogon.Ecto.DurationType.embed_as(:json, params)
-      :dump
-
-      iex> params = Trogon.Ecto.DurationType.init(format: :native, equality: :storage)
-      iex> Trogon.Ecto.DurationType.embed_as(:json, params)
-      ** (ArgumentError) a :native Trogon.Ecto.DurationType cannot be stored inside an embed or value object; use format: :iso8601 or format: :map instead
-  """
   @impl Ecto.ParameterizedType
   @spec embed_as(atom(), params()) :: :dump
   def embed_as(_format, %{format: :native}) do
