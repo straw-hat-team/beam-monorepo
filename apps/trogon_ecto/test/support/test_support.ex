@@ -293,6 +293,24 @@ defmodule Trogon.Ecto.TestSupport do
     use Trogon.Ecto.Enum, values: [true, false]
   end
 
+  defmodule WithBoundedString do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :title, Trogon.Ecto.BoundedString, max_length: 5
+    end
+  end
+
+  defmodule WithTruncatedBoundedString do
+    @moduledoc false
+    use Trogon.Ecto.ValueObject
+
+    embedded_schema do
+      field :title, Trogon.Ecto.BoundedString, max_length: 5, truncate: true
+    end
+  end
+
   def errors_on(changeset) do
     PolymorphicEmbed.traverse_errors(changeset, fn {message, opts} ->
       Regex.replace(~r"%{(\w+)}", message, fn _, key ->
