@@ -41,6 +41,7 @@ defmodule Trogon.Ecto.MixProject do
   defp deps do
     [
       {:ecto, "~> 3.12"},
+      {:nimble_options, "~> 1.0"},
       {:ecto_sql, "~> 3.12", optional: true},
       {:postgrex, "~> 0.19 or ~> 1.0", optional: true},
       {:polymorphic_embed, "~> 5.0"},

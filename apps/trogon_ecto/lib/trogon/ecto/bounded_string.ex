@@ -1,4 +1,20 @@
 defmodule Trogon.Ecto.BoundedString do
+  @opts_schema NimbleOptions.new!(
+                 max_length: [
+                   type: :pos_integer,
+                   required: true,
+                   doc: """
+                   Maximum length, counted in characters rather than bytes, so
+                   `max_length: 80` can outgrow a `varchar(80)` column.
+                   """
+                 ],
+                 truncate: [
+                   type: :boolean,
+                   default: false,
+                   doc: "Cut oversized values to fit instead of rejecting them."
+                 ]
+               )
+
   @moduledoc """
   A string field with a maximum length, enforced by the field rather than by
   every changeset that touches it.
@@ -14,10 +30,7 @@ defmodule Trogon.Ecto.BoundedString do
 
   ## Options
 
-  - `:max_length` - required, a positive integer. Counted in characters, not
-    bytes, so `max_length: 80` can outgrow a `varchar(80)` column.
-  - `:truncate` - cut oversized values to fit instead of rejecting them.
-    Defaults to `false`.
+  #{NimbleOptions.docs(@opts_schema)}
 
   An oversized value fails the changeset with
   `"should be at most %{count} character(s)"` and the metadata `count`,
@@ -38,40 +51,10 @@ defmodule Trogon.Ecto.BoundedString do
   @impl Ecto.ParameterizedType
   @spec init(keyword()) :: params()
   def init(opts) do
-    %{max_length: max_length!(opts), truncate: truncate!(opts)}
-  end
-
-  defp max_length!(opts) do
-    case Keyword.fetch(opts, :max_length) do
-      {:ok, max_length} ->
-        validate_max_length!(max_length)
-
-      :error ->
-        raise ArgumentError,
-              "missing :max_length for Trogon.Ecto.BoundedString, expected a positive integer"
-    end
-  end
-
-  defp validate_max_length!(max_length) when is_integer(max_length) and max_length > 0, do: max_length
-
-  defp validate_max_length!(other) do
-    raise ArgumentError,
-          "invalid :max_length #{inspect(other)} for Trogon.Ecto.BoundedString, " <>
-            "expected a positive integer"
-  end
-
-  defp truncate!(opts) do
     opts
-    |> Keyword.get(:truncate, false)
-    |> validate_truncate!()
-  end
-
-  defp validate_truncate!(truncate) when is_boolean(truncate), do: truncate
-
-  defp validate_truncate!(other) do
-    raise ArgumentError,
-          "invalid :truncate #{inspect(other)} for Trogon.Ecto.BoundedString, " <>
-            "expected a boolean"
+    |> Keyword.take([:max_length, :truncate])
+    |> NimbleOptions.validate!(@opts_schema)
+    |> Map.new()
   end
 
   @impl Ecto.ParameterizedType

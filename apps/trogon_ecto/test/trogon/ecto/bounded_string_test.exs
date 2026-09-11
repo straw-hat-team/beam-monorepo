@@ -9,34 +9,32 @@ defmodule Trogon.Ecto.BoundedStringTest do
   doctest BoundedString
 
   describe "init/1" do
-    test "raises ArgumentError when :max_length is missing" do
-      assert_raise ArgumentError, ~r/missing :max_length/, fn ->
+    test "raises when :max_length is missing" do
+      assert_raise NimbleOptions.ValidationError, ~r/required :max_length option not found/, fn ->
         BoundedString.init([])
       end
     end
 
-    test "raises ArgumentError for a non-positive :max_length" do
-      assert_raise ArgumentError, ~r/invalid :max_length 0/, fn ->
-        BoundedString.init(max_length: 0)
-      end
-
-      assert_raise ArgumentError, ~r/invalid :max_length -1/, fn ->
-        BoundedString.init(max_length: -1)
+    test "raises for a non-positive :max_length" do
+      for max_length <- [0, -1] do
+        assert_raise NimbleOptions.ValidationError,
+                     ~r/invalid value for :max_length option: expected positive integer/,
+                     fn -> BoundedString.init(max_length: max_length) end
       end
     end
 
-    test "raises ArgumentError for a non-integer :max_length" do
+    test "raises for a non-integer :max_length" do
       for max_length <- ["80", 80.0, nil, :eighty] do
-        assert_raise ArgumentError, ~r/invalid :max_length/, fn ->
-          BoundedString.init(max_length: max_length)
-        end
+        assert_raise NimbleOptions.ValidationError,
+                     ~r/invalid value for :max_length option: expected positive integer/,
+                     fn -> BoundedString.init(max_length: max_length) end
       end
     end
 
-    test "raises ArgumentError for a non-boolean :truncate" do
-      assert_raise ArgumentError, ~r/invalid :truncate :yes/, fn ->
-        BoundedString.init(max_length: 80, truncate: :yes)
-      end
+    test "raises for a non-boolean :truncate" do
+      assert_raise NimbleOptions.ValidationError,
+                   ~r/invalid value for :truncate option: expected boolean/,
+                   fn -> BoundedString.init(max_length: 80, truncate: :yes) end
     end
 
     test "defaults :truncate to false" do
