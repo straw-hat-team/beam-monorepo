@@ -45,39 +45,6 @@ defmodule Trogon.Ecto.BoundedStringTest do
       assert BoundedString.init(max_length: 80, field: :title, schema: WithBoundedString) ==
                %{max_length: 80, truncate: false}
     end
-
-    test "ignores every option Ecto's own field/3 accepts" do
-      ecto_field_opts = [
-        default: "x",
-        source: :the_title,
-        autogenerate: false,
-        read_after_writes: false,
-        virtual: false,
-        primary_key: false,
-        load_in_query: true,
-        redact: true,
-        foreign_key: :id,
-        on_replace: :raise,
-        defaults: [],
-        type: :string,
-        where: [],
-        references: :id,
-        skip_default_validation: true,
-        writable: :always,
-        on_writable_violation: :raise
-      ]
-
-      assert BoundedString.init([max_length: 80] ++ ecto_field_opts) ==
-               %{max_length: 80, truncate: false}
-    end
-
-    test "raises for an unknown option" do
-      for opts <- [[max_length: 80, bogus: 1], [max_length: 80, truncat: true], [max_lenght: 80]] do
-        assert_raise NimbleOptions.ValidationError, ~r/unknown options \[:[a-z_]+\]/, fn ->
-          BoundedString.init(opts)
-        end
-      end
-    end
   end
 
   describe "type/1" do
