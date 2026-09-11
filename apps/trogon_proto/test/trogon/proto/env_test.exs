@@ -6,6 +6,9 @@ defmodule Trogon.Proto.EnvTest do
   alias Trogon.Proto.TestSupport.AllTypesConfig
   alias Trogon.Proto.TestSupport.ConfigWithEnum
   alias Trogon.Proto.TestSupport.ConfigWithRepeated
+  alias Trogon.Proto.TestSupport.ConfigWithSteps
+  alias Trogon.Proto.TestSupport.ConfigWithStepsDefault
+  alias Trogon.Proto.TestSupport.ConfigWithStepsUrlSafe
   alias Trogon.Proto.TestSupport.ConfigWithTrimCustom
   alias Trogon.Proto.TestSupport.ConfigWithTrimUnicode
   alias Trogon.Proto.TestSupport.ConfigWithUnsupported
@@ -15,39 +18,39 @@ defmodule Trogon.Proto.EnvTest do
   # Unit tests for convert_field/2 - tests type conversion with proto atom types
   describe "convert_field/2" do
     test "converts :TYPE_STRING to string (passthrough)" do
-      config = %{field_type: :TYPE_STRING, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_STRING, is_repeated: false, steps: []}
 
       assert Env.convert_field("hello world", config) == "hello world"
     end
 
     test "converts :TYPE_INT32 to integer" do
-      config = %{field_type: :TYPE_INT32, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_INT32, is_repeated: false, steps: []}
 
       assert Env.convert_field("42", config) == 42
       assert Env.convert_field("-100", config) == -100
     end
 
     test "converts :TYPE_INT64 to integer" do
-      config = %{field_type: :TYPE_INT64, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_INT64, is_repeated: false, steps: []}
 
       assert Env.convert_field("9223372036854775807", config) == 9_223_372_036_854_775_807
     end
 
     test "converts :TYPE_FLOAT to float" do
-      config = %{field_type: :TYPE_FLOAT, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_FLOAT, is_repeated: false, steps: []}
 
       assert Env.convert_field("3.14", config) == 3.14
       assert Env.convert_field("42", config) == 42.0
     end
 
     test "converts :TYPE_DOUBLE to float" do
-      config = %{field_type: :TYPE_DOUBLE, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_DOUBLE, is_repeated: false, steps: []}
 
       assert Env.convert_field("2.718281828", config) == 2.718281828
     end
 
     test "converts :TYPE_BOOL truthy values to true" do
-      config = %{field_type: :TYPE_BOOL, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_BOOL, is_repeated: false, steps: []}
 
       assert Env.convert_field("true", config) == true
       assert Env.convert_field("TRUE", config) == true
@@ -60,7 +63,7 @@ defmodule Trogon.Proto.EnvTest do
     end
 
     test "converts :TYPE_BOOL falsy values to false" do
-      config = %{field_type: :TYPE_BOOL, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_BOOL, is_repeated: false, steps: []}
 
       assert Env.convert_field("false", config) == false
       assert Env.convert_field("0", config) == false
@@ -70,13 +73,13 @@ defmodule Trogon.Proto.EnvTest do
     end
 
     test "handles repeated :TYPE_STRING with split_delimiter" do
-      config = %{field_type: :TYPE_STRING, is_repeated: true, split_delimiter: ",", trim: nil}
+      config = %{field_type: :TYPE_STRING, is_repeated: true, steps: [{:split, ","}]}
 
       assert Env.convert_field("a,b,c", config) == ["a", "b", "c"]
     end
 
     test "handles repeated :TYPE_INT32 with split_delimiter" do
-      config = %{field_type: :TYPE_INT32, is_repeated: true, split_delimiter: ",", trim: nil}
+      config = %{field_type: :TYPE_INT32, is_repeated: true, steps: [{:split, ","}]}
 
       assert Env.convert_field("1,2,3", config) == [1, 2, 3]
     end
@@ -85,8 +88,7 @@ defmodule Trogon.Proto.EnvTest do
       config = %{
         field_type: :TYPE_STRING,
         is_repeated: true,
-        split_delimiter: ",",
-        trim: %{by: {:unicode_whitespace, %{}}}
+        steps: [{:split, ","}, {:trim, :unicode_whitespace}]
       }
 
       assert Env.convert_field("  a  ,  b  ,  c  ", config) == ["a", "b", "c"]
@@ -96,21 +98,20 @@ defmodule Trogon.Proto.EnvTest do
       config = %{
         field_type: :TYPE_STRING,
         is_repeated: true,
-        split_delimiter: ",",
-        trim: %{by: {:chars, "*"}}
+        steps: [{:split, ","}, {:trim, {:chars, "*"}}]
       }
 
       assert Env.convert_field("*a*,*b*,*c*", config) == ["a", "b", "c"]
     end
 
     test "filters empty strings from repeated fields" do
-      config = %{field_type: :TYPE_STRING, is_repeated: true, split_delimiter: ",", trim: nil}
+      config = %{field_type: :TYPE_STRING, is_repeated: true, steps: [{:split, ","}]}
 
       assert Env.convert_field("a,,b,", config) == ["a", "b"]
     end
 
     test "raises ArgumentError for invalid float" do
-      config = %{field_type: :TYPE_FLOAT, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: :TYPE_FLOAT, is_repeated: false, steps: []}
 
       error =
         assert_raise ArgumentError, fn ->
@@ -121,13 +122,13 @@ defmodule Trogon.Proto.EnvTest do
     end
 
     test "converts enum names to protobuf enum atoms" do
-      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, steps: []}
 
       assert Env.convert_field("LOG_LEVEL_DEBUG", config) == :LOG_LEVEL_DEBUG
     end
 
     test "raises ArgumentError for invalid enum names" do
-      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, steps: []}
 
       error =
         assert_raise ArgumentError, fn ->
@@ -139,7 +140,7 @@ defmodule Trogon.Proto.EnvTest do
     end
 
     test "does not treat numeric strings as enum values" do
-      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, split_delimiter: "", trim: nil}
+      config = %{field_type: {:enum, Acme.Test.V1.LogLevel}, is_repeated: false, steps: []}
 
       error =
         assert_raise ArgumentError, fn ->
@@ -764,6 +765,193 @@ defmodule Trogon.Proto.EnvTest do
       assert_raise CompileError, ~r/Field log_level has invalid default_value "debug"/, fn ->
         Code.compile_quoted(quoted)
       end
+    end
+  end
+
+  describe "steps pipeline" do
+    @raw_key String.duplicate("k", 32)
+
+    defp steps_env(overrides) do
+      Map.merge(
+        %{
+          "TOKEN_SIGNING_KEY" => Base.encode64(@raw_key),
+          "SIGNATURE" => "DEADBEEF",
+          "SESSION_ID" => "abcdefgh",
+          "PORT_LIST" => "8080",
+          "TAGS" => "foo"
+        },
+        overrides
+      )
+    end
+
+    test "decodes a base64 value into bytes" do
+      TestSupport.stub_system_env(steps_env(%{}))
+
+      assert ConfigWithSteps.from_env!().env.token_signing_key == @raw_key
+    end
+
+    test "trims before decoding so a trailing newline is tolerated" do
+      TestSupport.stub_system_env(steps_env(%{"TOKEN_SIGNING_KEY" => "  #{Base.encode64(@raw_key)}\n"}))
+
+      assert ConfigWithSteps.from_env!().env.token_signing_key == @raw_key
+    end
+
+    test "falls back to utf8 when base64 does not satisfy accept" do
+      TestSupport.stub_system_env(steps_env(%{"TOKEN_SIGNING_KEY" => @raw_key}))
+
+      assert ConfigWithSteps.from_env!().env.token_signing_key == @raw_key
+    end
+
+    test "rejects a value no candidate decodes to an acceptable size" do
+      TestSupport.stub_system_env(steps_env(%{"TOKEN_SIGNING_KEY" => Base.encode64("too short")}))
+
+      assert {:error, error} = ConfigWithSteps.from_env()
+
+      assert [%{env_var: "TOKEN_SIGNING_KEY", field: :token_signing_key, reason: {:invalid, reason}}] = error.errors
+
+      assert reason ==
+               "no acceptable decoding (attempted: base64(standard, required), utf8; " <>
+                 "decoded byte sizes: 9, 12; expected exactly 32 bytes)"
+    end
+
+    test "never repeats the value in a decode failure" do
+      secret = Base.encode64("too short")
+      TestSupport.stub_system_env(steps_env(%{"TOKEN_SIGNING_KEY" => secret}))
+
+      assert {:error, error} = ConfigWithSteps.from_env()
+
+      refute Exception.message(error) =~ secret
+    end
+
+    test "decodes hex in either case" do
+      TestSupport.stub_system_env(steps_env(%{"SIGNATURE" => "deadbeef"}))
+
+      assert ConfigWithSteps.from_env!().env.signature == <<0xDE, 0xAD, 0xBE, 0xEF>>
+    end
+
+    test "rejects hex that is not hex" do
+      TestSupport.stub_system_env(steps_env(%{"SIGNATURE" => "nothex!!"}))
+
+      assert {:error, error} = ConfigWithSteps.from_env()
+
+      assert [%{field: :signature, reason: {:invalid, reason}}] = error.errors
+      assert reason == "no acceptable decoding (attempted: hex; nothing decoded)"
+    end
+
+    test "applies a require step to a trimmed value" do
+      TestSupport.stub_system_env(steps_env(%{"SESSION_ID" => "  abcdefgh  "}))
+
+      assert ConfigWithSteps.from_env!().env.session_id == "abcdefgh"
+    end
+
+    test "rejects a value outside the required byte size range" do
+      TestSupport.stub_system_env(steps_env(%{"SESSION_ID" => "abc"}))
+
+      assert {:error, error} = ConfigWithSteps.from_env()
+
+      assert [%{field: :session_id, reason: {:invalid, reason}}] = error.errors
+      assert reason == "byte size 3 does not satisfy between 8 and 16 bytes"
+    end
+
+    test "splits and trims repeated integers" do
+      TestSupport.stub_system_env(steps_env(%{"PORT_LIST" => " 8080, 9000 ,3000 "}))
+
+      assert ConfigWithSteps.from_env!().env.port_list == [8080, 9000, 3000]
+    end
+
+    test "applies consecutive trims to every element and drops the emptied ones" do
+      TestSupport.stub_system_env(steps_env(%{"TAGS" => " *foo* , *bar*,**, "}))
+
+      assert ConfigWithSteps.from_env!().env.tags == ["foo", "bar"]
+    end
+
+    test "runs default_value through the pipeline" do
+      TestSupport.stub_system_env(%{})
+
+      config = ConfigWithStepsDefault.from_env!()
+
+      assert config.env.token_signing_key == <<0::256>>
+      assert config.env.tags == ["a", "b"]
+    end
+
+    test "rejects a padded value when the candidate declares padding absent" do
+      raw = String.duplicate(<<0xFF, 0xFE>>, 8)
+      TestSupport.stub_system_env(%{"TOKEN_SIGNING_KEY" => Base.url_encode64(raw, padding: true)})
+
+      assert {:error, error} = ConfigWithStepsUrlSafe.from_env()
+
+      assert [%{field: :token_signing_key, reason: {:invalid, reason}}] = error.errors
+
+      assert reason ==
+               "no acceptable decoding (attempted: base64(url_safe, absent); nothing decoded; expected at least 16 bytes)"
+    end
+
+    test "decodes url safe base64 without padding" do
+      raw = String.duplicate(<<0xFF, 0xFE>>, 8)
+      TestSupport.stub_system_env(%{"TOKEN_SIGNING_KEY" => Base.url_encode64(raw, padding: false)})
+
+      assert ConfigWithStepsUrlSafe.from_env!().env.token_signing_key == raw
+    end
+  end
+
+  describe "steps pipeline schema validation" do
+    for {message, description, expected} <- [
+          {Acme.Test.V1.TestStepsWithDeprecated, "steps combined with deprecated fields",
+           "declares steps together with the deprecated split_delimiter"},
+          {Acme.Test.V1.TestStepsSplitOnScalar, "split on a non repeated field",
+           "has a split step but is not repeated"},
+          {Acme.Test.V1.TestStepsSplitNotFirst, "split that is not first", "has a split step that is not first"},
+          {Acme.Test.V1.TestStepsEmptyDelimiter, "empty split delimiter", "has a split step with an empty delimiter"},
+          {Acme.Test.V1.TestStepsDecodeOnInt, "decode on a numeric field",
+           "has a decode step but type .* is not bytes or string"},
+          {Acme.Test.V1.TestStepsTrimAfterDecode, "trim after decode", "has a trim step after its decode step"},
+          {Acme.Test.V1.TestStepsCandidatesWithoutAccept, "several candidates without accept",
+           "has a decode step with several candidates but no accept"},
+          {Acme.Test.V1.TestStepsUtf8NotLast, "utf8 that is not last",
+           "has a decode step where utf8 is not the last candidate"},
+          {Acme.Test.V1.TestStepsUnspecifiedAlphabet, "unspecified base64 alphabet",
+           "has a base64 candidate with an undeclared alphabet"},
+          {Acme.Test.V1.TestStepsUnspecifiedPadding, "unspecified base64 padding",
+           "has a base64 candidate with an undeclared padding"},
+          {Acme.Test.V1.TestStepsEmptyRequire, "empty require", "has empty constraints"},
+          {Acme.Test.V1.TestStepsByteSizeOnInt, "byte_size on a numeric field",
+           "constrains byte_size but type .* is not bytes or string"},
+          {Acme.Test.V1.TestStepsRangeWithoutBound, "byte_size range without a bound",
+           "has a byte_size range without a bound"},
+          {Acme.Test.V1.TestStepsInvertedRange, "byte_size range with min above max",
+           "has a byte_size range with min 16 above max 8"},
+          {Acme.Test.V1.TestStepsInvalidDefault, "a default the pipeline rejects",
+           "has invalid default_value .* no acceptable decoding"},
+          {Acme.Test.V1.TestStepsTwoSplits, "more than one split", "has more than one split step"},
+          {Acme.Test.V1.TestStepsTwoDecodes, "more than one decode", "has more than one decode step"},
+          {Acme.Test.V1.TestStepsDecodeWithoutCandidates, "decode without candidates",
+           "has a decode step with no any_of candidates"},
+          {Acme.Test.V1.TestStepsRepeatedCandidates, "repeated decode candidates",
+           "has a decode step with repeated candidates"},
+          {Acme.Test.V1.TestStepsCandidateWithoutAs, "a decode candidate without an encoding",
+           "has a decode candidate without an as"},
+          {Acme.Test.V1.TestStepsEmptyTrimChars, "an empty trim chars set", "has a trim step with an empty chars set"},
+          {Acme.Test.V1.TestStepsTrimWithoutBy, "a trim without a by", "has a trim step without a by"},
+          {Acme.Test.V1.TestStepsStepWithoutOp, "a step without an op", "has a step without an op"},
+          {Acme.Test.V1.TestStepsByteSizeWithoutBound, "a byte_size without a bound", "has a byte_size without a bound"}
+        ] do
+      test "rejects #{description}" do
+        assert_raise CompileError, Regex.compile!(unquote(expected)), fn ->
+          compile_env_module(unquote(message))
+        end
+      end
+    end
+
+    defp compile_env_module(message) do
+      module = Module.concat(__MODULE__, :"Invalid#{System.unique_integer([:positive])}")
+
+      Code.compile_quoted(
+        quote do
+          defmodule unquote(module) do
+            use Trogon.Proto.Env, message: unquote(message)
+          end
+        end
+      )
     end
   end
 end

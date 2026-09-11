@@ -1,0 +1,280 @@
+syntax = "proto3";
+
+package acme.test.v1;
+
+import "trogon/env/v1alpha1/options.proto";
+
+// Every message here violates one pipeline invariant and must be rejected at
+// compile time. None of them has a fixture module for that reason.
+
+message TestStepsWithDeprecated {
+  repeated string tags = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    split_delimiter: ",",
+    steps: [
+      {split: {delimiter: ","}}
+    ]
+  }];
+}
+
+message TestStepsSplitOnScalar {
+  string database_url = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {split: {delimiter: ","}}
+    ]
+  }];
+}
+
+message TestStepsSplitNotFirst {
+  repeated string tags = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {trim: {unicode_whitespace: {}}},
+      {split: {delimiter: ","}}
+    ]
+  }];
+}
+
+message TestStepsEmptyDelimiter {
+  repeated string tags = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {split: {delimiter: ""}}
+    ]
+  }];
+}
+
+message TestStepsDecodeOnInt {
+  int32 port = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {decode: {
+        any_of: [
+          {hex: {}}
+        ]
+      }}
+    ]
+  }];
+}
+
+message TestStepsTrimAfterDecode {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {hex: {}}
+        ]
+      }},
+      {trim: {unicode_whitespace: {}}}
+    ]
+  }];
+}
+
+message TestStepsCandidatesWithoutAccept {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {base64: {alphabet: ALPHABET_STANDARD, padding: PADDING_REQUIRED}},
+          {utf8: {}}
+        ]
+      }}
+    ]
+  }];
+}
+
+message TestStepsUtf8NotLast {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {utf8: {}},
+          {base64: {alphabet: ALPHABET_STANDARD, padding: PADDING_REQUIRED}}
+        ],
+        accept: {byte_size: {exact: 32}}
+      }}
+    ]
+  }];
+}
+
+message TestStepsUnspecifiedAlphabet {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {base64: {padding: PADDING_REQUIRED}}
+        ]
+      }}
+    ]
+  }];
+}
+
+message TestStepsUnspecifiedPadding {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {base64: {alphabet: ALPHABET_STANDARD}}
+        ]
+      }}
+    ]
+  }];
+}
+
+message TestStepsEmptyRequire {
+  string session_id = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {require: {}}
+    ]
+  }];
+}
+
+message TestStepsByteSizeOnInt {
+  int32 port = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {require: {byte_size: {exact: 4}}}
+    ]
+  }];
+}
+
+message TestStepsRangeWithoutBound {
+  string session_id = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {require: {byte_size: {range: {}}}}
+    ]
+  }];
+}
+
+message TestStepsInvertedRange {
+  string session_id = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {require: {byte_size: {range: {min: 16, max: 8}}}}
+    ]
+  }];
+}
+
+message TestStepsInvalidDefault {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    default_value: "not-valid-base64-and-not-32-bytes",
+    steps: [
+      {decode: {
+        any_of: [
+          {base64: {alphabet: ALPHABET_STANDARD, padding: PADDING_REQUIRED}}
+        ],
+        accept: {byte_size: {exact: 32}}
+      }}
+    ]
+  }];
+}
+
+message TestStepsTwoSplits {
+  repeated string tags = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {split: {delimiter: ","}},
+      {split: {delimiter: ";"}}
+    ]
+  }];
+}
+
+message TestStepsTwoDecodes {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {hex: {}}
+        ]
+      }},
+      {decode: {
+        any_of: [
+          {hex: {}}
+        ]
+      }}
+    ]
+  }];
+}
+
+message TestStepsDecodeWithoutCandidates {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {}}
+    ]
+  }];
+}
+
+message TestStepsRepeatedCandidates {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {hex: {}},
+          {hex: {}}
+        ],
+        accept: {byte_size: {exact: 32}}
+      }}
+    ]
+  }];
+}
+
+message TestStepsCandidateWithoutAs {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {}
+        ]
+      }}
+    ]
+  }];
+}
+
+message TestStepsEmptyTrimChars {
+  string session_id = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {trim: {chars: ""}}
+    ]
+  }];
+}
+
+message TestStepsTrimWithoutBy {
+  string session_id = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {trim: {}}
+    ]
+  }];
+}
+
+message TestStepsStepWithoutOp {
+  string session_id = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {}
+    ]
+  }];
+}
+
+message TestStepsByteSizeWithoutBound {
+  string session_id = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {require: {byte_size: {}}}
+    ]
+  }];
+}
