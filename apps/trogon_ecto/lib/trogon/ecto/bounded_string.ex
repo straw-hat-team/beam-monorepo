@@ -7,7 +7,11 @@ defmodule Trogon.Ecto.BoundedString do
       field :error, Trogon.Ecto.BoundedString, max_length: 256, truncate: true
 
   The bound travels with the field, so it holds for every write path into it,
-  including the ones that never call `Ecto.Changeset.validate_length/3`.
+  including the ones that never call `Ecto.Changeset.validate_length/3`. It is
+  enforced twice over: on `cast/2`, where it produces a validation error you can
+  render, and again on `dump/3`, which catches the paths that skip casting
+  altogether (`Ecto.Changeset.put_change/3`, `Ecto.Changeset.change/2`,
+  `struct!/2`).
 
   ## The `:max_length` option
 
@@ -22,9 +26,9 @@ defmodule Trogon.Ecto.BoundedString do
   Decides what an oversized value means.
 
   - `false` (the default) - an oversized value is a cast error, carrying the same
-    message and metadata (`count`, `validation: :length`, `kind: :max`,
-    `type: :string`) that `Ecto.Changeset.validate_length/3` would have produced,
-    so existing error traversal and translation keep working unchanged.
+    message and metadata (`count`, `validation: :length`, `kind: :max`) that
+    `Ecto.Changeset.validate_length/3` would have produced, so existing error
+    traversal and translation keep working unchanged.
   - `true` - the value is silently cut at the bound instead.
 
   Reserve `truncate: true` for diagnostic text sourced from unbounded external
@@ -36,12 +40,45 @@ defmodule Trogon.Ecto.BoundedString do
   and what every later validation sees, not a surprise applied on the way to the
   database.
 
-  ## Bounds are not enforced on load
+  ## The `:type` metadata differs inside a changeset
 
-  `load/3` accepts any binary, whatever the bound. A column whose values predate
-  the bound, or predate a tightening of it, still reads cleanly; only new writes
-  are held to it. Tighten a bound when you are willing to have reads and writes
-  disagree until the existing rows are migrated.
+  `cast/2` returns `type: :string`, but `Ecto.Changeset` overwrites the `:type`
+  metadata of a custom type error with the type the field was declared as. A
+  violation surfaced through a changeset therefore carries
+  `type: {:parameterized, {Trogon.Ecto.BoundedString, params}}`, not
+  `type: :string`.
+
+  That is the declared type rather than the stored one, and it is the more useful
+  of the two, since it names which type rejected the value and carries its
+  `:max_length`. Resolve it to the storage type with `Ecto.Type.type/1` when a
+  primitive is what you need:
+
+      iex> params = Trogon.Ecto.BoundedString.init(max_length: 5)
+      iex> Ecto.Type.type({:parameterized, {Trogon.Ecto.BoundedString, params}})
+      :string
+
+  Error translation should match on `validation: :length` and `kind: :max`, which
+  survive both paths. Code that renders `:type` must also tolerate a non-string
+  term there, since interpolating it with `to_string/1` raises for a tuple.
+
+  ## Reads are lenient, writes are not
+
+  `load/3` accepts any binary, whatever the bound, while `cast/2` and `dump/3`
+  both enforce it. A column whose values predate the bound, or predate a
+  tightening of it, still reads cleanly; only writes are held to it.
+
+  That asymmetry is deliberate, and it is what makes tightening a bound
+  survivable. Ecto dumps only the fields a changeset actually changed, so a
+  legacy row whose oversized field is left alone updates normally:
+
+      # works, even though `title` is over the bound in the database
+      record |> Ecto.Changeset.change(%{other_field: "new"}) |> Repo.update()
+
+  What does fail is writing an oversized value back, whether it came from
+  `struct!/2` or from a row loaded before the bound existed. Copying a legacy row
+  verbatim is the case to watch. Treat the resulting `Ecto.ChangeError` as the
+  intended answer: the row no longer satisfies the field's contract, so either
+  migrate it, widen the bound, or set `truncate: true` to accept the loss.
   """
 
   use Ecto.ParameterizedType
@@ -165,14 +202,21 @@ defmodule Trogon.Ecto.BoundedString do
   def cast(nil, _params), do: {:ok, nil}
 
   def cast(value, %{max_length: max_length, truncate: truncate}) when is_binary(value) do
-    cond do
-      String.length(value) <= max_length -> {:ok, value}
-      truncate -> {:ok, String.slice(value, 0, max_length)}
-      true -> {:error, too_long_error(max_length)}
+    case apply_bound(value, max_length, truncate) do
+      {:ok, value} -> {:ok, value}
+      :too_long -> {:error, too_long_error(max_length)}
     end
   end
 
   def cast(_value, _params), do: :error
+
+  defp apply_bound(value, max_length, truncate) do
+    cond do
+      String.length(value) <= max_length -> {:ok, value}
+      truncate -> {:ok, String.slice(value, 0, max_length)}
+      true -> :too_long
+    end
+  end
 
   defp too_long_error(max_length) do
     [
@@ -213,11 +257,18 @@ defmodule Trogon.Ecto.BoundedString do
   def load(_value, _loader, _params), do: :error
 
   @doc """
-  Dumps a binary, strictly.
+  Dumps a binary, holding it to the configured bound.
 
-  The bound was already applied on cast, so a value reaching here is either
-  within it or was loaded from a column that predates it; either way it is
-  persisted as it stands.
+  Applies the same policy as `cast/2`, because `cast/2` is not the only way into
+  a field. `Ecto.Changeset.put_change/3`, `Ecto.Changeset.change/2` and
+  `struct!/2` all write a field without casting it, so dump is the last gate
+  before the value reaches the database.
+
+  A dump failure is a `:error` rather than the metadata `cast/2` returns, since
+  `c:Ecto.ParameterizedType.dump/3` has nowhere to put it; Ecto raises
+  `Ecto.ChangeError`. That is the right shape for this failure: user input
+  arrives through `cast/2`, so an oversized value here is a bug in the calling
+  code, not something to render back as a validation error.
 
   ## Examples
 
@@ -229,6 +280,19 @@ defmodule Trogon.Ecto.BoundedString do
       iex> Trogon.Ecto.BoundedString.dump(nil, & &1, params)
       {:ok, nil}
 
+  An oversized value is refused, so a field written without casting cannot
+  escape the bound:
+
+      iex> params = Trogon.Ecto.BoundedString.init(max_length: 5)
+      iex> Trogon.Ecto.BoundedString.dump("hello world", & &1, params)
+      :error
+
+  Under `truncate: true` it is cut instead, matching `cast/2`:
+
+      iex> params = Trogon.Ecto.BoundedString.init(max_length: 5, truncate: true)
+      iex> Trogon.Ecto.BoundedString.dump("hello world", & &1, params)
+      {:ok, "hello"}
+
       iex> params = Trogon.Ecto.BoundedString.init(max_length: 5)
       iex> Trogon.Ecto.BoundedString.dump(123, & &1, params)
       :error
@@ -237,7 +301,14 @@ defmodule Trogon.Ecto.BoundedString do
   @spec dump(term(), (Ecto.Type.t(), term() -> {:ok, term()} | :error), params()) ::
           {:ok, String.t() | nil} | :error
   def dump(nil, _dumper, _params), do: {:ok, nil}
-  def dump(value, _dumper, _params) when is_binary(value), do: {:ok, value}
+
+  def dump(value, _dumper, %{max_length: max_length, truncate: truncate}) when is_binary(value) do
+    case apply_bound(value, max_length, truncate) do
+      {:ok, value} -> {:ok, value}
+      :too_long -> :error
+    end
+  end
+
   def dump(_value, _dumper, _params), do: :error
 
   @doc """

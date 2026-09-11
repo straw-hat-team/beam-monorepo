@@ -174,6 +174,31 @@ defmodule Trogon.Ecto.BoundedStringTest do
     test "rejects a non-binary value", %{params: params} do
       assert BoundedString.dump(123, & &1, params) == :error
     end
+
+    test "rejects an oversized value that never went through cast/2", %{params: params} do
+      assert BoundedString.dump("hello world", & &1, params) == :error
+    end
+
+    test "truncates an oversized value under `truncate: true`" do
+      params = BoundedString.init(max_length: 5, truncate: true)
+
+      assert BoundedString.dump("hello world", & &1, params) == {:ok, "hello"}
+    end
+
+    test "refuses to write back a legacy value that load/3 accepted", %{params: params} do
+      legacy = "a value stored before the bound"
+
+      assert BoundedString.load(legacy, & &1, params) == {:ok, legacy}
+      assert BoundedString.dump(legacy, & &1, params) == :error
+    end
+
+    test "a legacy value is truncated on write back under `truncate: true`" do
+      params = BoundedString.init(max_length: 5, truncate: true)
+      legacy = "a value stored before the bound"
+
+      assert BoundedString.load(legacy, & &1, params) == {:ok, legacy}
+      assert BoundedString.dump(legacy, & &1, params) == {:ok, "a val"}
+    end
   end
 
   describe "round trip" do
@@ -203,6 +228,17 @@ defmodule Trogon.Ecto.BoundedStringTest do
       assert {:ok, %WithTruncatedBoundedString{title: "hello"}} =
                WithTruncatedBoundedString.new(%{title: "hello world"})
     end
+
+    test "the changeset error keeps the length metadata but replaces `:type`" do
+      assert {:error, %Ecto.Changeset{errors: [title: {_message, metadata}]}} =
+               WithBoundedString.new(%{title: "hello world"})
+
+      assert Keyword.take(metadata, [:count, :validation, :kind]) ==
+               [count: 5, validation: :length, kind: :max]
+
+      assert Keyword.fetch!(metadata, :type) ==
+               {:parameterized, {BoundedString, %{max_length: 5, truncate: false}}}
+    end
   end
 
   describe "embed_as/2" do
@@ -223,6 +259,14 @@ defmodule Trogon.Ecto.BoundedStringTest do
       value_object = struct!(WithBoundedString, title: nil)
 
       assert {:ok, %{title: nil}} = WithBoundedString.dump(value_object)
+    end
+
+    test "an oversized value built with struct!/2 cannot be dumped" do
+      value_object = struct!(WithBoundedString, title: "hello world")
+
+      assert_raise ArgumentError, ~r/cannot dump `"hello world"`/, fn ->
+        WithBoundedString.dump(value_object)
+      end
     end
   end
 end
