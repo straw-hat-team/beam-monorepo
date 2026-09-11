@@ -17,22 +17,55 @@ defmodule Trogon.Ecto.DurationTypeTest do
   ]
 
   describe "init/1" do
-    test "raises ArgumentError for an unsupported format" do
-      assert_raise ArgumentError, ~r/invalid :format :bogus/, fn ->
-        DurationType.init(format: :bogus)
-      end
+    test "raises for an unsupported format" do
+      assert_raise NimbleOptions.ValidationError,
+                   ~r/invalid value for :format option: expected one of \[:iso8601, :map, :native\]/,
+                   fn -> DurationType.init(format: :bogus) end
     end
 
-    test "raises ArgumentError for an unsupported equality" do
-      assert_raise ArgumentError, ~r/invalid :equality :bogus/, fn ->
-        DurationType.init(format: :native, equality: :bogus)
-      end
+    test "raises for an unsupported equality" do
+      assert_raise NimbleOptions.ValidationError,
+                   ~r/invalid value for :equality option: expected one of \[:storage, :strict\]/,
+                   fn -> DurationType.init(format: :native, equality: :bogus) end
     end
 
     test "requires :equality for :native, which has no safe default" do
       assert_raise ArgumentError, ~r/missing :equality/, fn ->
         DurationType.init(format: :native)
       end
+    end
+
+    test "raises for an unknown option" do
+      for opts <- [[bogus: 1], [formta: :map], [format: :native, equalty: :storage]] do
+        assert_raise NimbleOptions.ValidationError, ~r/unknown options \[:[a-z_]+\]/, fn ->
+          DurationType.init(opts)
+        end
+      end
+    end
+
+    test "ignores the keys Ecto injects" do
+      assert DurationType.init(field: :cooldown, schema: WithDuration) ==
+               %{format: :iso8601, equality: :strict}
+    end
+
+    test "ignores every option Ecto's field/3 documents" do
+      ecto_field_opts = [
+        default: nil,
+        source: :the_cooldown,
+        autogenerate: false,
+        read_after_writes: false,
+        virtual: false,
+        primary_key: false,
+        load_in_query: true,
+        redact: true,
+        skip_default_validation: true,
+        writable: :always,
+        on_writable_violation: :raise
+      ]
+
+      assert Keyword.keys(ecto_field_opts) -- Trogon.Ecto.FieldOptions.keys() == []
+
+      assert DurationType.init(ecto_field_opts) == %{format: :iso8601, equality: :strict}
     end
 
     test "defaults :equality to :strict for the formats that preserve precision" do
@@ -43,6 +76,14 @@ defmodule Trogon.Ecto.DurationTypeTest do
     test "keeps an explicit :equality for the other formats" do
       assert DurationType.init(format: :map, equality: :storage) ==
                %{format: :map, equality: :storage}
+    end
+  end
+
+  describe "type/1" do
+    test "is the underlying Ecto type each format persists as" do
+      assert DurationType.type(DurationType.init([])) == :string
+      assert DurationType.type(DurationType.init(format: :map)) == :map
+      assert DurationType.type(DurationType.init(format: :native, equality: :storage)) == :duration
     end
   end
 
@@ -62,6 +103,26 @@ defmodule Trogon.Ecto.DurationTypeTest do
         assert {:ok, dumped} = DurationType.dump(duration, & &1, params)
         assert {:ok, loaded} = DurationType.load(dumped, & &1, params)
         assert loaded == duration
+      end
+    end
+  end
+
+  describe "dump/3" do
+    setup do
+      %{params: DurationType.init([])}
+    end
+
+    test "dumps a duration to its ISO 8601 string under :iso8601", %{params: params} do
+      assert DurationType.dump(Duration.new!(second: 10), & &1, params) == {:ok, "PT10S"}
+    end
+
+    test "dumps nil as nil", %{params: params} do
+      assert DurationType.dump(nil, & &1, params) == {:ok, nil}
+    end
+
+    test "rejects a value that is not a duration", %{params: params} do
+      for value <- ["random value", 123, %{}, :second] do
+        assert DurationType.dump(value, & &1, params) == :error
       end
     end
   end
@@ -207,6 +268,13 @@ defmodule Trogon.Ecto.DurationTypeTest do
   end
 
   describe "embed_as/2" do
+    test "is :dump for every format that can be embedded" do
+      for params <- [DurationType.init([]), DurationType.init(format: :map)],
+          format <- [:json, :self] do
+        assert DurationType.embed_as(format, params) == :dump
+      end
+    end
+
     test "a nested :iso8601 duration is dumped to its ISO 8601 string, not left as a struct" do
       value_object = struct!(WithDuration, length: Duration.new!(second: 10))
 
