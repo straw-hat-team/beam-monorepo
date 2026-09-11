@@ -68,4 +68,27 @@ defmodule Trogon.Ecto.ErrorMessageTest do
                "is invalid"
     end
   end
+
+  describe "interpolates?/2" do
+    test "is true when the message holds the placeholder for the key" do
+      assert ErrorMessage.interpolates?("should be at most %{count} character(s)", :count)
+    end
+
+    test "is false when the message does not hold the placeholder" do
+      refute ErrorMessage.interpolates?("should be at most %{count} character(s)", :kind)
+    end
+
+    test "is false when the key is named in the message but not as a placeholder" do
+      refute ErrorMessage.interpolates?("count is wrong", :count)
+    end
+
+    test "is true for any one of several placeholders" do
+      assert ErrorMessage.interpolates?("%{count} of %{kind}", :count)
+      assert ErrorMessage.interpolates?("%{count} of %{kind}", :kind)
+    end
+
+    test "does not match a key that is only the prefix of a placeholder" do
+      refute ErrorMessage.interpolates?("got %{count_total}", :count)
+    end
+  end
 end

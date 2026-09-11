@@ -6,6 +6,11 @@ defmodule Trogon.Ecto.ErrorMessage do
     Enum.reduce(opts, message, &replace_binding/2)
   end
 
+  @spec interpolates?(String.t(), atom()) :: boolean()
+  def interpolates?(message, key) do
+    String.contains?(message, placeholder(key))
+  end
+
   defp replace_binding({key, value}, message) do
     placeholder = placeholder(key)
 
