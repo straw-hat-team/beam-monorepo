@@ -242,6 +242,14 @@ defmodule Trogon.Ecto.BoundedStringTest do
   end
 
   describe "embed_as/2" do
+    test "is :dump for every format" do
+      params = BoundedString.init(max_length: 5)
+
+      for format <- [:json, :self] do
+        assert BoundedString.embed_as(format, params) == :dump
+      end
+    end
+
     test "a nested bounded string is dumped as a plain string" do
       value_object = struct!(WithBoundedString, title: "hello")
 
