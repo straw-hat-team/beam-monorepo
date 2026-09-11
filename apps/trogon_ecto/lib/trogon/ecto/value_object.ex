@@ -4,6 +4,7 @@ defmodule Trogon.Ecto.ValueObject do
   """
 
   alias Ecto.Changeset
+  alias Trogon.Ecto.ErrorMessage
 
   @doc """
   Converts the module into an `Ecto.Schema` and add factory functions to create structs.
@@ -531,7 +532,7 @@ defmodule Trogon.Ecto.ValueObject do
 
   defp describe_errors(changeset) do
     changeset
-    |> PolymorphicEmbed.traverse_errors(&interpolate_message/1)
+    |> PolymorphicEmbed.traverse_errors(&ErrorMessage.interpolate/1)
     |> flatten_errors("")
     |> Enum.join(", ")
   end
@@ -560,18 +561,6 @@ defmodule Trogon.Ecto.ValueObject do
 
   defp join_path("", segment), do: segment
   defp join_path(path, segment), do: path <> "." <> segment
-
-  defp interpolate_message({message, opts}) do
-    Enum.reduce(opts, message, &replace_binding/2)
-  end
-
-  defp replace_binding({key, value}, message) do
-    String.replace(message, "%{#{key}}", stringify(value))
-  end
-
-  defp stringify(value) when is_binary(value), do: value
-  defp stringify(value) when is_atom(value) or is_number(value), do: to_string(value)
-  defp stringify(value), do: inspect(value)
 
   defp apply_changeset(struct_module, attrs) do
     struct(struct_module)
