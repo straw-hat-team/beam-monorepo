@@ -19,10 +19,9 @@ defmodule Trogon.Ecto.BoundedString do
   - `:truncate` - cut oversized values to fit instead of rejecting them.
     Defaults to `false`.
 
-  An oversized value fails the changeset the way
-  `Ecto.Changeset.validate_length/3` does on a `:max` violation, with
-  `"should be at most %{count} character(s)"`, `count`, `validation: :length`
-  and `kind: :max`. Match on those rather than on `:type`.
+  An oversized value fails the changeset with
+  `"should be at most %{count} character(s)"` and the metadata `count`,
+  `validation: :length` and `kind: :max`.
 
   Under `truncate: true` the value is cut during `cast`, so the changeset holds
   the shortened string. Graphemes are never split.
