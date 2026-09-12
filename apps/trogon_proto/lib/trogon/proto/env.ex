@@ -110,6 +110,7 @@ defmodule Trogon.Proto.Env do
 
   # Visibility codes - UNSPECIFIED (0) and SECRET (2) are both masked in inspect (secure by default)
   @visibility_plaintext Visibility.value(:VISIBILITY_PLAINTEXT)
+  @visibility_values Enum.map(Visibility.descriptor().value, & &1.number)
 
   # Proto extension and module configuration
   @extension_tag 870_003
@@ -501,11 +502,19 @@ defmodule Trogon.Proto.Env do
   end
 
   defp process_env_var_extension(field_desc, field_prop, binary) do
-    %{env_var: env_var_option} = FieldOptions.decode(binary)
+    field_options = FieldOptions.decode(binary)
+    env_var_option = field_options.env_var
     is_repeated = field_prop.repeated?
     field_type = field_prop.type
 
     cond do
+      unreadable_schema?(field_options) ->
+        raise_field_error!(
+          field_desc.name,
+          "has an env_var annotation written against a newer trogon.env.v1alpha1 than this package supports; " <>
+            "bump the trogon-proto module pin and regenerate"
+        )
+
       is_nil(env_var_option) ->
         raise_field_error!(field_desc.name, "has an env_var extension but env_var is empty")
 
@@ -523,7 +532,7 @@ defmodule Trogon.Proto.Env do
 
     config = %{
       env_var_name: field_name_to_env_var(field_desc.name),
-      visibility: visibility_value(env_var_option.visibility),
+      visibility: visibility_value!(field_desc.name, env_var_option.visibility),
       default_value: default_value,
       field_type: field_type,
       is_repeated: is_repeated,
@@ -828,9 +837,33 @@ defmodule Trogon.Proto.Env do
     end
   end
 
-  defp visibility_value(nil), do: Visibility.value(:VISIBILITY_UNSPECIFIED)
-  defp visibility_value(atom) when is_atom(atom), do: Visibility.value(atom)
-  defp visibility_value(int) when is_integer(int), do: int
+  defp visibility_value!(_field_name, nil), do: Visibility.value(:VISIBILITY_UNSPECIFIED)
+  defp visibility_value!(_field_name, atom) when is_atom(atom), do: Visibility.value(atom)
+  defp visibility_value!(_field_name, int) when int in @visibility_values, do: int
+
+  defp visibility_value!(field_name, int) when is_integer(int) do
+    raise_field_error!(
+      field_name,
+      "has an undeclared visibility #{inspect(int)}; bump the trogon-proto module pin and regenerate"
+    )
+  end
+
+  # Anything the annotation carries that this package's schema does not declare
+  # lands in __unknown_fields__ rather than failing to decode, so a newer
+  # option would otherwise be dropped and its guarantee lost.
+  defp unreadable_schema?(%{__unknown_fields__: unknown}) when unknown != [], do: true
+
+  defp unreadable_schema?(%_{} = message) do
+    message
+    |> Map.from_struct()
+    |> Map.delete(:__unknown_fields__)
+    |> unreadable_schema?()
+  end
+
+  defp unreadable_schema?(%{} = map), do: Enum.any?(map, fn {_key, value} -> unreadable_schema?(value) end)
+  defp unreadable_schema?(list) when is_list(list), do: Enum.any?(list, &unreadable_schema?/1)
+  defp unreadable_schema?(tuple) when is_tuple(tuple), do: tuple |> Tuple.to_list() |> unreadable_schema?()
+  defp unreadable_schema?(_other), do: false
 
   defp unsupported_field_reason(field_desc, field_type, is_repeated) do
     label_str =

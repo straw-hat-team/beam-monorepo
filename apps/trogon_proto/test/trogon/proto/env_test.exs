@@ -11,6 +11,7 @@ defmodule Trogon.Proto.EnvTest do
   alias Trogon.Proto.TestSupport.ConfigWithStepsUrlSafe
   alias Trogon.Proto.TestSupport.ConfigWithTrimCustom
   alias Trogon.Proto.TestSupport.ConfigWithTrimUnicode
+  alias Trogon.Proto.TestSupport.FutureSchema
 
   setup {Mox, :set_mox_from_context}
 
@@ -931,6 +932,28 @@ defmodule Trogon.Proto.EnvTest do
           {Acme.Test.V1.TestStepsTrimWithoutBy, "a trim without a by", "has a trim step without a by"},
           {Acme.Test.V1.TestStepsStepWithoutOp, "a step without an op", "has a step without an op"},
           {Acme.Test.V1.TestStepsByteSizeWithoutBound, "a byte_size without a bound", "has a byte_size without a bound"}
+        ] do
+      test "rejects #{description}" do
+        assert_raise CompileError, Regex.compile!(unquote(expected)), fn ->
+          compile_env_module(unquote(message))
+        end
+      end
+    end
+  end
+
+  describe "annotations from a newer schema" do
+    test "accepts the double that only uses options this package declares" do
+      ExUnit.CaptureIO.capture_io(:stderr, fn ->
+        assert [{_module, _bytecode} | _] = compile_env_module(FutureSchema.SupportedAnnotation)
+      end)
+    end
+
+    for {message, description, expected} <- [
+          {FutureSchema.FutureOption, "an undeclared field option",
+           "written against a newer trogon.env.v1alpha1 than this package supports"},
+          {FutureSchema.FutureEnvVarOption, "an undeclared env_var option",
+           "written against a newer trogon.env.v1alpha1 than this package supports"},
+          {FutureSchema.FutureVisibility, "an undeclared visibility", "has an undeclared visibility 7"}
         ] do
       test "rejects #{description}" do
         assert_raise CompileError, Regex.compile!(unquote(expected)), fn ->
