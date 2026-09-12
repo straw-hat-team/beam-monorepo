@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package acme.test.v1;
+
+import "trogon/env/v1alpha1/options.proto";
+
+message TestSteps {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {trim: {unicode_whitespace: {}}},
+      {decode: {
+        any_of: [
+          {base64: {alphabet: ALPHABET_STANDARD, padding: PADDING_REQUIRED}},
+          {utf8: {}}
+        ],
+        accept: {byte_size: {exact: 32}}
+      }}
+    ]
+  }];
+
+  bytes signature = 2 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {hex: {}}
+        ]
+      }}
+    ]
+  }];
+
+  string session_id = 3 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {trim: {unicode_whitespace: {}}},
+      {require: {byte_size: {range: {min: 8, max: 16}}}}
+    ]
+  }];
+
+  repeated int32 port_list = 4 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {split: {delimiter: ","}},
+      {trim: {unicode_whitespace: {}}}
+    ]
+  }];
+
+  repeated string tags = 5 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    steps: [
+      {split: {delimiter: ","}},
+      {trim: {unicode_whitespace: {}}},
+      {trim: {chars: "*"}}
+    ]
+  }];
+}
+
+message TestStepsDefault {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    default_value: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    steps: [
+      {trim: {unicode_whitespace: {}}},
+      {decode: {
+        any_of: [
+          {base64: {alphabet: ALPHABET_STANDARD, padding: PADDING_REQUIRED}},
+          {utf8: {}}
+        ],
+        accept: {byte_size: {exact: 32}}
+      }}
+    ]
+  }];
+
+  repeated string tags = 2 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT,
+    default_value: "a, b",
+    steps: [
+      {split: {delimiter: ","}},
+      {trim: {unicode_whitespace: {}}}
+    ]
+  }];
+}
+
+message TestStepsUrlSafe {
+  bytes token_signing_key = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_SECRET,
+    steps: [
+      {decode: {
+        any_of: [
+          {base64: {alphabet: ALPHABET_URL_SAFE, padding: PADDING_ABSENT}}
+        ],
+        accept: {byte_size: {range: {min: 16}}}
+      }}
+    ]
+  }];
+}
