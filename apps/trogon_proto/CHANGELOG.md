@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.13.1...trogon_proto@v0.14.0) (2026-09-12)
+
+
+### Features
+
+* **trogon_proto:** Derive environment values from the declared pipeline ([#452](https://github.com/straw-hat-team/beam-monorepo/issues/452)) ([48fda08](https://github.com/straw-hat-team/beam-monorepo/commit/48fda08b0a376e16b03ad6b974207ccc6fd4dcff))
+
+
+### Bug Fixes
+
+* **trogon_proto:** Reject env fields the loader cannot populate ([#454](https://github.com/straw-hat-team/beam-monorepo/issues/454)) ([a55c93b](https://github.com/straw-hat-team/beam-monorepo/commit/a55c93b05c2f7817afa2bd6989416f2e64c258f2))
+
 ## [0.13.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.13.0...trogon_proto@v0.13.1) (2026-06-03)
 
 
