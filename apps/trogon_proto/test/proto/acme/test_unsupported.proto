@@ -4,13 +4,32 @@ package acme.test.v1;
 
 import "trogon/env/v1alpha1/options.proto";
 
-message TestUnsupported {
-  string database_url = 1 [(trogon.env.v1alpha1.field).env_var = {
-    visibility: VISIBILITY_SECRET
-  }];
+// Every message here annotates a field the loader cannot populate. Dropping
+// such a field would leave a zero value in production, so all of them must be
+// rejected at compile time. None has a fixture module for that reason.
 
-  // Unsupported: repeated field without split_delimiter
-  repeated string tags = 2 [(trogon.env.v1alpha1.field).env_var = {
+message TestUnsupportedRepeatedWithoutSplit {
+  repeated string tags = 1 [(trogon.env.v1alpha1.field).env_var = {
     visibility: VISIBILITY_PLAINTEXT
   }];
+}
+
+message TestUnsupportedMessageField {
+  Nested nested = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT
+  }];
+
+  message Nested {
+    string value = 1;
+  }
+}
+
+message TestUnsupportedMapField {
+  map<string, string> labels = 1 [(trogon.env.v1alpha1.field).env_var = {
+    visibility: VISIBILITY_PLAINTEXT
+  }];
+}
+
+message TestUnsupportedEmptyEnvVar {
+  string database_url = 1 [(trogon.env.v1alpha1.field) = {}];
 }

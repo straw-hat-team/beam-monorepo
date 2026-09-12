@@ -507,15 +507,13 @@ defmodule Trogon.Proto.Env do
 
     cond do
       is_nil(env_var_option) ->
-        warn_empty_env_var_extension(field_desc)
-        nil
+        raise_field_error!(field_desc.name, "has an env_var extension but env_var is empty")
 
       valid_env_field?(field_type, is_repeated, env_var_option) ->
         {String.to_atom(field_desc.name), build_field_config(field_desc, field_type, env_var_option, is_repeated)}
 
       true ->
-        warn_unsupported_field(field_desc, field_type, is_repeated)
-        nil
+        raise_field_error!(field_desc.name, unsupported_field_reason(field_desc, field_type, is_repeated))
     end
   end
 
@@ -830,18 +828,11 @@ defmodule Trogon.Proto.Env do
     end
   end
 
-  defp warn_empty_env_var_extension(field_desc) do
-    IO.warn(
-      "Field #{field_desc.name} has env_var extension but env_var is empty; skipping.",
-      []
-    )
-  end
-
   defp visibility_value(nil), do: Visibility.value(:VISIBILITY_UNSPECIFIED)
   defp visibility_value(atom) when is_atom(atom), do: Visibility.value(atom)
   defp visibility_value(int) when is_integer(int), do: int
 
-  defp warn_unsupported_field(field_desc, field_type, is_repeated) do
+  defp unsupported_field_reason(field_desc, field_type, is_repeated) do
     label_str =
       case field_desc.label do
         :LABEL_REPEATED -> "repeated "
@@ -849,16 +840,13 @@ defmodule Trogon.Proto.Env do
         _ -> ""
       end
 
-    message =
-      "Field #{field_desc.name} has env_var extension but unsupported type #{label_str}#{inspect(field_type)}. " <>
-        "Only scalar string, bytes, int32, int64, float, double, bool, and enum fields are supported" <>
-        if is_repeated do
-          " (repeated fields require a split step)"
-        else
-          ""
-        end <> "."
-
-    IO.warn(message, [])
+    "has an env_var extension but unsupported type #{label_str}#{inspect(field_type)}; " <>
+      "only scalar string, bytes, int32, int64, float, double, bool, and enum fields are supported" <>
+      if is_repeated do
+        " (repeated fields require a split step)"
+      else
+        ""
+      end
   end
 
   defp has_split_delimiter?(%{split_delimiter: delimiter}) do
