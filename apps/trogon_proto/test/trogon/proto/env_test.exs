@@ -11,7 +11,7 @@ defmodule Trogon.Proto.EnvTest do
   alias Trogon.Proto.TestSupport.ConfigWithStepsUrlSafe
   alias Trogon.Proto.TestSupport.ConfigWithTrimCustom
   alias Trogon.Proto.TestSupport.ConfigWithTrimUnicode
-  alias Trogon.Proto.TestSupport.ConfigWithUnsupported
+  alias Trogon.Proto.TestSupport.FutureSchema
 
   setup {Mox, :set_mox_from_context}
 
@@ -538,21 +538,19 @@ defmodule Trogon.Proto.EnvTest do
   end
 
   describe "unsupported field types" do
-    test "repeated fields are skipped (not added to struct)" do
-      # ConfigWithUnsupported has database_url (supported) and tags (unsupported repeated)
-      # Only database_url should be included in the config
-      TestSupport.stub_system_env(%{
-        "DATABASE_URL" => "postgres://localhost"
-      })
-
-      # Load should work because only database_url is required
-      config = ConfigWithUnsupported.from_env!()
-
-      # database_url should exist
-      assert config.env.database_url == "postgres://localhost"
-
-      # tags was not loaded from env (unsupported repeated without split_delimiter), so default []
-      assert config.env.tags == []
+    for {message, description, expected} <- [
+          {Acme.Test.V1.TestUnsupportedRepeatedWithoutSplit, "a repeated field that never splits",
+           "unsupported type repeated :string.*repeated fields require a split step"},
+          {Acme.Test.V1.TestUnsupportedMessageField, "a message field", "unsupported type"},
+          {Acme.Test.V1.TestUnsupportedMapField, "a map field", "unsupported type"},
+          {Acme.Test.V1.TestUnsupportedEmptyEnvVar, "an extension with no env_var",
+           "has an env_var extension but env_var is empty"}
+        ] do
+      test "rejects #{description}" do
+        assert_raise CompileError, Regex.compile!(unquote(expected)), fn ->
+          compile_env_module(unquote(message))
+        end
+      end
     end
   end
 
@@ -941,17 +939,39 @@ defmodule Trogon.Proto.EnvTest do
         end
       end
     end
+  end
 
-    defp compile_env_module(message) do
-      module = Module.concat(__MODULE__, :"Invalid#{System.unique_integer([:positive])}")
-
-      Code.compile_quoted(
-        quote do
-          defmodule unquote(module) do
-            use Trogon.Proto.Env, message: unquote(message)
-          end
-        end
-      )
+  describe "annotations from a newer schema" do
+    test "accepts the double that only uses options this package declares" do
+      ExUnit.CaptureIO.capture_io(:stderr, fn ->
+        assert [{_module, _bytecode} | _] = compile_env_module(FutureSchema.SupportedAnnotation)
+      end)
     end
+
+    for {message, description, expected} <- [
+          {FutureSchema.FutureOption, "an undeclared field option",
+           "written against a newer trogon.env.v1alpha1 than this package supports"},
+          {FutureSchema.FutureEnvVarOption, "an undeclared env_var option",
+           "written against a newer trogon.env.v1alpha1 than this package supports"},
+          {FutureSchema.FutureVisibility, "an undeclared visibility", "has an undeclared visibility 7"}
+        ] do
+      test "rejects #{description}" do
+        assert_raise CompileError, Regex.compile!(unquote(expected)), fn ->
+          compile_env_module(unquote(message))
+        end
+      end
+    end
+  end
+
+  defp compile_env_module(message) do
+    module = Module.concat(__MODULE__, :"Invalid#{System.unique_integer([:positive])}")
+
+    Code.compile_quoted(
+      quote do
+        defmodule unquote(module) do
+          use Trogon.Proto.Env, message: unquote(message)
+        end
+      end
+    )
   end
 end
