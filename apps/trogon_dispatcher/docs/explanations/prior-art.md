@@ -785,7 +785,7 @@ all need a frame held open across the rest of the pipeline, and only a wrap give
 and no `halted` field: not calling `next` is the halt, and it is visible in the code instead of encoded in a flag.
 
 **Took the one bag**, from Commanded, Koa, Tesla, ASP.NET Core, MassTransit and Plug. `Trogon.Dispatcher.Context`
-carries the command and the response on one struct, exactly as `Commanded.Middleware.Pipeline` and `Tesla.Env` do.
+carries the message and the response on one struct, exactly as `Commanded.Middleware.Pipeline` and `Tesla.Env` do.
 
 **Took `assigns` and `private` from Plug**, the namespaced-by-owner convention from `Plug.Conn.private`, and the
 immutable explicit threading style from Go's `context.Context`.

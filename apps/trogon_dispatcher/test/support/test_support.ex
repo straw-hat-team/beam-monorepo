@@ -20,10 +20,10 @@ defmodule Trogon.Dispatcher.TestSupport do
     defstruct [:email]
 
     @impl true
-    def handle_command(%__MODULE__{} = command, context) do
+    def handle_message(%__MODULE__{} = message, context) do
       {:ok,
        %User{
-         email: command.email,
+         email: message.email,
          tenant: Trogon.Dispatcher.Context.get_private(context, Trogon.Dispatcher.TestSupport.RequireTenant),
          actor: context.actor,
          trail: Map.get(context.assigns, :trail, [])
@@ -35,7 +35,7 @@ defmodule Trogon.Dispatcher.TestSupport do
     @moduledoc false
     defstruct [:id]
 
-    def handle_command(%__MODULE__{}, _context), do: {:ok, %User{email: "read@example.com"}}
+    def handle_message(%__MODULE__{}, _context), do: {:ok, %User{email: "read@example.com"}}
   end
 
   defmodule ArchiveUser do
@@ -48,21 +48,21 @@ defmodule Trogon.Dispatcher.TestSupport do
     @behaviour Trogon.Dispatcher.Handler
 
     @impl true
-    def handle_command(%ArchiveUser{}, _context), do: :ok
+    def handle_message(%ArchiveUser{}, _context), do: :ok
   end
 
   defmodule FailingCommand do
     @moduledoc false
     defstruct []
 
-    def handle_command(%__MODULE__{}, _context), do: {:error, :nope}
+    def handle_message(%__MODULE__{}, _context), do: {:error, :nope}
   end
 
   defmodule ExplodingCommand do
     @moduledoc false
     defstruct []
 
-    def handle_command(%__MODULE__{}, _context) do
+    def handle_message(%__MODULE__{}, _context) do
       if Opaque.wrap(true), do: raise(RuntimeError, "boom"), else: :ok
     end
   end
@@ -71,14 +71,14 @@ defmodule Trogon.Dispatcher.TestSupport do
     @moduledoc false
     defstruct []
 
-    def handle_command(%__MODULE__{}, _context), do: {:ok, Opaque.wrap([%User{}])}
+    def handle_message(%__MODULE__{}, _context), do: {:ok, Opaque.wrap([%User{}])}
   end
 
   defmodule MapReturningCommand do
     @moduledoc false
     defstruct []
 
-    def handle_command(%__MODULE__{}, _context), do: {:ok, Opaque.wrap(%{email: "nope"})}
+    def handle_message(%__MODULE__{}, _context), do: {:ok, Opaque.wrap(%{email: "nope"})}
   end
 
   defmodule NotRegistered do
@@ -90,7 +90,7 @@ defmodule Trogon.Dispatcher.TestSupport do
     @moduledoc false
     defstruct []
 
-    def handle_command(%__MODULE__{}, context) do
+    def handle_message(%__MODULE__{}, context) do
       {:ok, %User{trail: Map.get(context.assigns, :trail, [])}}
     end
   end
@@ -185,20 +185,20 @@ defmodule Trogon.Dispatcher.TestSupport do
 
     middleware RequireTenant
 
-    register_command RegisterUser, kind: :command
-    register_command GetUser, kind: :query
-    register_command ArchiveUser, kind: :command, to: ArchiveUserHandler
-    register_command FailingCommand, kind: :command
-    register_command ExplodingCommand, kind: :command
-    register_command ListReturningCommand, kind: :query
-    register_command MapReturningCommand, kind: :query
+    register_message RegisterUser, kind: :command
+    register_message GetUser, kind: :query
+    register_message ArchiveUser, kind: :command, to: ArchiveUserHandler
+    register_message FailingCommand, kind: :command
+    register_message ExplodingCommand, kind: :command
+    register_message ListReturningCommand, kind: :query
+    register_message MapReturningCommand, kind: :query
   end
 
   defmodule BillingDispatcher do
     @moduledoc false
     use Trogon.Dispatcher
 
-    register_command BillingCommand, kind: :command
+    register_message BillingCommand, kind: :command
   end
 
   defmodule RootDispatcher do
@@ -217,7 +217,7 @@ defmodule Trogon.Dispatcher.TestSupport do
 
     middleware BadMiddleware
 
-    register_command RegisterUser, kind: :command
+    register_message RegisterUser, kind: :command
   end
 
   defmodule HaltingDispatcher do
@@ -226,7 +226,7 @@ defmodule Trogon.Dispatcher.TestSupport do
 
     middleware Halting
 
-    register_command RegisterUser, kind: :command
+    register_message RegisterUser, kind: :command
   end
 
   defmodule StampDispatcher do
@@ -236,7 +236,7 @@ defmodule Trogon.Dispatcher.TestSupport do
     middleware Stamp
     middleware RequireTenant
 
-    register_command RegisterUser, kind: :command
+    register_message RegisterUser, kind: :command
   end
 
   defmodule NoInitDispatcher do
@@ -245,7 +245,7 @@ defmodule Trogon.Dispatcher.TestSupport do
 
     middleware NoInit, some: :option
 
-    register_command RegisterUser, kind: :command
+    register_message RegisterUser, kind: :command
   end
 
   defmodule SharedMiddlewareDispatcher do
@@ -254,7 +254,7 @@ defmodule Trogon.Dispatcher.TestSupport do
 
     middleware Authorize
 
-    register_command BillingCommand, kind: :command
+    register_message BillingCommand, kind: :command
   end
 
   defmodule RepeatedMiddlewareDispatcher do

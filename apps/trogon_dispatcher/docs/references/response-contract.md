@@ -15,7 +15,7 @@ Every handler returns one of exactly three shapes. A middleware never returns a 
 
 ## Where the response lives
 
-A handler's `handle_command/2` returns a response. The stage that calls it puts that response onto the context,
+A handler's `handle_message/2` returns a response. The stage that calls it puts that response onto the context,
 and from there the context is what travels back out through the middleware. So a middleware reads
 `context.response` and writes it with `Trogon.Dispatcher.Context.put_response/2`, and the dispatcher returns the
 final context's response to the caller.
@@ -36,7 +36,7 @@ A list is rejected for the same reason and one more: a collection result is a th
 holds the list.
 
 ```elixir
-def handle_command(%ListUsers{}, _context) do
+def handle_message(%ListUsers{}, _context) do
   {:ok, %UserList{entries: users, total: length(users)}}
 end
 ```
@@ -53,7 +53,7 @@ A command whose outcome is only the effect returns `:ok`. There is no `{:ok, nil
 ## Violations raise
 
 A response that is none of the three shapes raises `Trogon.Dispatcher.InvalidResponseError`, naming the module that
-produced it, the command being dispatched, the dispatcher, and the offending value.
+produced it, the message being dispatched, the dispatcher, and the offending value.
 
 This is a raise rather than an `{:error, _}` because it is a bug in first-party code rather than a domain outcome.
 `Plug` does the same when a plug fails to return a `Plug.Conn`. An application cannot meaningfully handle "my own
@@ -69,7 +69,7 @@ Two conditions are outcomes rather than bugs, so they come back as terms:
 
 | Condition | Result |
 | --- | --- |
-| dispatching a struct no dispatcher registered | `{:error, %Trogon.Dispatcher.UnregisteredCommandError{}}` |
+| dispatching a struct no dispatcher registered | `{:error, %Trogon.Dispatcher.UnregisteredMessageError{}}` |
 | a handler or middleware returning `{:error, reason}` | `{:error, reason}`, untouched |
 
 ## Errors the library raises
@@ -80,23 +80,23 @@ Two conditions are outcomes rather than bugs, so they come back as terms:
 | a middleware returning something other than a `Trogon.Dispatcher.Context` | `Trogon.Dispatcher.InvalidContextError` | runtime |
 | a second argument that is not a `DispatchOptions` | `ArgumentError` | runtime |
 | an exception raised inside a handler or middleware | the original exception, untouched | runtime |
-| the same command reached with a different handler, kind, or middleware chain | `Trogon.Dispatcher.DuplicateCommandError` | compile time |
+| the same message reached with a different handler, kind, or middleware chain | `Trogon.Dispatcher.DuplicateMessageError` | compile time |
 | a dispatcher importing itself, directly or transitively | `Trogon.Dispatcher.CircularImportError` | compile time |
-| a registered handler that does not export `handle_command/2` | `ArgumentError` | compile time, via `@after_verify` |
+| a registered handler that does not export `handle_message/2` | `ArgumentError` | compile time, via `@after_verify` |
 
 An exception raised inside a handler or a middleware passes through untouched. The library does not wrap it, so the
 original stacktrace survives. The `:exception` telemetry event fires first.
 
 ## The bang variants
 
-`dispatch_command!/1` and `dispatch_command!/2` unwrap:
+`dispatch_message!/1` and `dispatch_message!/2` unwrap:
 
-| Underlying response | `dispatch_command!` returns or raises |
+| Underlying response | `dispatch_message!` returns or raises |
 | --- | --- |
 | `:ok` | `:ok` |
 | `{:ok, struct}` | the struct |
 | `{:error, exception}` where the term is an exception struct | re-raises that exception as itself |
-| `{:error, term}` otherwise | raises `Trogon.Dispatcher.DispatchError` carrying `:reason`, `:command` and `:dispatcher` |
+| `{:error, term}` otherwise | raises `Trogon.Dispatcher.DispatchError` carrying `:reason`, `:dispatched_message` and `:dispatcher` |
 
 Re-raising an exception term as itself rather than wrapping it means a host whose errors are already exception
 structs keeps its own error type at the top of the stacktrace, and a `rescue` clause matching that type still works.

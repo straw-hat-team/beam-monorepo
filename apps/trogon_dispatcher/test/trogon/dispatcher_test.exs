@@ -9,57 +9,57 @@ defmodule Trogon.DispatcherTest do
   alias Trogon.Dispatcher.InvalidContextError
   alias Trogon.Dispatcher.InvalidResponseError
   alias Trogon.Dispatcher.TestSupport, as: Support
-  alias Trogon.Dispatcher.UnregisteredCommandError
+  alias Trogon.Dispatcher.UnregisteredMessageError
 
-  describe "dispatch_command/2" do
-    test "routes to the command module itself by default" do
+  describe "dispatch_message/2" do
+    test "routes to the message module itself by default" do
       assert {:ok, %Support.User{email: "a@b.c"}} =
-               Support.AccountsDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+               Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
     end
 
     test "routes to the handler named by :to" do
-      assert :ok = Support.AccountsDispatcher.dispatch_command(%Support.ArchiveUser{id: 1})
+      assert :ok = Support.AccountsDispatcher.dispatch_message(%Support.ArchiveUser{id: 1})
     end
 
-    test "dispatches a query the same way as a command" do
+    test "dispatches a query the same way as a message" do
       assert {:ok, %Support.User{email: "read@example.com"}} =
-               Support.AccountsDispatcher.dispatch_command(%Support.GetUser{id: 1})
+               Support.AccountsDispatcher.dispatch_message(%Support.GetUser{id: 1})
     end
 
     test "passes caller options through to the context" do
       options = %DispatchOptions{actor: :someone, assigns: %{trail: []}}
 
       assert {:ok, %Support.User{actor: :someone}} =
-               Support.AccountsDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"}, options)
+               Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "returns the handler's error term untouched" do
-      assert {:error, :nope} = Support.AccountsDispatcher.dispatch_command(%Support.FailingCommand{})
+      assert {:error, :nope} = Support.AccountsDispatcher.dispatch_message(%Support.FailingCommand{})
     end
 
-    test "returns an unregistered command as a value, not a raise" do
-      assert {:error, %UnregisteredCommandError{} = error} =
-               Support.AccountsDispatcher.dispatch_command(%Support.NotRegistered{})
+    test "returns an unregistered message as a value, not a raise" do
+      assert {:error, %UnregisteredMessageError{} = error} =
+               Support.AccountsDispatcher.dispatch_message(%Support.NotRegistered{})
 
-      assert error.command == %Support.NotRegistered{}
+      assert error.dispatched_message == %Support.NotRegistered{}
       assert error.dispatcher == Support.AccountsDispatcher
-      assert Exception.message(error) =~ "Unregistered command Trogon.Dispatcher.TestSupport.NotRegistered"
+      assert Exception.message(error) =~ "Unregistered message Trogon.Dispatcher.TestSupport.NotRegistered"
     end
 
-    test "is total over any term in the command position" do
-      assert {:error, %UnregisteredCommandError{command: :not_a_struct}} =
-               Support.AccountsDispatcher.dispatch_command(:not_a_struct)
+    test "is total over any term in the message position" do
+      assert {:error, %UnregisteredMessageError{dispatched_message: :not_a_struct}} =
+               Support.AccountsDispatcher.dispatch_message(:not_a_struct)
     end
 
     test "raises when the options argument is not a DispatchOptions" do
       assert_raise ArgumentError, ~r/expected a %Trogon.Dispatcher.DispatchOptions\{\}/, fn ->
-        Support.AccountsDispatcher.dispatch_command(%Support.RegisterUser{}, actor: :someone)
+        Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{}, actor: :someone)
       end
     end
 
     test "lets handler exceptions through untouched" do
       assert_raise RuntimeError, "boom", fn ->
-        Support.AccountsDispatcher.dispatch_command(%Support.ExplodingCommand{})
+        Support.AccountsDispatcher.dispatch_message(%Support.ExplodingCommand{})
       end
     end
   end
@@ -68,7 +68,7 @@ defmodule Trogon.DispatcherTest do
     test "rejects a bare list as the success value" do
       error =
         assert_raise InvalidResponseError, fn ->
-          Support.AccountsDispatcher.dispatch_command(%Support.ListReturningCommand{})
+          Support.AccountsDispatcher.dispatch_message(%Support.ListReturningCommand{})
         end
 
       assert error.module == Support.ListReturningCommand
@@ -78,14 +78,14 @@ defmodule Trogon.DispatcherTest do
 
     test "rejects a map as the success value" do
       assert_raise InvalidResponseError, fn ->
-        Support.AccountsDispatcher.dispatch_command(%Support.MapReturningCommand{})
+        Support.AccountsDispatcher.dispatch_message(%Support.MapReturningCommand{})
       end
     end
 
     test "requires a middleware to return a context and names the offending middleware" do
       error =
         assert_raise InvalidContextError, fn ->
-          Support.BadMiddlewareDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+          Support.BadMiddlewareDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
         end
 
       assert error.module == Support.BadMiddleware
@@ -96,7 +96,7 @@ defmodule Trogon.DispatcherTest do
     test "rejects a middleware that halts without putting a response" do
       error =
         assert_raise InvalidResponseError, fn ->
-          Support.HaltingDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+          Support.HaltingDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
         end
 
       assert error.module == Support.Halting
@@ -108,7 +108,7 @@ defmodule Trogon.DispatcherTest do
     test "the stop metadata carries the context the pipeline finished with" do
       attach_telemetry!()
 
-      assert {:ok, _user} = Support.StampDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+      assert {:ok, _user} = Support.StampDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
 
       metadata = assert_dispatch_stop(Support.RegisterUser)
 
@@ -119,20 +119,20 @@ defmodule Trogon.DispatcherTest do
     end
   end
 
-  describe "dispatch_command!/2" do
+  describe "dispatch_message!/2" do
     test "unwraps a success value" do
       assert %Support.User{email: "a@b.c"} =
-               Support.AccountsDispatcher.dispatch_command!(%Support.RegisterUser{email: "a@b.c"})
+               Support.AccountsDispatcher.dispatch_message!(%Support.RegisterUser{email: "a@b.c"})
     end
 
     test "passes :ok through" do
-      assert :ok = Support.AccountsDispatcher.dispatch_command!(%Support.ArchiveUser{id: 1})
+      assert :ok = Support.AccountsDispatcher.dispatch_message!(%Support.ArchiveUser{id: 1})
     end
 
     test "wraps a non-exception error term in DispatchError" do
       error =
         assert_raise DispatchError, fn ->
-          Support.AccountsDispatcher.dispatch_command!(%Support.FailingCommand{})
+          Support.AccountsDispatcher.dispatch_message!(%Support.FailingCommand{})
         end
 
       assert error.reason == :nope
@@ -141,8 +141,8 @@ defmodule Trogon.DispatcherTest do
     end
 
     test "re-raises an exception error term as itself" do
-      assert_raise UnregisteredCommandError, fn ->
-        Support.AccountsDispatcher.dispatch_command!(%Support.NotRegistered{})
+      assert_raise UnregisteredMessageError, fn ->
+        Support.AccountsDispatcher.dispatch_message!(%Support.NotRegistered{})
       end
     end
   end
@@ -152,51 +152,51 @@ defmodule Trogon.DispatcherTest do
       options = %DispatchOptions{assigns: %{trail: []}}
 
       assert {:ok, %Support.User{trail: [:authorize, :require_tenant]}} =
-               Support.RootDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"}, options)
+               Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "imported middleware stays attached to its own registrations" do
       options = %DispatchOptions{assigns: %{trail: []}}
 
       assert {:ok, %Support.User{trail: [:authorize]}} =
-               Support.RootDispatcher.dispatch_command(%Support.BillingCommand{}, options)
+               Support.RootDispatcher.dispatch_message(%Support.BillingCommand{}, options)
     end
 
     test "a leaf dispatcher is a first-class entry point and runs only its own middleware" do
       options = %DispatchOptions{assigns: %{trail: []}}
 
       assert {:ok, %Support.User{trail: [:require_tenant]}} =
-               Support.AccountsDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"}, options)
+               Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "not calling next halts the pipeline" do
       options = %DispatchOptions{actor: :forbidden}
 
       assert {:error, :unauthorized} =
-               Support.RootDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"}, options)
+               Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "init/1 runs at compile time and its result reaches call/3" do
       assert {:ok, %Support.User{tenant: "acme"}} =
-               Support.AccountsDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+               Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
     end
 
     test "a middleware without init/1 receives its options unchanged" do
       options = %DispatchOptions{assigns: %{trail: []}}
 
       assert {:ok, %Support.User{trail: [{:no_init, [some: :option]}]}} =
-               Support.NoInitDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"}, options)
+               Support.NoInitDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
   end
 
   describe "import composition" do
     test "a diamond dedupes instead of conflicting" do
-      assert {:ok, %Support.User{}} = Support.DiamondDispatcher.dispatch_command(%Support.BillingCommand{})
+      assert {:ok, %Support.User{}} = Support.DiamondDispatcher.dispatch_message(%Support.BillingCommand{})
     end
 
     test "registrations carry the dispatcher that registered them" do
       registrations = Support.RootDispatcher.__trogon_dispatcher__(:registrations)
-      registration = Enum.find(registrations, &(&1.command == Support.RegisterUser))
+      registration = Enum.find(registrations, &(&1.message == Support.RegisterUser))
 
       assert registration.registered_by == Support.AccountsDispatcher
       assert registration.kind == :command
@@ -222,7 +222,7 @@ defmodule Trogon.DispatcherTest do
       options = %DispatchOptions{assigns: %{trail: []}}
 
       attach_telemetry!([:support, :root])
-      Support.RootDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"}, options)
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       metadata = assert_dispatch_stop(Support.RegisterUser)
 

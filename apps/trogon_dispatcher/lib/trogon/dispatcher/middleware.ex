@@ -3,7 +3,7 @@ defmodule Trogon.Dispatcher.Middleware do
   The behaviour a middleware module implements.
 
   A middleware deals with exactly one data type: `Trogon.Dispatcher.Context`. It takes a context, it returns a
-  context. The command and the response are fields on that context, never separate arguments and never separate
+  context. The message and the response are fields on that context, never separate arguments and never separate
   return values.
 
   A middleware *wraps* the rest of the pipeline rather than reducing over it, so it can time the handler, open a span
@@ -25,7 +25,7 @@ defmodule Trogon.Dispatcher.Middleware do
 
         @impl true
         def call(%Context{} = context, next, _options) do
-          if allowed?(context.actor, context.command) do
+          if allowed?(context.actor, context.message) do
             context
             |> Context.assign(:authorized_at, DateTime.utc_now())
             |> next.()

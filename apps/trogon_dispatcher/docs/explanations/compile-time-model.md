@@ -7,18 +7,18 @@ runtime configuration.
 ## What `use Trogon.Dispatcher` does
 
 `use` registers four accumulating module attributes (middleware, registrations, imported dispatchers, import edges),
-declares the four `dispatch_command` callbacks on the module so it is a behaviour, and installs `@before_compile` and
+declares the four `dispatch_message` callbacks on the module so it is a behaviour, and installs `@before_compile` and
 `@after_verify` hooks.
 
-`middleware`, `register_command` and `import_dispatcher` are macros that accumulate into those attributes. They
-validate as they go, so a bad `:kind`, a command module that defines no struct, a middleware that does not export
+`middleware`, `register_message` and `import_dispatcher` are macros that accumulate into those attributes. They
+validate as they go, so a bad `:kind`, a message module that defines no struct, a middleware that does not export
 `call/3`, or an import of something that is not a dispatcher fails at the line that caused it.
 
 ## What `@before_compile` does
 
 At `@before_compile` the accumulated state is resolved into one flat list of registrations. Each entry carries the
-command, the handler, the kind, the dispatcher that registered it, and the fully resolved middleware chain for that
-one command.
+message, the handler, the kind, the dispatcher that registered it, and the fully resolved middleware chain for that
+one message.
 
 Local middleware is prefixed onto every registration, including the ones lifted in by `import_dispatcher`. That is
 what makes composition additive: an importer wraps what it imported and cannot reorder or remove it.
@@ -29,17 +29,17 @@ middleware reached through two import paths still runs once. The one behavior th
 identical double-listing of the same middleware collapses to one.
 
 Finally, registrations reached more than once are collapsed when they are identical and raise
-`Trogon.Dispatcher.DuplicateCommandError` when they are not.
+`Trogon.Dispatcher.DuplicateMessageError` when they are not.
 
 ## What gets generated
 
-For each registration, one `dispatch_command/2` clause matching the command struct, plus one private function per
+For each registration, one `dispatch_message/2` clause matching the message struct, plus one private function per
 middleware stage and one for the handler:
 
 ```elixir
-def dispatch_command(%RegisterUser{} = command, %DispatchOptions{} = options) do
-  context = %Context{command: command, kind: :command, dispatcher: __MODULE__, registered_by: MyApp.Accounts.Dispatcher, ...}
-  metadata = %{command: RegisterUser, kind: :command, dispatcher: __MODULE__, registered_by: MyApp.Accounts.Dispatcher, context: context}
+def dispatch_message(%RegisterUser{} = message, %DispatchOptions{} = options) do
+  context = %Context{message: message, kind: :command, dispatcher: __MODULE__, registered_by: MyApp.Accounts.Dispatcher, ...}
+  metadata = %{message: RegisterUser, kind: :command, dispatcher: __MODULE__, registered_by: MyApp.Accounts.Dispatcher, context: context}
 
   :telemetry.span([:my_app, :dispatcher, :dispatch], metadata, fn ->
     final = __trogon_dispatcher_stage_0_0__(context)
@@ -52,7 +52,7 @@ defp __trogon_dispatcher_stage_0_0__(context) do
 end
 
 defp __trogon_dispatcher_stage_0_1__(context) do
-  Trogon.Dispatcher.__validate_response__(MyApp.Accounts.RegisterUser.handle_command(context.command, context), MyApp.Accounts.RegisterUser, context)
+  Trogon.Dispatcher.__validate_response__(MyApp.Accounts.RegisterUser.handle_message(context.message, context), MyApp.Accounts.RegisterUser, context)
 end
 ```
 
@@ -64,14 +64,14 @@ so anything a middleware assigned is on the `:stop` event.
 Routing is therefore the BEAM's own multi-clause dispatch on the struct's `__struct__` key.
 
 Two catch-all clauses close the function. A struct that was never registered returns
-`{:error, %UnregisteredCommandError{}}`, because an unregistered command is a wiring state the caller can handle. A
+`{:error, %UnregisteredMessageError{}}`, because an unregistered message is a wiring state the caller can handle. A
 second argument that is not a `DispatchOptions` raises `ArgumentError`, because that is a call-site bug and not a
-domain outcome. `dispatch_command/2` is total: any term in the command position gets an answer rather than a
+domain outcome. `dispatch_message/2` is total: any term in the message position gets an answer rather than a
 `FunctionClauseError`.
 
 ## Why `@after_verify` rather than `@after_compile`
 
-A registered handler must export `handle_command/2`, but at `@before_compile` time the handler module may still be
+A registered handler must export `handle_message/2`, but at `@before_compile` time the handler module may still be
 compiling, so `function_exported?/3` cannot answer yet. `@after_compile` is not reliable either: under the parallel
 compiler the handler still may not be verified.
 
@@ -93,6 +93,6 @@ remember to touch the root.
 It buys a dispatch that costs a pattern match, and errors that surface at compile time with the offending line rather
 than at 3am in production.
 
-It costs runtime flexibility. There is no way to register a command at runtime, no way to reconfigure middleware from
-application config, and no way to swap a handler without recompiling. That is the intended trade: the set of commands
+It costs runtime flexibility. There is no way to register a message at runtime, no way to reconfigure middleware from
+application config, and no way to swap a handler without recompiling. That is the intended trade: the set of messages
 an application handles is part of its source code.

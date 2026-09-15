@@ -1,7 +1,7 @@
 # Write a middleware
 
 A middleware is a plain module implementing `Trogon.Dispatcher.Middleware`. It deals with exactly one data type: it
-takes a `Trogon.Dispatcher.Context` and returns a `Trogon.Dispatcher.Context`. The command and the response are
+takes a `Trogon.Dispatcher.Context` and returns a `Trogon.Dispatcher.Context`. The message and the response are
 fields on that struct, never separate arguments and never separate return values.
 
 ```elixir
@@ -32,8 +32,8 @@ middleware MyApp.RequireTenant, default: "acme"
 
 `call(context, next, options)`:
 
-- `context` is a `Trogon.Dispatcher.Context` struct carrying the command, the kind, the dispatcher, the dispatcher
-  that registered the command, the reserved `:correlation_id`, `:causation_id` and `:actor` fields, plus `:assigns`
+- `context` is a `Trogon.Dispatcher.Context` struct carrying the message, the kind, the dispatcher, the dispatcher
+  that registered the message, the reserved `:correlation_id`, `:causation_id` and `:actor` fields, plus `:assigns`
   and `:private`.
 - `next` is a context-to-context function. Call it with a context to continue; do not call it to halt.
 - `options` is whatever `init/1` returned at compile time.
@@ -129,15 +129,15 @@ A middleware or a handler is free to call another dispatcher. Carry the ambient 
 
 ```elixir
 options = DispatchOptions.from_context(context)
-MyApp.Billing.Dispatcher.dispatch_command(%ChargeCard{}, options)
+MyApp.Billing.Dispatcher.dispatch_message(%ChargeCard{}, options)
 ```
 
 That carries `:correlation_id`, `:actor` and `:assigns`. It deliberately does not carry `:causation_id`, because the
-library defines no command-id contract and will not invent one. Set causation yourself from whatever identity your
-commands already carry:
+library defines no message-id contract and will not invent one. Set causation yourself from whatever identity your
+messages already carry:
 
 ```elixir
-options = %{DispatchOptions.from_context(context) | causation_id: context.command.id}
+options = %{DispatchOptions.from_context(context) | causation_id: context.message.id}
 ```
 
 ## Test a middleware in isolation

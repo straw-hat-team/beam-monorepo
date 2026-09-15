@@ -13,12 +13,12 @@ defmodule Trogon.Dispatcher.Test do
       Mox.defmock(MyApp.DispatcherMock, for: MyApp.Dispatcher)
 
       test "registers the user" do
-        Mox.expect(MyApp.DispatcherMock, :dispatch_command, fn %RegisterUser{}, _options ->
+        Mox.expect(MyApp.DispatcherMock, :dispatch_message, fn %RegisterUser{}, _options ->
           {:ok, %User{id: 1}}
         end)
       end
 
-  Mock at the dispatcher boundary. There is no per-command handler stubbing, by design.
+  Mock at the dispatcher boundary. There is no per-message handler stubbing, by design.
 
   ## Importing
 
@@ -46,9 +46,9 @@ defmodule Trogon.Dispatcher.Test do
       context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
   """
   @spec build_context(struct(), DispatchOptions.t(), keyword()) :: Context.t()
-  def build_context(command, options \\ %DispatchOptions{}, overrides \\ []) do
+  def build_context(message, options \\ %DispatchOptions{}, overrides \\ []) do
     overrides = Keyword.put_new(overrides, :dispatcher, __MODULE__)
-    Context.new(command, options, overrides)
+    Context.new(message, options, overrides)
   end
 
   @doc """
@@ -60,7 +60,7 @@ defmodule Trogon.Dispatcher.Test do
 
   ## Example
 
-      context = Test.call_middleware(MyApp.Authorize, [], Test.build_context(command))
+      context = Test.call_middleware(MyApp.Authorize, [], Test.build_context(message))
       assert context.response == {:error, :unauthorized}
 
       context =
@@ -133,12 +133,12 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc """
-  Asserts that a dispatch of `command_mod` started, and returns the start metadata.
+  Asserts that a dispatch of `message_mod` started, and returns the start metadata.
   """
-  defmacro assert_dispatch_start(command_mod) do
+  defmacro assert_dispatch_start(message_mod) do
     quote do
       ExUnit.Assertions.assert_receive(
-        {unquote(@telemetry_tag), :start, _event, _measurements, %{command: unquote(command_mod)} = metadata}
+        {unquote(@telemetry_tag), :start, _event, _measurements, %{message: unquote(message_mod)} = metadata}
       )
 
       metadata
@@ -146,7 +146,7 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc """
-  Asserts that a dispatch of `command_mod` completed, and returns the stop metadata.
+  Asserts that a dispatch of `message_mod` completed, and returns the stop metadata.
 
   The stop metadata carries `:result` (`:ok` or `:error`) and, on failure, `:error`.
 
@@ -156,10 +156,10 @@ defmodule Trogon.Dispatcher.Test do
       assert metadata.result == :ok
       assert metadata.registered_by == MyApp.Accounts.Dispatcher
   """
-  defmacro assert_dispatch_stop(command_mod) do
+  defmacro assert_dispatch_stop(message_mod) do
     quote do
       ExUnit.Assertions.assert_receive(
-        {unquote(@telemetry_tag), :stop, _event, _measurements, %{command: unquote(command_mod)} = metadata}
+        {unquote(@telemetry_tag), :stop, _event, _measurements, %{message: unquote(message_mod)} = metadata}
       )
 
       metadata
@@ -167,12 +167,12 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc """
-  Asserts that a dispatch of `command_mod` raised, and returns the exception metadata.
+  Asserts that a dispatch of `message_mod` raised, and returns the exception metadata.
   """
-  defmacro assert_dispatch_exception(command_mod) do
+  defmacro assert_dispatch_exception(message_mod) do
     quote do
       ExUnit.Assertions.assert_receive(
-        {unquote(@telemetry_tag), :exception, _event, _measurements, %{command: unquote(command_mod)} = metadata}
+        {unquote(@telemetry_tag), :exception, _event, _measurements, %{message: unquote(message_mod)} = metadata}
       )
 
       metadata
@@ -180,12 +180,12 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc """
-  Refutes that any dispatch of `command_mod` was started.
+  Refutes that any dispatch of `message_mod` was started.
   """
-  defmacro refute_dispatch(command_mod) do
+  defmacro refute_dispatch(message_mod) do
     quote do
       ExUnit.Assertions.refute_receive(
-        {unquote(@telemetry_tag), :start, _event, _measurements, %{command: unquote(command_mod)}}
+        {unquote(@telemetry_tag), :start, _event, _measurements, %{message: unquote(message_mod)}}
       )
     end
   end

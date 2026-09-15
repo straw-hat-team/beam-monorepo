@@ -1,8 +1,8 @@
 defmodule Trogon.Dispatcher do
   @moduledoc """
-  An in-process, stateless, synchronous command and query dispatcher.
+  An in-process, stateless, synchronous message and query dispatcher.
 
-  A host app declares which command structs exist, composes middleware around them, and calls `dispatch_command/2`.
+  A host app declares which message structs exist, composes middleware around them, and calls `dispatch_message/2`.
   The library owns cross-cutting concerns (telemetry emission, middleware composition, test tooling) and owns no
   architecture: there are no events, no aggregates, no repos, and no processes.
 
@@ -13,9 +13,9 @@ defmodule Trogon.Dispatcher do
 
         middleware MyApp.Accounts.RequireTenant
 
-        register_command MyApp.Accounts.RegisterUser,  kind: :command
-        register_command MyApp.Accounts.GetUser, kind: :query
-        register_command MyApp.Accounts.ArchiveUser, kind: :command, to: MyApp.Accounts.ArchiveUserHandler
+        register_message MyApp.Accounts.RegisterUser,  kind: :command
+        register_message MyApp.Accounts.GetUser, kind: :query
+        register_message MyApp.Accounts.ArchiveUser, kind: :command, to: MyApp.Accounts.ArchiveUserHandler
       end
 
       defmodule MyApp.Dispatcher do
@@ -35,15 +35,15 @@ defmodule Trogon.Dispatcher do
 
   `import_dispatcher` flattens at compile time. The importer's middleware wraps the imported dispatcher's, per
   registration, so `MyApp.Dispatcher` dispatching `RegisterUser` runs `Authorize -> RequireTenant -> handler` while a
-  Billing command is untouched by `RequireTenant`. Composition is additive: nothing can remove or reorder middleware
+  Billing message is untouched by `RequireTenant`. Composition is additive: nothing can remove or reorder middleware
   it inherited.
 
   Reaching the same registration twice through a diamond of imports dedupes silently. Two paths that disagree on the
-  handler, the kind, or the effective middleware chain raise `Trogon.Dispatcher.DuplicateCommandError` at compile time.
+  handler, the kind, or the effective middleware chain raise `Trogon.Dispatcher.DuplicateMessageError` at compile time.
 
   ## Generated API
 
-  Each dispatcher gets `dispatch_command/1`, `dispatch_command/2`, `dispatch_command!/1` and `dispatch_command!/2`,
+  Each dispatcher gets `dispatch_message/1`, `dispatch_message/2`, `dispatch_message!/1` and `dispatch_message!/2`,
   declared as callbacks on the dispatcher module itself. That makes every dispatcher a behaviour, so a host injects
   the module and mocks it with `Mox.defmock(MyApp.DispatcherMock, for: MyApp.Dispatcher)` without a separate
   behaviour module.
@@ -55,15 +55,15 @@ defmodule Trogon.Dispatcher do
   alias Trogon.Dispatcher.Context
   alias Trogon.Dispatcher.DispatchError
   alias Trogon.Dispatcher.DispatchOptions
-  alias Trogon.Dispatcher.DuplicateCommandError
+  alias Trogon.Dispatcher.DuplicateMessageError
   alias Trogon.Dispatcher.InvalidContextError
   alias Trogon.Dispatcher.InvalidResponseError
-  alias Trogon.Dispatcher.UnregisteredCommandError
+  alias Trogon.Dispatcher.UnregisteredMessageError
 
   @type kind :: :command | :query
   @type response :: :ok | {:ok, struct()} | {:error, term()}
   @type registration :: %{
-          command: module(),
+          message: module(),
           handler: module(),
           kind: kind(),
           registered_by: module(),
@@ -75,7 +75,7 @@ defmodule Trogon.Dispatcher do
   defmacro __using__(opts \\ []) do
     quote bind_quoted: [opts: opts] do
       import Trogon.Dispatcher,
-        only: [middleware: 1, middleware: 2, register_command: 2, import_dispatcher: 1]
+        only: [middleware: 1, middleware: 2, register_message: 2, import_dispatcher: 1]
 
       @trogon_dispatcher_telemetry_prefix Trogon.Dispatcher.__telemetry_prefix__(opts)
 
@@ -84,11 +84,11 @@ defmodule Trogon.Dispatcher do
       Module.register_attribute(__MODULE__, :trogon_dispatcher_imported, accumulate: true)
       Module.register_attribute(__MODULE__, :trogon_dispatcher_imports, accumulate: true)
 
-      @callback dispatch_command(command :: struct()) :: Trogon.Dispatcher.response()
-      @callback dispatch_command(command :: struct(), options :: Trogon.Dispatcher.DispatchOptions.t()) ::
+      @callback dispatch_message(message :: struct()) :: Trogon.Dispatcher.response()
+      @callback dispatch_message(message :: struct(), options :: Trogon.Dispatcher.DispatchOptions.t()) ::
                   Trogon.Dispatcher.response()
-      @callback dispatch_command!(command :: struct()) :: :ok | struct()
-      @callback dispatch_command!(command :: struct(), options :: Trogon.Dispatcher.DispatchOptions.t()) ::
+      @callback dispatch_message!(message :: struct()) :: :ok | struct()
+      @callback dispatch_message!(message :: struct(), options :: Trogon.Dispatcher.DispatchOptions.t()) ::
                   :ok | struct()
 
       @before_compile Trogon.Dispatcher
@@ -97,7 +97,7 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc """
-  Adds a middleware to every command this dispatcher resolves.
+  Adds a middleware to every message this dispatcher resolves.
 
   Options run through the middleware's `init/1` at compile time and the result is baked into the generated pipeline
   as a literal, so it must be a term that can be represented in AST.
@@ -122,22 +122,23 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc """
-  Registers a command struct with this dispatcher.
+  Registers a message struct with this dispatcher.
 
   `:kind` is required, has no default, and must be `:command` or `:query`. Both kinds travel the same pipeline and
-  both go out through `dispatch_command/2`, so `command` is the transport noun here and `:kind` carries the read and
-  write distinction. Events are out of scope. `:to` names the handler and defaults to the command module itself.
+  both go out through `dispatch_message/2`: `message` is the genus and `:command` and `:query` are the two species,
+  so `:kind` is what carries the read and write distinction. Events are out of scope. `:to` names the handler and
+  defaults to the message module itself.
 
   ## Example
 
-      register_command MyApp.Accounts.RegisterUser, kind: :command
-      register_command MyApp.Accounts.GetUser, kind: :query
-      register_command MyApp.Accounts.ArchiveUser, kind: :command, to: MyApp.Accounts.ArchiveUserHandler
+      register_message MyApp.Accounts.RegisterUser, kind: :command
+      register_message MyApp.Accounts.GetUser, kind: :query
+      register_message MyApp.Accounts.ArchiveUser, kind: :command, to: MyApp.Accounts.ArchiveUserHandler
   """
-  @spec register_command(module(), keyword()) :: Macro.t()
-  defmacro register_command(command_mod, opts) do
-    quote bind_quoted: [command_mod: command_mod, opts: opts] do
-      Trogon.Dispatcher.__register_command__(__MODULE__, command_mod, opts)
+  @spec register_message(module(), keyword()) :: Macro.t()
+  defmacro register_message(message_mod, opts) do
+    quote bind_quoted: [message_mod: message_mod, opts: opts] do
+      Trogon.Dispatcher.__register_message__(__MODULE__, message_mod, opts)
     end
   end
 
@@ -161,7 +162,7 @@ defmodule Trogon.Dispatcher do
   defmacro __before_compile__(env) do
     module = env.module
     options_mod = DispatchOptions
-    unregistered_mod = UnregisteredCommandError
+    unregistered_mod = UnregisteredMessageError
 
     local_middleware = __accumulated__(module, :trogon_dispatcher_middleware)
     imports = __accumulated__(module, :trogon_dispatcher_imports)
@@ -199,24 +200,24 @@ defmodule Trogon.Dispatcher do
 
   defp __entrypoints__(options_mod) do
     quote do
-      def dispatch_command(command, options \\ %unquote(options_mod){})
-      def dispatch_command!(command, options \\ %unquote(options_mod){})
+      def dispatch_message(message, options \\ %unquote(options_mod){})
+      def dispatch_message!(message, options \\ %unquote(options_mod){})
 
-      def dispatch_command!(command, options) do
-        command
-        |> dispatch_command(options)
-        |> Trogon.Dispatcher.__unwrap__(command, __MODULE__)
+      def dispatch_message!(message, options) do
+        message
+        |> dispatch_message(options)
+        |> Trogon.Dispatcher.__unwrap__(message, __MODULE__)
       end
     end
   end
 
   defp __fallbacks__(options_mod, unregistered_mod) do
     quote do
-      def dispatch_command(command, %unquote(options_mod){}) do
-        {:error, unquote(unregistered_mod).exception(command: command, dispatcher: __MODULE__)}
+      def dispatch_message(message, %unquote(options_mod){}) do
+        {:error, unquote(unregistered_mod).exception(dispatched_message: message, dispatcher: __MODULE__)}
       end
 
-      def dispatch_command(_command, options) do
+      def dispatch_message(_command, options) do
         raise ArgumentError,
               "expected a %#{inspect(unquote(options_mod))}{} as the second argument, got: #{inspect(options)}"
       end
@@ -228,15 +229,15 @@ defmodule Trogon.Dispatcher do
   end
 
   defp __local_registrations__(module) do
-    for {command_mod, handler_mod, kind} <- __accumulated__(module, :trogon_dispatcher_registrations) do
-      %{command: command_mod, handler: handler_mod, kind: kind, registered_by: module, middleware: []}
+    for {message_mod, handler_mod, kind} <- __accumulated__(module, :trogon_dispatcher_registrations) do
+      %{message: message_mod, handler: handler_mod, kind: kind, registered_by: module, middleware: []}
     end
   end
 
   @doc false
   def __unwrap__(:ok, _command, _dispatcher), do: :ok
   def __unwrap__({:ok, value}, _command, _dispatcher), do: value
-  def __unwrap__({:error, reason}, command, dispatcher), do: __raise__(reason, command, dispatcher)
+  def __unwrap__({:error, reason}, message, dispatcher), do: __raise__(reason, message, dispatcher)
 
   @doc false
   def __after_verify__(module) do
@@ -294,42 +295,42 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __register_command__(module, command_mod, opts) do
-    __ensure_compiled__!(command_mod)
+  def __register_message__(module, message_mod, opts) do
+    __ensure_compiled__!(message_mod)
 
     kind = Keyword.get(opts, :kind)
 
     if kind not in [:command, :query] do
       raise ArgumentError, """
-      Invalid registration of #{inspect(command_mod)} in #{inspect(module)}
+      Invalid registration of #{inspect(message_mod)} in #{inspect(module)}
 
       Expected: kind: :command or kind: :query
       Got: #{inspect(kind)}
 
       :kind is required and has no default. It carries the read or write distinction; events are out of scope.
 
-          register_command #{inspect(command_mod)}, kind: :command
+          register_message #{inspect(message_mod)}, kind: :command
       """
     end
 
-    if not __struct_module__?(command_mod) do
+    if not __struct_module__?(message_mod) do
       raise ArgumentError, """
-      Invalid registration of #{inspect(command_mod)} in #{inspect(module)}
+      Invalid registration of #{inspect(message_mod)} in #{inspect(module)}
 
-      Expected: #{inspect(command_mod)} to define a struct
+      Expected: #{inspect(message_mod)} to define a struct
       Problem: Module does not define a struct
 
       Commands are structs; routing is a pattern match on the struct head.
 
-          defmodule #{inspect(command_mod)} do
+          defmodule #{inspect(message_mod)} do
             defstruct [:field]
           end
       """
     end
 
-    handler_mod = Keyword.get(opts, :to, command_mod)
+    handler_mod = Keyword.get(opts, :to, message_mod)
 
-    Module.put_attribute(module, :trogon_dispatcher_registrations, {command_mod, handler_mod, kind})
+    Module.put_attribute(module, :trogon_dispatcher_registrations, {message_mod, handler_mod, kind})
   end
 
   @doc false
@@ -356,7 +357,7 @@ defmodule Trogon.Dispatcher do
           defmodule #{inspect(dispatcher_mod)} do
             use Trogon.Dispatcher
 
-            register_command SomeCommand, kind: :command
+            register_message SomeCommand, kind: :command
           end
       """
     end
@@ -379,7 +380,7 @@ defmodule Trogon.Dispatcher do
       %{registration | middleware: Enum.uniq(local_middleware ++ registration.middleware)}
     end)
     |> Enum.reduce([], fn registration, acc ->
-      case Enum.find(acc, &(&1.command == registration.command)) do
+      case Enum.find(acc, &(&1.message == registration.message)) do
         nil ->
           acc ++ [registration]
 
@@ -387,8 +388,8 @@ defmodule Trogon.Dispatcher do
           acc
 
         existing ->
-          raise DuplicateCommandError.exception(
-                  command: registration.command,
+          raise DuplicateMessageError.exception(
+                  dispatched_message: registration.message,
                   dispatcher: module,
                   existing: existing,
                   conflicting: registration
@@ -402,9 +403,9 @@ defmodule Trogon.Dispatcher do
     entry = __stage_name__(index, 0)
 
     quote do
-      def dispatch_command(%unquote(registration.command){} = command, %unquote(options_mod){} = options) do
+      def dispatch_message(%unquote(registration.message){} = message, %unquote(options_mod){} = options) do
         context = %unquote(context_mod){
-          command: command,
+          message: message,
           kind: unquote(registration.kind),
           dispatcher: __MODULE__,
           registered_by: unquote(registration.registered_by),
@@ -416,7 +417,7 @@ defmodule Trogon.Dispatcher do
         }
 
         metadata = %{
-          command: unquote(registration.command),
+          message: unquote(registration.message),
           kind: unquote(registration.kind),
           dispatcher: __MODULE__,
           registered_by: unquote(registration.registered_by),
@@ -455,7 +456,7 @@ defmodule Trogon.Dispatcher do
       quote do
         defp unquote(__stage_name__(index, length(registration.middleware)))(context) do
           Trogon.Dispatcher.__validate_response__(
-            unquote(registration.handler).handle_command(context.command, context),
+            unquote(registration.handler).handle_message(context.message, context),
             unquote(registration.handler),
             context
           )
@@ -473,7 +474,7 @@ defmodule Trogon.Dispatcher do
   def __validate__(returned, module, context) do
     raise InvalidContextError.exception(
             module: module,
-            command: context.command,
+            dispatched_message: context.message,
             dispatcher: context.dispatcher,
             returned: returned
           )
@@ -493,7 +494,7 @@ defmodule Trogon.Dispatcher do
   def __validate_response__(response, module, context) do
     raise InvalidResponseError.exception(
             module: module,
-            command: context.command,
+            dispatched_message: context.message,
             dispatcher: context.dispatcher,
             response: response
           )
@@ -516,18 +517,18 @@ defmodule Trogon.Dispatcher do
     raise reason
   end
 
-  def __raise__(reason, command, dispatcher) do
-    raise DispatchError.exception(reason: reason, command: command, dispatcher: dispatcher)
+  def __raise__(reason, message, dispatcher) do
+    raise DispatchError.exception(reason: reason, dispatched_message: message, dispatcher: dispatcher)
   end
 
   defp __verify_handler__(module, registration) do
     loaded? = Code.ensure_loaded?(registration.handler)
 
-    if not (loaded? and function_exported?(registration.handler, :handle_command, 2)) do
+    if not (loaded? and function_exported?(registration.handler, :handle_message, 2)) do
       raise ArgumentError, """
-      Missing handler for #{inspect(registration.command)} in #{inspect(module)}
+      Missing handler for #{inspect(registration.message)} in #{inspect(module)}
 
-      Expected: #{inspect(registration.handler)} to export handle_command/2
+      Expected: #{inspect(registration.handler)} to export handle_message/2
       Problem: #{missing_reason(loaded?)}
 
       To fix this, implement the handler:
@@ -536,19 +537,19 @@ defmodule Trogon.Dispatcher do
             @behaviour Trogon.Dispatcher.Handler
 
             @impl true
-            def handle_command(command, context) do
+            def handle_message(message, context) do
               :ok
             end
           end
 
       Or point the registration somewhere else:
 
-          register_command #{inspect(registration.command)}, kind: #{inspect(registration.kind)}, to: SomeHandler
+          register_message #{inspect(registration.message)}, kind: #{inspect(registration.kind)}, to: SomeHandler
       """
     end
   end
 
-  defp missing_reason(true), do: "Module is loaded but does not export handle_command/2"
+  defp missing_reason(true), do: "Module is loaded but does not export handle_message/2"
   defp missing_reason(false), do: "Module could not be loaded"
 
   defp __check_cycle__!(module, dispatcher_mod) do
