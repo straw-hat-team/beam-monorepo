@@ -2,7 +2,7 @@
 
 **Trogon.Dispatcher is a compile-time command and query dispatcher for Elixir.** In-process, stateless, and synchronous: no processes, no persistence, and no opinion about your domain.
 
-**It gives a host app a single `MyApp.dispatch_message/2` entry point, built at compile time.** Commands and queries are structs registered with `register_message`, and handlers are plain modules exporting `handle_message/2`. Middleware wraps the pipeline Rack style and deals only in contexts, dispatchers compose into larger dispatchers with `import_dispatcher`, and every dispatch emits a `:telemetry` span.
+**It gives a host app a single `MyApp.Dispatcher.dispatch_message/2` entry point, built at compile time.** Commands and queries are structs registered with `register_message`, and handlers are plain modules exporting `handle_message/2`. Middleware wraps the pipeline Rack style and deals only in contexts, dispatchers compose into larger dispatchers with `import_dispatcher`, and every dispatch emits a `:telemetry` span.
 
 **Code that routes messages to handlers tends to end up either coupled to an event sourcing framework or scattered across ad-hoc `case` statements.** This library owns the cross-cutting concerns, meaning routing, middleware composition, observability and test tooling, and owns no architecture: there are no events, no aggregates, and no repos. Routing resolves at compile time into direct function clauses, so an unregistered message, a duplicate registration, a missing handler, or a dispatcher cycle fails the build rather than a request.
 

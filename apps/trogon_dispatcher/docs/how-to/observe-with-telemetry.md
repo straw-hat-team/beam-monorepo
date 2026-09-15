@@ -1,7 +1,7 @@
 # Observe with telemetry
 
-Every dispatch is a `:telemetry.span/3`. The library emits `:telemetry` and nothing else, so any backend works and
-no vendor is baked in.
+Every registered dispatch is a `:telemetry.span/3`. The library emits `:telemetry` and nothing else, so any backend
+works and no vendor is baked in.
 
 ## Events
 
@@ -21,6 +21,12 @@ the events are:
 
 The default prefix is `[:trogon_dispatcher]`. The prefix is the one that belongs to the dispatcher the caller invoked,
 so a message reached through a root dispatcher emits under the root's prefix, once.
+
+An unregistered message emits nothing. The catch-all clause returns
+`{:error, %Trogon.Dispatcher.UnregisteredMessageError{}}` before the span opens, so a backend that counts `:stop`
+events will not see routing failures. Routing is resolved at compile time, which makes an unregistered message a
+wiring mistake rather than a runtime outcome worth a metric, but count the error return yourself if you dispatch
+structs that come from outside your own code.
 
 ## Metadata
 
