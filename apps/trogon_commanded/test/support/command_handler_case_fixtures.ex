@@ -1,4 +1,4 @@
-defmodule TestSupport.CommandHandlerCaseFixtures do
+defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixtures do
   alias Commanded.Aggregate.Multi
 
   defmodule TestEvent do

@@ -1,4 +1,4 @@
-defmodule Trogon.Ecto.RepoTestSupport do
+defmodule Trogon.Ecto.TestSupport.Repo do
   @moduledoc false
 
   defmodule StubRepo do

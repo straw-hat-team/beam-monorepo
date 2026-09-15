@@ -1,8 +1,8 @@
 defmodule Trogon.Commanded.EnumTest do
   use ExUnit.Case, async: true
 
-  alias TestSupport.CommandRouterExample.BankAccountType
-  alias TestSupport.CommandRouterExample.ObjectTypeEnum
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountType
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.ObjectTypeEnum
 
   describe "new/1" do
     test "returns a value object" do
@@ -17,12 +17,12 @@ defmodule Trogon.Commanded.EnumTest do
 
     test "returns an error when a validation fails" do
       assert {:error, changeset} = BankAccountType.new(nil)
-      assert %{value: ["can't be blank"]} = TestSupport.errors_on(changeset)
+      assert %{value: ["can't be blank"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
     end
 
     test "with an invalid value" do
       assert {:error, changeset} = BankAccountType.new(:invalid)
-      assert %{value: ["is invalid"]} = TestSupport.errors_on(changeset)
+      assert %{value: ["is invalid"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
     end
   end
 
@@ -138,15 +138,15 @@ defmodule Trogon.Commanded.EnumTest do
   end
 
   test "works with embedded schemas" do
-    expected_value = %TestSupport.CommandRouterExample.BankAccountOpened{
+    expected_value = %Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountOpened{
       uuid: "123",
-      type: %TestSupport.CommandRouterExample.BankAccountOpened.BankAccountType{value: :business}
+      type: %Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountOpened.BankAccountType{value: :business}
     }
 
     given_value =
-      TestSupport.CommandRouterExample.BankAccountOpened.new!(%{
+      Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountOpened.new!(%{
         uuid: "123",
-        type: TestSupport.CommandRouterExample.BankAccountType.new!(:business)
+        type: Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountType.new!(:business)
       })
 
     assert expected_value == given_value
@@ -168,7 +168,7 @@ defmodule Trogon.Commanded.EnumTest do
 
     test "new/1 with an invalid value" do
       assert {:error, changeset} = ObjectTypeEnum.new(:INVALID)
-      assert %{value: ["is invalid"]} = TestSupport.errors_on(changeset)
+      assert %{value: ["is invalid"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
     end
 
     test "cast/1 with atom" do

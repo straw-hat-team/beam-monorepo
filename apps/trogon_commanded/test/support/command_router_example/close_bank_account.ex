@@ -1,11 +1,11 @@
-defmodule TestSupport.CommandRouterExample.CloseBankAccount do
+defmodule Trogon.Commanded.TestSupport.CommandRouterExample.CloseBankAccount do
   @moduledoc false
   use Trogon.Commanded.CommandHandler
 
   use Trogon.Commanded.Command,
     aggregate_identifier: :uuid
 
-  alias TestSupport.CommandRouterExample.{
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.{
     BankAccountClosed,
     CloseBankAccount,
     BankAccount

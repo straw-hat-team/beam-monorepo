@@ -2,7 +2,7 @@ defmodule Trogon.Ecto.RepoTest do
   use ExUnit.Case, async: true
 
   alias Ecto.Multi
-  alias Trogon.Ecto.RepoTestSupport.StubRepo
+  alias Trogon.Ecto.TestSupport.Repo.StubRepo
 
   setup do
     %{multi: Multi.put(Multi.new(), :account, :value)}

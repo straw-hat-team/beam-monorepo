@@ -1,4 +1,4 @@
-defmodule TestSupport do
+defmodule Trogon.Commanded.TestSupport do
   @moduledoc false
 
   defmodule TransferableMoney do
@@ -221,8 +221,8 @@ defmodule TestSupport do
 
       polymorphic_embeds_one :content,
         types: [
-          email: TestSupport.EmailContent,
-          sms: TestSupport.SmsContent
+          email: Trogon.Commanded.TestSupport.EmailContent,
+          sms: Trogon.Commanded.TestSupport.SmsContent
         ],
         on_type_not_found: :raise,
         on_replace: :update
@@ -239,8 +239,8 @@ defmodule TestSupport do
 
       polymorphic_embeds_many :contents,
         types: [
-          email: TestSupport.EmailContent,
-          sms: TestSupport.SmsContent
+          email: Trogon.Commanded.TestSupport.EmailContent,
+          sms: Trogon.Commanded.TestSupport.SmsContent
         ],
         on_type_not_found: :raise,
         on_replace: :delete

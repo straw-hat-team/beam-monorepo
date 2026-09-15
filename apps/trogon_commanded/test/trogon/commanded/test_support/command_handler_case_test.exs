@@ -3,7 +3,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseTest do
 
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
-  alias TestSupport.CommandHandlerCaseFixtures.{
+  alias Trogon.Commanded.TestSupport.CommandHandlerCaseFixtures.{
     TestEvent,
     TestEventTwo,
     TestCommand,

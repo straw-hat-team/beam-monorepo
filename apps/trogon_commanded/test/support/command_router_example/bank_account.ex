@@ -1,10 +1,10 @@
-defmodule TestSupport.CommandRouterExample.BankAccount do
+defmodule Trogon.Commanded.TestSupport.CommandRouterExample.BankAccount do
   @moduledoc false
   use Trogon.Commanded.Aggregate,
     identifier: :uuid,
     identity_prefix: "bank-account2-"
 
-  alias TestSupport.CommandRouterExample.{BankAccountOpened, BankAccountClosed}
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.{BankAccountOpened, BankAccountClosed}
 
   embedded_schema do
     field :closed?, :boolean, default: false

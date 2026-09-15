@@ -1,10 +1,10 @@
 defmodule Trogon.Ecto.MigrationTest do
   use ExUnit.Case, async: true
 
-  alias Trogon.Ecto.MigrationTestSupport
-  alias Trogon.Ecto.MigrationTestSupport.ConcurrentMigration
-  alias Trogon.Ecto.MigrationTestSupport.NoTransactionMigration
-  alias Trogon.Ecto.MigrationTestSupport.StandardMigration
+  alias Trogon.Ecto.TestSupport.Migration
+  alias Trogon.Ecto.TestSupport.Migration.ConcurrentMigration
+  alias Trogon.Ecto.TestSupport.Migration.NoTransactionMigration
+  alias Trogon.Ecto.TestSupport.Migration.StandardMigration
 
   describe "__using__/1" do
     test ":standard mode (the default) leaves the ddl transaction and migration lock enabled" do
@@ -43,12 +43,12 @@ defmodule Trogon.Ecto.MigrationTest do
 
   describe "column helpers" do
     setup do
-      MigrationTestSupport.start_migration_runner()
+      Migration.start_migration_runner()
     end
 
     test "add_timestamp_column/2 adds a :timestamptz column", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_timestamp_column(:published_at)
         end)
 
@@ -57,7 +57,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_timestamp_column/2 forwards caller opts", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_timestamp_column(:published_at, null: false)
         end)
 
@@ -66,7 +66,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_timestamps/1 adds :inserted_at and :updated_at as :timestamptz", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_timestamps()
         end)
 
@@ -80,7 +80,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_timestamps/1 allows overriding the column names and type", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_timestamps(inserted_at: :created_at, type: :utc_datetime)
         end)
 
@@ -97,7 +97,7 @@ defmodule Trogon.Ecto.MigrationTest do
       table: table
     } do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_stream_version_column()
         end)
 
@@ -106,7 +106,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_stream_version_column/1 lets caller opts override the default", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_stream_version_column(null: true)
         end)
 
@@ -115,7 +115,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_currency_code_column/1 adds a :currency_code :string column", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_currency_code_column()
         end)
 
@@ -124,7 +124,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_money_amount_column/2 adds a :\"<name>_amount\" :integer column", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_money_amount_column(:balance)
         end)
 
@@ -136,7 +136,7 @@ defmodule Trogon.Ecto.MigrationTest do
       table: table
     } do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_string_map_column(:labels)
         end)
 
@@ -145,7 +145,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_string_map_column/2 lets caller opts override the default", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_string_map_column(:labels, default: nil, null: false)
         end)
 
@@ -157,7 +157,7 @@ defmodule Trogon.Ecto.MigrationTest do
       table: table
     } do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_annotations_column()
         end)
 
@@ -166,7 +166,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_annotations_column/1 lets caller opts override the default", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_annotations_column(default: nil)
         end)
 
@@ -175,7 +175,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_uuid_column/2 adds a :binary_id column", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_uuid_column(:external_id)
         end)
 
@@ -184,7 +184,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_object_id_column/2 adds a :string column", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_object_id_column(:owner_id, null: false)
         end)
 
@@ -193,7 +193,7 @@ defmodule Trogon.Ecto.MigrationTest do
 
     test "add_union_object_id_column/2 adds a :string column", %{runner: runner, table: table} do
       command =
-        MigrationTestSupport.capture_command(runner, table, fn ->
+        Migration.capture_command(runner, table, fn ->
           Trogon.Ecto.Migration.add_union_object_id_column(:account_id)
         end)
 

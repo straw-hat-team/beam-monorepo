@@ -1,13 +1,13 @@
-defmodule TestSupport.CommandRouterExample.CommandRouter do
+defmodule Trogon.Commanded.TestSupport.CommandRouterExample.CommandRouter do
   @moduledoc false
   use Trogon.Commanded.CommandRouter
 
-  identify_aggregate(TestSupport.CommandRouterExample.BankAccount)
+  identify_aggregate(Trogon.Commanded.TestSupport.CommandRouterExample.BankAccount)
 
-  dispatch(TestSupport.CommandRouterExample.CloseBankAccount,
-    to: TestSupport.CommandRouterExample.CloseBankAccount,
-    aggregate: TestSupport.CommandRouterExample.BankAccount
+  dispatch(Trogon.Commanded.TestSupport.CommandRouterExample.CloseBankAccount,
+    to: Trogon.Commanded.TestSupport.CommandRouterExample.CloseBankAccount,
+    aggregate: Trogon.Commanded.TestSupport.CommandRouterExample.BankAccount
   )
 
-  register_transaction_script(TestSupport.CommandRouterExample.OpenBankAccount)
+  register_transaction_script(Trogon.Commanded.TestSupport.CommandRouterExample.OpenBankAccount)
 end
