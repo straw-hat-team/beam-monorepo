@@ -63,11 +63,14 @@ so anything a middleware assigned is on the `:stop` event.
 
 Routing is therefore the BEAM's own multi-clause dispatch on the struct's `__struct__` key.
 
-Two catch-all clauses close the function. A struct that was never registered returns
-`{:error, %UnregisteredMessageError{}}`, because an unregistered message is a wiring state the caller can handle. A
-second argument that is not a `DispatchOptions` raises `ArgumentError`, because that is a call-site bug and not a
-domain outcome. `dispatch_message/2` is total: any term in the message position gets an answer rather than a
-`FunctionClauseError`.
+Three catch-all clauses close the function. A struct that was never registered returns
+`{:error, %UnregisteredMessageError{}}`, because an unregistered message is a wiring state the caller can handle.
+A message that is not a struct raises `ArgumentError`, and so does a second argument that is not a
+`DispatchOptions`, because both are call-site bugs rather than domain outcomes.
+
+The split is deliberate. A message is a struct by contract, since routing is a pattern match on `__struct__` and a
+term without one could never have been registered in the first place. Returning an error value for it would dress
+a type error up as a routing outcome.
 
 ## Why `@after_verify` rather than `@after_compile`
 

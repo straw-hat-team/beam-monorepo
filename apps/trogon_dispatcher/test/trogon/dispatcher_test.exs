@@ -46,9 +46,10 @@ defmodule Trogon.DispatcherTest do
       assert Exception.message(error) =~ "Unregistered message Trogon.Dispatcher.TestSupport.NotRegistered"
     end
 
-    test "is total over any term in the message position" do
-      assert {:error, %UnregisteredMessageError{dispatched_message: :not_a_struct}} =
-               Support.AccountsDispatcher.dispatch_message(:not_a_struct)
+    test "raises when the message argument is not a struct" do
+      assert_raise ArgumentError, ~r/expected a struct as the first argument, got: :not_a_struct/, fn ->
+        Support.AccountsDispatcher.dispatch_message(:not_a_struct)
+      end
     end
 
     test "raises when the options argument is not a DispatchOptions" do
