@@ -213,8 +213,13 @@ defmodule Trogon.Dispatcher do
 
   defp __fallbacks__(options_mod, unregistered_mod) do
     quote do
-      def dispatch_message(message, %unquote(options_mod){}) do
+      def dispatch_message(message, %unquote(options_mod){}) when is_struct(message) do
         {:error, unquote(unregistered_mod).exception(dispatched_message: message, dispatcher: __MODULE__)}
+      end
+
+      def dispatch_message(message, %unquote(options_mod){}) do
+        raise ArgumentError,
+              "expected a struct as the first argument, got: #{inspect(message)}"
       end
 
       def dispatch_message(_message, options) do

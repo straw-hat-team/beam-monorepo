@@ -2,14 +2,16 @@ defmodule Trogon.Dispatcher.UnregisteredMessageError do
   @moduledoc """
   Returned when a dispatcher is handed a message struct it does not know about.
 
-  This is a value, not a raise: `dispatch_message/2` is total and returns `{:error, %__MODULE__{}}`. Only
-  `dispatch_message!/2` turns it into an exception.
+  This is a value, not a raise: `dispatch_message/2` returns `{:error, %__MODULE__{}}` and only
+  `dispatch_message!/2` turns it into an exception. A message that is not a struct at all is a different situation
+  and raises `ArgumentError`, because routing matches on `__struct__` and an unregistered struct is a wiring state
+  while a non-struct is a call-site bug.
   """
 
   defexception [:dispatched_message, :dispatcher]
 
   @type t :: %__MODULE__{
-          dispatched_message: term(),
+          dispatched_message: struct(),
           dispatcher: module()
         }
 
