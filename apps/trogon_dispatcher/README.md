@@ -22,10 +22,24 @@ end
 
 ```elixir
 defmodule MyApp.Accounts.RegisterUser do
+  @behaviour Trogon.Dispatcher.Handler
+
   defstruct [:email]
 
+  @impl true
   def handle_message(%__MODULE__{} = message, _context) do
     {:ok, %MyApp.Accounts.User{email: message.email}}
+  end
+end
+
+defmodule MyApp.Accounts.GetUser do
+  @behaviour Trogon.Dispatcher.Handler
+
+  defstruct [:id]
+
+  @impl true
+  def handle_message(%__MODULE__{} = message, _context) do
+    {:ok, MyApp.Accounts.fetch_user!(message.id)}
   end
 end
 

@@ -9,7 +9,7 @@ defmodule Trogon.Dispatcher.UnregisteredMessageError do
   defexception [:dispatched_message, :dispatcher]
 
   @type t :: %__MODULE__{
-          dispatched_message: struct(),
+          dispatched_message: term(),
           dispatcher: module()
         }
 

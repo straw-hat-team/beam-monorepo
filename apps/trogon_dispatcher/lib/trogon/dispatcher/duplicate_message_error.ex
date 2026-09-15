@@ -8,19 +8,11 @@ defmodule Trogon.Dispatcher.DuplicateMessageError do
 
   defexception [:dispatched_message, :dispatcher, :existing, :conflicting]
 
-  @type registration :: %{
-          dispatched_message: module(),
-          handler: module(),
-          kind: :command | :query,
-          registered_by: module(),
-          middleware: [{module(), term()}]
-        }
-
   @type t :: %__MODULE__{
           dispatched_message: module(),
           dispatcher: module(),
-          existing: registration(),
-          conflicting: registration()
+          existing: Trogon.Dispatcher.registration(),
+          conflicting: Trogon.Dispatcher.registration()
         }
 
   @impl Exception
