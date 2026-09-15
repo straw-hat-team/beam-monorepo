@@ -1,3 +1,5 @@
-Mox.defmock(Support.DispatcherMock, for: Support.AccountsDispatcher)
+Mox.defmock(Trogon.Dispatcher.TestSupport.DispatcherMock,
+  for: Trogon.Dispatcher.TestSupport.AccountsDispatcher
+)
 
 ExUnit.start()

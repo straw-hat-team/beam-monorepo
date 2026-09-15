@@ -7,6 +7,7 @@ defmodule Trogon.Dispatcher.TestTest do
   alias Trogon.Dispatcher.Context
   alias Trogon.Dispatcher.DispatchOptions
   alias Trogon.Dispatcher.Test
+  alias Trogon.Dispatcher.TestSupport, as: Support
 
   setup :verify_on_exit!
 

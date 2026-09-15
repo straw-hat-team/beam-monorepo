@@ -1,12 +1,12 @@
 # Trogon.Dispatcher
 
-**An in-process, stateless, synchronous command and query dispatcher for Elixir, with compile-time routing, composable wrapping middleware, and `:telemetry` spans.**
+**Trogon.Dispatcher is a compile-time command and query dispatcher for Elixir.** In-process, stateless, and synchronous: no processes, no persistence, and no opinion about your domain.
 
-**Trogon.Dispatcher gives a host app a `MyApp.dispatch_command/2` entry point built at compile time. Commands and queries are structs registered with `register_command`, handlers are plain modules exporting `handle_command/2`, middleware wraps the pipeline Rack style with `call(context, next, options)` and deals in contexts only, and dispatchers compose into larger dispatchers with `import_dispatcher`. Every dispatch emits a `:telemetry` span carrying the command module, the kind, the dispatcher, and the dispatcher that registered the command.**
+**It gives a host app a single `MyApp.dispatch_command/2` entry point, built at compile time.** Commands and queries are structs registered with `register_command`, and handlers are plain modules exporting `handle_command/2`. Middleware wraps the pipeline Rack style and deals only in contexts, dispatchers compose into larger dispatchers with `import_dispatcher`, and every dispatch emits a `:telemetry` span.
 
-**Application code that routes messages to handlers usually ends up either coupled to a full event-sourcing framework or scattered across ad-hoc `case` statements. Trogon.Dispatcher owns the cross-cutting concerns (routing, middleware composition, observability, test tooling) and owns no architecture: there are no events, no aggregates, no repos, and no processes. Routing is resolved at compile time into direct function clauses, so a dispatch is a pattern match and a chain of calls.**
+**Code that routes messages to handlers tends to end up either coupled to an event sourcing framework or scattered across ad-hoc `case` statements.** This library owns the cross-cutting concerns, meaning routing, middleware composition, observability and test tooling, and owns no architecture: there are no events, no aggregates, and no repos. Routing resolves at compile time into direct function clauses, so an unregistered command, a duplicate registration, a missing handler, or a dispatcher cycle fails the build rather than a request.
 
-**Trogon.Dispatcher is for Elixir teams that want an explicit, observable boundary between the web or worker layer and their domain code, without adopting an opinion about how that domain is implemented.**
+**It is for Elixir teams that want an explicit, observable boundary between their web or worker layer and their domain code.** That suits applications which have outgrown scattered routing but do not want to take on a framework's opinion about how the domain itself is implemented, and teams who need the dispatch boundary to be the one place identity propagation, authorization and tracing are applied.
 
 ## Installation
 

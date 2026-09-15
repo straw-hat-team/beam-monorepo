@@ -4,6 +4,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
   import Trogon.Dispatcher.Test
 
   alias Trogon.Dispatcher.DispatchOptions
+  alias Trogon.Dispatcher.TestSupport, as: Support
 
   describe "start event" do
     setup do
