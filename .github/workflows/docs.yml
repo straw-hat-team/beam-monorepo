@@ -10,6 +10,7 @@ on:
         options:
           - eventstore_dashboard
           - trogon_commanded
+          - trogon_dispatcher
           - trogon_error
           - trogon_proto
           - trogon_result
