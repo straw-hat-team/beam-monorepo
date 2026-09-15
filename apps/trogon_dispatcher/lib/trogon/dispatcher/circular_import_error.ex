@@ -32,7 +32,8 @@ defmodule Trogon.Dispatcher.CircularImportError do
 
         #{Enum.map_join(exception.path, " -> ", &inspect/1)}
 
-    Dispatchers compose as a tree. Extract the shared registrations into a dispatcher that both sides import.
+    Dispatchers compose as an acyclic graph, so a diamond is fine and only a cycle is not. Extract the shared
+    registrations into a dispatcher that both sides import.
     """
   end
 end

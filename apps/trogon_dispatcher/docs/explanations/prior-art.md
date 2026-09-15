@@ -169,7 +169,9 @@ public class TimerFilter<T> : IFilter<ConsumeContext<T>> where T : class
 }
 ```
 
-`Send(context, next)` is the same arity and the same meaning as this library's `call(context, next, options)`.
+`Send(context, next)` has the same wrapping role as this library's `call(context, next, options)`. The arity differs
+because MassTransit constructs a filter instance with its configuration, while this library keeps filters stateless
+and passes the initialized options in as the third argument.
 
 ### NServiceBus (C#)
 

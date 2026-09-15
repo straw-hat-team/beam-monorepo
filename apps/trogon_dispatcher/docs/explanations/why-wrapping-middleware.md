@@ -1,9 +1,12 @@
 # Why wrapping middleware
 
 `Trogon.Dispatcher.Middleware` uses `call(context, next, options)` where `next` is a context-to-context function. A
-middleware receives the rest of the pipeline as a function and decides whether, and with what, to call it. That is
-the Rack and Phoenix endpoint shape, not the `Plug.call(conn, opts)` shape, even though this library otherwise
-borrows heavily from Plug.
+middleware receives the rest of the pipeline as a function and decides whether, and with what, to call it. That is a
+Rack style wrapping model rather than the `Plug.call(conn, opts)` reduce shape, even though this library otherwise
+borrows heavily from Plug. The resemblance to Rack is in the wrapping, not in the signature: Rack's own callback is
+`call(env)` and each middleware holds the next app in its own state. For the `next`-as-an-argument contract the
+closer relatives are Koa's `(ctx, next)`, ASP.NET Core's `RequestDelegate next` and MassTransit's `Send(context,
+next)`.
 
 ## One data type
 

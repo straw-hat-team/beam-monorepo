@@ -217,7 +217,7 @@ defmodule Trogon.Dispatcher do
         {:error, unquote(unregistered_mod).exception(dispatched_message: message, dispatcher: __MODULE__)}
       end
 
-      def dispatch_message(_command, options) do
+      def dispatch_message(_message, options) do
         raise ArgumentError,
               "expected a %#{inspect(unquote(options_mod))}{} as the second argument, got: #{inspect(options)}"
       end
@@ -235,8 +235,8 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __unwrap__(:ok, _command, _dispatcher), do: :ok
-  def __unwrap__({:ok, value}, _command, _dispatcher), do: value
+  def __unwrap__(:ok, _message, _dispatcher), do: :ok
+  def __unwrap__({:ok, value}, _message, _dispatcher), do: value
   def __unwrap__({:error, reason}, message, dispatcher), do: __raise__(reason, message, dispatcher)
 
   @doc false
@@ -320,7 +320,7 @@ defmodule Trogon.Dispatcher do
       Expected: #{inspect(message_mod)} to define a struct
       Problem: Module does not define a struct
 
-      Commands are structs; routing is a pattern match on the struct head.
+      Messages are structs; routing is a pattern match on the struct head.
 
           defmodule #{inspect(message_mod)} do
             defstruct [:field]
@@ -513,7 +513,7 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __raise__(reason, _command, _dispatcher) when is_exception(reason) do
+  def __raise__(reason, _message, _dispatcher) when is_exception(reason) do
     raise reason
   end
 

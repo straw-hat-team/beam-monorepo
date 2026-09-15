@@ -34,8 +34,8 @@ defmodule Trogon.Dispatcher.Context do
   @type t :: %__MODULE__{
           message: struct(),
           kind: kind(),
-          dispatcher: module(),
-          registered_by: module(),
+          dispatcher: module() | nil,
+          registered_by: module() | nil,
           correlation_id: term() | nil,
           causation_id: term() | nil,
           actor: term() | nil,
