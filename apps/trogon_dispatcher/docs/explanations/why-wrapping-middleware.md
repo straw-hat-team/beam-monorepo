@@ -8,7 +8,7 @@ borrows heavily from Plug.
 ## One data type
 
 A middleware deals with `Trogon.Dispatcher.Context` and nothing else. It takes a context, it returns a context. The
-command is a field. The response is a field. Neither is ever an argument or a return value of its own.
+message is a field. The response is a field. Neither is ever an argument or a return value of its own.
 
 That is a deliberate constraint rather than an accident of the implementation. A middleware whose input and output
 types differ is two things wearing one name: a transformer on the way in and a different transformer on the way
@@ -72,7 +72,7 @@ makes a middleware harder to call directly in a test.
 
 The wrapping shape builds a call stack as deep as the middleware chain. For an in-process synchronous dispatch that
 is a handful of frames and no allocation beyond the captures, all of which are compile-time literals here. The chain
-is not built at runtime: `import_dispatcher` flattens at compile time, the chain per command is known, and each stage
+is not built at runtime: `import_dispatcher` flattens at compile time, the chain per message is known, and each stage
 is a private function with a statically known successor.
 
 The real cost is that a middleware that forgets to call `next` silently swallows the dispatch. That failure mode is

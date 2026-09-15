@@ -16,7 +16,7 @@ defmodule Trogon.Dispatcher.TestTest do
       context = Test.build_context(%Support.RegisterUser{email: "a@b.c"})
 
       assert %Context{} = context
-      assert context.command == %Support.RegisterUser{email: "a@b.c"}
+      assert context.message == %Support.RegisterUser{email: "a@b.c"}
       assert context.kind == :command
       assert context.assigns == %{}
       assert context.private == %{}
@@ -109,7 +109,7 @@ defmodule Trogon.Dispatcher.TestTest do
     test "forwards the events of the given prefix" do
       Test.attach_telemetry!([:support, :root])
 
-      assert {:ok, _user} = Support.RootDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+      assert {:ok, _user} = Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
 
       assert_dispatch_start(Support.RegisterUser)
       metadata = assert_dispatch_stop(Support.RegisterUser)
@@ -122,7 +122,7 @@ defmodule Trogon.Dispatcher.TestTest do
       Test.attach_telemetry!([:support, :root])
       Test.attach_telemetry!([:support, :root])
 
-      assert {:ok, _user} = Support.RootDispatcher.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+      assert {:ok, _user} = Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
 
       assert_dispatch_stop(Support.RegisterUser)
       assert_dispatch_stop(Support.RegisterUser)
@@ -132,30 +132,30 @@ defmodule Trogon.Dispatcher.TestTest do
 
   describe "mocking a dispatcher with Mox" do
     test "a dispatcher is a behaviour, so Mox can mock it directly" do
-      expect(Support.DispatcherMock, :dispatch_command, fn %Support.RegisterUser{} = command ->
-        {:ok, %Support.User{email: command.email}}
+      expect(Support.DispatcherMock, :dispatch_message, fn %Support.RegisterUser{} = message ->
+        {:ok, %Support.User{email: message.email}}
       end)
 
       assert {:ok, %Support.User{email: "a@b.c"}} =
-               Support.DispatcherMock.dispatch_command(%Support.RegisterUser{email: "a@b.c"})
+               Support.DispatcherMock.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
     end
 
     test "the two-argument callback is mockable as well" do
-      expect(Support.DispatcherMock, :dispatch_command, fn %Support.GetUser{}, %DispatchOptions{} = options ->
+      expect(Support.DispatcherMock, :dispatch_message, fn %Support.GetUser{}, %DispatchOptions{} = options ->
         send(self(), {:options, options})
         {:ok, %Support.User{email: "read@example.com"}}
       end)
 
       assert {:ok, _user} =
-               Support.DispatcherMock.dispatch_command(%Support.GetUser{id: 1}, %DispatchOptions{actor: :root})
+               Support.DispatcherMock.dispatch_message(%Support.GetUser{id: 1}, %DispatchOptions{actor: :root})
 
       assert_received {:options, %DispatchOptions{actor: :root}}
     end
 
     test "the bang callback is mockable" do
-      expect(Support.DispatcherMock, :dispatch_command!, fn %Support.ArchiveUser{} -> :ok end)
+      expect(Support.DispatcherMock, :dispatch_message!, fn %Support.ArchiveUser{} -> :ok end)
 
-      assert :ok = Support.DispatcherMock.dispatch_command!(%Support.ArchiveUser{id: 1})
+      assert :ok = Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{id: 1})
     end
   end
 end

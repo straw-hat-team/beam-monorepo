@@ -11,11 +11,11 @@ defmodule Trogon.Dispatcher.InvalidResponseError do
   A middleware that halts without putting a response on the context lands here too, with a `nil` response.
   """
 
-  defexception [:module, :command, :dispatcher, :response]
+  defexception [:module, :dispatched_message, :dispatcher, :response]
 
   @type t :: %__MODULE__{
           module: module(),
-          command: struct(),
+          dispatched_message: struct(),
           dispatcher: module(),
           response: term()
         }
@@ -24,7 +24,7 @@ defmodule Trogon.Dispatcher.InvalidResponseError do
   def exception(opts) when is_list(opts) do
     %__MODULE__{
       module: Keyword.get(opts, :module),
-      command: Keyword.get(opts, :command),
+      dispatched_message: Keyword.get(opts, :dispatched_message),
       dispatcher: Keyword.get(opts, :dispatcher),
       response: Keyword.get(opts, :response)
     }
@@ -34,7 +34,7 @@ defmodule Trogon.Dispatcher.InvalidResponseError do
   def message(%__MODULE__{} = exception) do
     """
     Invalid response from #{inspect(exception.module)} while dispatching \
-    #{inspect(command_module(exception.command))} in #{inspect(exception.dispatcher)}
+    #{inspect(message_module(exception.dispatched_message))} in #{inspect(exception.dispatcher)}
 
     Expected: :ok, {:ok, struct} or {:error, term}
     Got: #{inspect(exception.response)}
@@ -61,6 +61,6 @@ defmodule Trogon.Dispatcher.InvalidResponseError do
     """
   end
 
-  defp command_module(command) when is_struct(command), do: command.__struct__
-  defp command_module(command), do: command
+  defp message_module(message) when is_struct(message), do: message.__struct__
+  defp message_module(message), do: message
 end

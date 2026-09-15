@@ -7,7 +7,7 @@ defmodule Trogon.Dispatcher.Context do
   `private` is middleware scratch space and should be namespaced by the owning module.
 
   The context is the only value a middleware sees. It travels forward into the pipeline and back out again, so a
-  middleware reads and writes it on both legs and never touches the command or the response as separate arguments.
+  middleware reads and writes it on both legs and never touches the message or the response as separate arguments.
 
   `response` is empty on the way in and holds the handler's answer on the way out. A middleware halts by putting a
   response without calling `next`.
@@ -15,9 +15,9 @@ defmodule Trogon.Dispatcher.Context do
 
   alias Trogon.Dispatcher.DispatchOptions
 
-  @enforce_keys [:command, :kind, :dispatcher, :registered_by]
+  @enforce_keys [:message, :kind, :dispatcher, :registered_by]
   defstruct [
-    :command,
+    :message,
     :kind,
     :dispatcher,
     :registered_by,
@@ -32,7 +32,7 @@ defmodule Trogon.Dispatcher.Context do
   @type kind :: :command | :query
 
   @type t :: %__MODULE__{
-          command: struct(),
+          message: struct(),
           kind: kind(),
           dispatcher: module(),
           registered_by: module(),
@@ -47,7 +47,7 @@ defmodule Trogon.Dispatcher.Context do
   @type response :: :ok | {:ok, struct()} | {:error, term()}
 
   @doc """
-  Builds a context from a command and caller options.
+  Builds a context from a message and caller options.
 
   Dispatchers build the struct inline at compile time; this is the runtime equivalent, used by test helpers and by
   anything that needs a context without going through a dispatcher.
@@ -55,12 +55,12 @@ defmodule Trogon.Dispatcher.Context do
   `overrides` accepts `:kind`, `:dispatcher` and `:registered_by`.
   """
   @spec new(struct(), DispatchOptions.t(), keyword()) :: t()
-  def new(command, %DispatchOptions{} = options \\ %DispatchOptions{}, overrides \\ [])
-      when is_struct(command) do
+  def new(message, %DispatchOptions{} = options \\ %DispatchOptions{}, overrides \\ [])
+      when is_struct(message) do
     dispatcher = Keyword.get(overrides, :dispatcher)
 
     %__MODULE__{
-      command: command,
+      message: message,
       kind: Keyword.get(overrides, :kind, :command),
       dispatcher: dispatcher,
       registered_by: Keyword.get(overrides, :registered_by, dispatcher),

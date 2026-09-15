@@ -1,7 +1,7 @@
 locals_without_parens = [
   middleware: 1,
   middleware: 2,
-  register_command: 2,
+  register_message: 2,
   import_dispatcher: 1
 ]
 

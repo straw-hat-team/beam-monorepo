@@ -27,9 +27,9 @@ defmodule Trogon.Dispatcher.DispatchOptions do
 
   ## Example
 
-      def handle_command(%ArchiveUser{} = command, context) do
+      def handle_message(%ArchiveUser{} = message, context) do
         options = DispatchOptions.from_context(context)
-        MyApp.Dispatcher.dispatch_command(%NotifyUser{user_id: command.user_id}, options)
+        MyApp.Dispatcher.dispatch_message(%NotifyUser{user_id: message.user_id}, options)
       end
   """
   @spec from_context(Trogon.Dispatcher.Context.t()) :: t()

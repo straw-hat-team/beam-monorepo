@@ -6,11 +6,11 @@ defmodule Trogon.Dispatcher.InvalidContextError do
   or halted. Returning the response directly is the common mistake and this error names the module that did it.
   """
 
-  defexception [:module, :command, :dispatcher, :returned]
+  defexception [:module, :dispatched_message, :dispatcher, :returned]
 
   @type t :: %__MODULE__{
           module: module(),
-          command: struct(),
+          dispatched_message: struct(),
           dispatcher: module(),
           returned: term()
         }
@@ -19,7 +19,7 @@ defmodule Trogon.Dispatcher.InvalidContextError do
   def exception(opts) when is_list(opts) do
     %__MODULE__{
       module: Keyword.get(opts, :module),
-      command: Keyword.get(opts, :command),
+      dispatched_message: Keyword.get(opts, :dispatched_message),
       dispatcher: Keyword.get(opts, :dispatcher),
       returned: Keyword.get(opts, :returned)
     }
@@ -29,7 +29,7 @@ defmodule Trogon.Dispatcher.InvalidContextError do
   def message(%__MODULE__{} = exception) do
     """
     #{inspect(exception.module)} did not return a context while dispatching \
-    #{inspect(command_module(exception.command))} in #{inspect(exception.dispatcher)}
+    #{inspect(message_module(exception.dispatched_message))} in #{inspect(exception.dispatcher)}
 
     Expected: a %Trogon.Dispatcher.Context{}
     Got: #{inspect(exception.returned)}
@@ -41,6 +41,6 @@ defmodule Trogon.Dispatcher.InvalidContextError do
     """
   end
 
-  defp command_module(command) when is_struct(command), do: command.__struct__
-  defp command_module(command), do: command
+  defp message_module(message) when is_struct(message), do: message.__struct__
+  defp message_module(message), do: message
 end

@@ -1,6 +1,6 @@
 # Test with Mox
 
-Every dispatcher declares `dispatch_command/1`, `dispatch_command/2`, `dispatch_command!/1` and `dispatch_command!/2`
+Every dispatcher declares `dispatch_message/1`, `dispatch_message/2`, `dispatch_message!/1` and `dispatch_message!/2`
 as callbacks on itself. A dispatcher is therefore already a behaviour, and Mox can mock it directly. There is no
 companion `MyApp.Dispatcher.Behaviour` module and no generated `MyApp.Dispatcher.Mock`.
 
@@ -27,7 +27,7 @@ defmodule MyAppWeb.UserController do
   defp dispatcher, do: Application.fetch_env!(:my_app, :dispatcher)
 
   def create(conn, params) do
-    case dispatcher().dispatch_command(%RegisterUser{email: params["email"]}) do
+    case dispatcher().dispatch_message(%RegisterUser{email: params["email"]}) do
       {:ok, user} -> render(conn, "show.json", user: user)
       {:error, reason} -> render_error(conn, reason)
     end
@@ -46,7 +46,7 @@ defmodule MyAppWeb.UserControllerTest do
   setup :verify_on_exit!
 
   test "creates a user", %{conn: conn} do
-    expect(MyApp.DispatcherMock, :dispatch_command, fn %RegisterUser{email: email} ->
+    expect(MyApp.DispatcherMock, :dispatch_message, fn %RegisterUser{email: email} ->
       {:ok, %User{email: email}}
     end)
 
@@ -57,7 +57,7 @@ defmodule MyAppWeb.UserControllerTest do
 end
 ```
 
-Mock at the dispatcher boundary. There is deliberately no per-command handler stubbing: the dispatcher is the seam
+Mock at the dispatcher boundary. There is deliberately no per-message handler stubbing: the dispatcher is the seam
 your application code depends on, so it is the seam worth faking.
 
 ## Test the real dispatcher
@@ -65,7 +65,7 @@ your application code depends on, so it is the seam worth faking.
 For the dispatcher itself, do not mock anything. Dispatch is synchronous and in-process, so a plain call is the test:
 
 ```elixir
-assert {:ok, %User{email: "a@b.c"}} = MyApp.Dispatcher.dispatch_command(%RegisterUser{email: "a@b.c"})
+assert {:ok, %User{email: "a@b.c"}} = MyApp.Dispatcher.dispatch_message(%RegisterUser{email: "a@b.c"})
 ```
 
 To exercise a handler or a middleware without a dispatcher at all, build a context directly:
@@ -75,7 +75,7 @@ import Trogon.Dispatcher.Test
 
 context = build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
 
-assert {:ok, %User{}} = MyApp.Accounts.RegisterUser.handle_command(context.command, context)
+assert {:ok, %User{}} = MyApp.Accounts.RegisterUser.handle_message(context.message, context)
 ```
 
 `build_context/3` accepts `:kind`, `:dispatcher`, `:registered_by` and `:private` as overrides.

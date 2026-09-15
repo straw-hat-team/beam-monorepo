@@ -20,15 +20,15 @@ the events are:
 | `[:my_app, :dispatcher, :dispatch, :exception]` | `:duration`, `:monotonic_time` | when the pipeline raises, throws or exits |
 
 The default prefix is `[:trogon_dispatcher]`. The prefix is the one that belongs to the dispatcher the caller invoked,
-so a command reached through a root dispatcher emits under the root's prefix, once.
+so a message reached through a root dispatcher emits under the root's prefix, once.
 
 ## Metadata
 
 Start metadata:
 
-- `:command` is the command module, which is the message name. There is no separate string name.
+- `:message` is the message module, which is the message name. There is no separate string name.
 - `:kind` is `:command` or `:query`.
-- `:dispatcher` is the module whose `dispatch_command/2` was called.
+- `:dispatcher` is the module whose `dispatch_message/2` was called.
 - `:registered_by` is the dispatcher that declared the registration, which is the owning boundary.
 - `:context` is the full `Trogon.Dispatcher.Context`. On `:start` it is the context the pipeline began with; on
   `:stop` it is the context the pipeline finished with, so anything a middleware or the handler assigned is visible
@@ -43,7 +43,7 @@ Stop metadata carries all of the above plus:
 Exception metadata carries `:kind`, `:reason` and `:stacktrace` from `:telemetry.span/3`.
 
 `:dispatcher` and `:registered_by` are separate on purpose. `:dispatcher` answers who was called, `:registered_by`
-answers which boundary owns the command, and a dashboard usually wants to group on the second.
+answers which boundary owns the message, and a dashboard usually wants to group on the second.
 
 ## Attach a handler
 
@@ -63,7 +63,7 @@ defmodule MyApp.Telemetry do
 
   def handle_event([_, _, :dispatch, :stop], %{duration: duration}, metadata, _config) do
     Logger.info("dispatched",
-      command: inspect(metadata.command),
+      dispatched_message: inspect(metadata.message),
       kind: metadata.kind,
       boundary: inspect(metadata.registered_by),
       result: metadata.result,
@@ -72,7 +72,7 @@ defmodule MyApp.Telemetry do
   end
 
   def handle_event([_, _, :dispatch, :exception], _measurements, metadata, _config) do
-    Logger.error("dispatch raised", command: inspect(metadata.command), reason: inspect(metadata.reason))
+    Logger.error("dispatch raised", dispatched_message: inspect(metadata.message), reason: inspect(metadata.reason))
   end
 end
 ```
@@ -95,12 +95,12 @@ Metrics work the same way through `telemetry_metrics`:
 
 ```elixir
 Telemetry.Metrics.counter("my_app.dispatcher.dispatch.stop.duration",
-  tags: [:command, :kind, :registered_by, :result]
+  tags: [:message, :kind, :registered_by, :result]
 )
 
 Telemetry.Metrics.distribution("my_app.dispatcher.dispatch.stop.duration",
   unit: {:native, :millisecond},
-  tags: [:command, :registered_by]
+  tags: [:message, :registered_by]
 )
 ```
 
@@ -118,7 +118,7 @@ defmodule MyApp.DispatcherTest do
   end
 
   test "emits a successful span" do
-    assert {:ok, _user} = MyApp.Dispatcher.dispatch_command(%RegisterUser{email: "a@b.c"})
+    assert {:ok, _user} = MyApp.Dispatcher.dispatch_message(%RegisterUser{email: "a@b.c"})
 
     assert_dispatch_start(RegisterUser)
     metadata = assert_dispatch_stop(RegisterUser)

@@ -2,7 +2,7 @@ defmodule Trogon.Dispatcher.CompileTest do
   use ExUnit.Case, async: true
 
   alias Trogon.Dispatcher.CircularImportError
-  alias Trogon.Dispatcher.DuplicateCommandError
+  alias Trogon.Dispatcher.DuplicateMessageError
   alias Trogon.Dispatcher.TestSupport, as: Support
 
   defp compile!(source) do
@@ -22,14 +22,14 @@ defmodule Trogon.Dispatcher.CompileTest do
     end
   end
 
-  describe "register_command" do
+  describe "register_message" do
     test "requires :kind" do
       error =
         assert_raise ArgumentError, fn ->
           compile!("""
           defmodule MissingKind do
             use Trogon.Dispatcher
-            register_command Trogon.Dispatcher.TestSupport.RegisterUser, []
+            register_message Trogon.Dispatcher.TestSupport.RegisterUser, []
           end
           """)
         end
@@ -42,29 +42,29 @@ defmodule Trogon.Dispatcher.CompileTest do
         compile!("""
         defmodule EventKind do
           use Trogon.Dispatcher
-          register_command Trogon.Dispatcher.TestSupport.RegisterUser, kind: :event
+          register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :event
         end
         """)
       end
     end
 
-    test "rejects a command module that is not a struct" do
+    test "rejects a message module that is not a struct" do
       assert_raise ArgumentError, ~r/to define a struct/, fn ->
         compile!("""
         defmodule NotAStruct do
           use Trogon.Dispatcher
-          register_command Trogon.Dispatcher.TestSupport.Trail, kind: :command
+          register_message Trogon.Dispatcher.TestSupport.Trail, kind: :command
         end
         """)
       end
     end
 
-    test "rejects a handler that does not export handle_command/2" do
+    test "rejects a handler that does not export handle_message/2" do
       error =
         assert_compile_exit("""
         defmodule MissingHandler do
           use Trogon.Dispatcher
-          register_command Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command
+          register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command
         end
         """)
 
@@ -72,7 +72,7 @@ defmodule Trogon.Dispatcher.CompileTest do
                "Missing handler for Trogon.Dispatcher.TestSupport.ArchiveUser in MissingHandler"
 
       assert Exception.message(error) =~
-               "Expected: Trogon.Dispatcher.TestSupport.ArchiveUser to export handle_command/2"
+               "Expected: Trogon.Dispatcher.TestSupport.ArchiveUser to export handle_message/2"
     end
   end
 
@@ -83,7 +83,7 @@ defmodule Trogon.Dispatcher.CompileTest do
         defmodule BadMiddlewareModule do
           use Trogon.Dispatcher
           middleware Trogon.Dispatcher.TestSupport.Trail
-          register_command Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
+          register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
         end
         """)
       end
@@ -120,24 +120,24 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
-    test "rejects two registrations of the same command with different handlers" do
+    test "rejects two registrations of the same message with different handlers" do
       error =
-        assert_raise DuplicateCommandError, fn ->
+        assert_raise DuplicateMessageError, fn ->
           compile!("""
           defmodule ConflictingHandler do
             use Trogon.Dispatcher
-            register_command Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: Trogon.Dispatcher.TestSupport.ArchiveUserHandler
+            register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: Trogon.Dispatcher.TestSupport.ArchiveUserHandler
             import_dispatcher Trogon.Dispatcher.TestSupport.AccountsDispatcher
           end
           """)
         end
 
-      assert error.command == Support.ArchiveUser
+      assert error.dispatched_message == Support.ArchiveUser
       assert Exception.message(error) =~ "Conflicting registration for Trogon.Dispatcher.TestSupport.ArchiveUser"
     end
 
-    test "rejects the same command reaching a dispatcher with different middleware chains" do
-      assert_raise DuplicateCommandError, ~r/one middleware chain/, fn ->
+    test "rejects the same message reaching a dispatcher with different middleware chains" do
+      assert_raise DuplicateMessageError, ~r/one middleware chain/, fn ->
         compile!("""
         defmodule DivergentLeft do
           use Trogon.Dispatcher
