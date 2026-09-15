@@ -1,4 +1,4 @@
-defmodule Support do
+defmodule Trogon.Dispatcher.TestSupport do
   @moduledoc false
 
   defmodule Opaque do
@@ -24,7 +24,7 @@ defmodule Support do
       {:ok,
        %User{
          email: command.email,
-         tenant: Trogon.Dispatcher.Context.get_private(context, Support.RequireTenant),
+         tenant: Trogon.Dispatcher.Context.get_private(context, Trogon.Dispatcher.TestSupport.RequireTenant),
          actor: context.actor,
          trail: Map.get(context.assigns, :trail, [])
        }}

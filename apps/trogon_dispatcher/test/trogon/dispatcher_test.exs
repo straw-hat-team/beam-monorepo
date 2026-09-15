@@ -8,6 +8,7 @@ defmodule Trogon.DispatcherTest do
   alias Trogon.Dispatcher.DispatchOptions
   alias Trogon.Dispatcher.InvalidContextError
   alias Trogon.Dispatcher.InvalidResponseError
+  alias Trogon.Dispatcher.TestSupport, as: Support
   alias Trogon.Dispatcher.UnregisteredCommandError
 
   describe "dispatch_command/2" do
@@ -42,7 +43,7 @@ defmodule Trogon.DispatcherTest do
 
       assert error.command == %Support.NotRegistered{}
       assert error.dispatcher == Support.AccountsDispatcher
-      assert Exception.message(error) =~ "Unregistered command Support.NotRegistered"
+      assert Exception.message(error) =~ "Unregistered command Trogon.Dispatcher.TestSupport.NotRegistered"
     end
 
     test "is total over any term in the command position" do

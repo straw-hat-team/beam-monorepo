@@ -3,6 +3,7 @@ defmodule Trogon.Dispatcher.CompileTest do
 
   alias Trogon.Dispatcher.CircularImportError
   alias Trogon.Dispatcher.DuplicateCommandError
+  alias Trogon.Dispatcher.TestSupport, as: Support
 
   defp compile!(source) do
     Code.compile_string(source)
@@ -28,7 +29,7 @@ defmodule Trogon.Dispatcher.CompileTest do
           compile!("""
           defmodule MissingKind do
             use Trogon.Dispatcher
-            register_command Support.RegisterUser, []
+            register_command Trogon.Dispatcher.TestSupport.RegisterUser, []
           end
           """)
         end
@@ -41,7 +42,7 @@ defmodule Trogon.Dispatcher.CompileTest do
         compile!("""
         defmodule EventKind do
           use Trogon.Dispatcher
-          register_command Support.RegisterUser, kind: :event
+          register_command Trogon.Dispatcher.TestSupport.RegisterUser, kind: :event
         end
         """)
       end
@@ -52,7 +53,7 @@ defmodule Trogon.Dispatcher.CompileTest do
         compile!("""
         defmodule NotAStruct do
           use Trogon.Dispatcher
-          register_command Support.Trail, kind: :command
+          register_command Trogon.Dispatcher.TestSupport.Trail, kind: :command
         end
         """)
       end
@@ -63,12 +64,15 @@ defmodule Trogon.Dispatcher.CompileTest do
         assert_compile_exit("""
         defmodule MissingHandler do
           use Trogon.Dispatcher
-          register_command Support.ArchiveUser, kind: :command
+          register_command Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command
         end
         """)
 
-      assert Exception.message(error) =~ "Missing handler for Support.ArchiveUser in MissingHandler"
-      assert Exception.message(error) =~ "Expected: Support.ArchiveUser to export handle_command/2"
+      assert Exception.message(error) =~
+               "Missing handler for Trogon.Dispatcher.TestSupport.ArchiveUser in MissingHandler"
+
+      assert Exception.message(error) =~
+               "Expected: Trogon.Dispatcher.TestSupport.ArchiveUser to export handle_command/2"
     end
   end
 
@@ -78,8 +82,8 @@ defmodule Trogon.Dispatcher.CompileTest do
         compile!("""
         defmodule BadMiddlewareModule do
           use Trogon.Dispatcher
-          middleware Support.Trail
-          register_command Support.RegisterUser, kind: :command
+          middleware Trogon.Dispatcher.TestSupport.Trail
+          register_command Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
         end
         """)
       end
@@ -110,7 +114,7 @@ defmodule Trogon.Dispatcher.CompileTest do
         compile!("""
         defmodule ImportsGarbage do
           use Trogon.Dispatcher
-          import_dispatcher Support.Trail
+          import_dispatcher Trogon.Dispatcher.TestSupport.Trail
         end
         """)
       end
@@ -122,14 +126,14 @@ defmodule Trogon.Dispatcher.CompileTest do
           compile!("""
           defmodule ConflictingHandler do
             use Trogon.Dispatcher
-            register_command Support.ArchiveUser, kind: :command, to: Support.ArchiveUserHandler
-            import_dispatcher Support.AccountsDispatcher
+            register_command Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: Trogon.Dispatcher.TestSupport.ArchiveUserHandler
+            import_dispatcher Trogon.Dispatcher.TestSupport.AccountsDispatcher
           end
           """)
         end
 
       assert error.command == Support.ArchiveUser
-      assert Exception.message(error) =~ "Conflicting registration for Support.ArchiveUser"
+      assert Exception.message(error) =~ "Conflicting registration for Trogon.Dispatcher.TestSupport.ArchiveUser"
     end
 
     test "rejects the same command reaching a dispatcher with different middleware chains" do
@@ -137,13 +141,13 @@ defmodule Trogon.Dispatcher.CompileTest do
         compile!("""
         defmodule DivergentLeft do
           use Trogon.Dispatcher
-          middleware Support.Authorize
-          import_dispatcher Support.BillingDispatcher
+          middleware Trogon.Dispatcher.TestSupport.Authorize
+          import_dispatcher Trogon.Dispatcher.TestSupport.BillingDispatcher
         end
 
         defmodule DivergentRight do
           use Trogon.Dispatcher
-          import_dispatcher Support.BillingDispatcher
+          import_dispatcher Trogon.Dispatcher.TestSupport.BillingDispatcher
         end
 
         defmodule DivergentRoot do
