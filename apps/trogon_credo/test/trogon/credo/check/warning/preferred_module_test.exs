@@ -213,4 +213,22 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
     |> run_check(PreferredModule)
     |> refute_issues()
   end
+
+  test "reports a call written with an explicit Elixir prefix while the preferred module is aliased" do
+    """
+    defmodule CredoSampleModule do
+      alias OpentelemetryProcessPropagator.Task
+
+      def run do
+        Elixir.Task.async(fn -> :ok end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Elixir.Task"
+      assert issue.message == "Use `OpentelemetryProcessPropagator.Task` instead of `Task`."
+    end)
+  end
 end

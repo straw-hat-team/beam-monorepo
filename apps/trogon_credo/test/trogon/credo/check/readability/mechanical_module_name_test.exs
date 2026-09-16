@@ -156,4 +156,17 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleNameTest do
     |> run_check(MechanicalModuleName, for_use: [Oban.Worker])
     |> assert_issue(fn issue -> assert issue.trigger == "SendWelcomeEmailWorker" end)
   end
+
+  test "applies to a use written with an explicit Elixir prefix" do
+    """
+    defmodule MyApp.SendWelcomeEmailWorker do
+      use Elixir.Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_welcome_email_worker.ex")
+    |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "MyApp.SendWelcomeEmailWorker"
+    end)
+  end
 end

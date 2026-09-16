@@ -118,4 +118,17 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
     |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs")
     |> assert_issue(fn issue -> assert issue.trigger == "Oban.Worker" end)
   end
+
+  test "applies to a use written with an explicit Elixir prefix" do
+    """
+    defmodule MyApp.SendWelcomeEmail do
+      use Elixir.Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_welcome_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs")
+    |> assert_issue(fn issue ->
+      assert issue.message =~ "must live under a `jobs/` directory"
+    end)
+  end
 end

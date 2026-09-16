@@ -37,7 +37,8 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
         A list of modules. When set to a non empty list, this check only
         applies to modules that `use` one of these modules. When left as the
         default empty list, the check applies to every module in the analyzed
-        files.
+        files. A `use` written with an explicit `Elixir.` prefix names the same
+        module.
         """,
         suffixes: """
         A list of mechanical name suffixes to reject on the last segment of
@@ -50,12 +51,13 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
 
   alias Credo.Code.Name
   alias Credo.Issue
+  alias Trogon.Credo.ModuleName
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     issue_meta = IssueMeta.for(source_file, params)
-    for_use = params |> Params.get(:for_use, __MODULE__) |> Enum.map(&Name.full/1)
+    for_use = params |> Params.get(:for_use, __MODULE__) |> Enum.map(&ModuleName.full/1)
     suffixes = Params.get(params, :suffixes, __MODULE__)
 
     {modules, uses} = Credo.Code.prewalk(source_file, &traverse/2, {[], []})
@@ -82,7 +84,7 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
   end
 
   defp walk({:use, _meta, [{:__aliases__, _, used_parts} | _]}, namespace, {modules, uses}) do
-    {modules, [{namespace, Name.full(used_parts)} | uses]}
+    {modules, [{namespace, ModuleName.full(used_parts)} | uses]}
   end
 
   defp walk({_, _, args}, namespace, acc) when is_list(args) do

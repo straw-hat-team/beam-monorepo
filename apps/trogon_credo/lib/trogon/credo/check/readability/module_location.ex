@@ -29,7 +29,8 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
         for_use: """
         A list of modules. This check only applies to modules that `use` one
         of these modules. The default empty list makes the check inert,
-        since there is no universal expected location.
+        since there is no universal expected location. A `use` written with an
+        explicit `Elixir.` prefix names the same module.
         """,
         path_segment: """
         A single directory name that a matching module's file is expected to
@@ -44,6 +45,7 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     ]
 
   alias Credo.Code.Name
+  alias Trogon.Credo.ModuleName
 
   @doc false
   @impl true
@@ -145,9 +147,9 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
   end
 
   defp used_module?(for_use, used_parts) do
-    used_full = Name.full(used_parts)
+    used_full = ModuleName.full(used_parts)
 
-    Enum.any?(for_use, fn candidate -> Name.full(candidate) == used_full end)
+    Enum.any?(for_use, fn candidate -> ModuleName.full(candidate) == used_full end)
   end
 
   defp check_location(

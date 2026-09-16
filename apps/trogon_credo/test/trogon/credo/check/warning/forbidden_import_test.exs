@@ -140,4 +140,18 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImportTest do
       assert issue.message == "Use MyApp.Fixtures functions with the full name."
     end)
   end
+
+  test "reports an import written with an explicit Elixir prefix" do
+    """
+    defmodule CredoSampleModule do
+      import Elixir.MyApp.Fixtures
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Elixir.MyApp.Fixtures"
+      assert issue.message == "The `MyApp.Fixtures` module must not be imported."
+    end)
+  end
 end

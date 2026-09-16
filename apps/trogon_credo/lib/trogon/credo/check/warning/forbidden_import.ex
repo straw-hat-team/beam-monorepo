@@ -16,6 +16,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
       Aliases are resolved before matching, so an `import` written through an
       alias is reported under the name of the module it resolves to. Aliases are
       collected for the whole file rather than per lexical scope.
+
+      A module written with an explicit `Elixir.` prefix, such as
+      `Elixir.Foo.Bar`, names the same module as `Foo.Bar` and is reported
+      the same way.
       """,
       params: [
         modules: "List of modules or `{Module, \"Custom message\"}` tuples that must not be imported."
@@ -23,14 +27,14 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
     ]
 
   alias Credo.Code.Name
-  alias Trogon.Credo.Aliases
+  alias Trogon.Credo.ModuleName
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     modules = prepare_modules(Params.get(params, :modules, __MODULE__))
     issue_meta = IssueMeta.for(source_file, params)
-    aliases = Aliases.collect(source_file)
+    aliases = ModuleName.collect_aliases(source_file)
 
     Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, modules, aliases))
   end
@@ -42,7 +46,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
          modules,
          aliases
        ) do
-    module = Aliases.resolve(parts, aliases)
+    module = ModuleName.resolve(parts, aliases)
 
     case Map.fetch(modules, module) do
       {:ok, message} ->
@@ -66,7 +70,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
        ) do
     new_issues =
       Enum.reduce(alias_nodes, [], fn {:__aliases__, meta, member_parts}, acc ->
-        module = Aliases.resolve(base_parts ++ member_parts, aliases)
+        module = ModuleName.resolve(base_parts ++ member_parts, aliases)
         trigger = Name.full(member_parts)
 
         case Map.fetch(modules, module) do
@@ -93,8 +97,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
   defp prepare_modules(modules) do
     modules
     |> Enum.map(fn
-      {module, message} -> {Name.full(module), message}
-      module -> {Name.full(module), nil}
+      {module, message} -> {ModuleName.full(module), message}
+      module -> {ModuleName.full(module), nil}
     end)
     |> Map.new()
   end

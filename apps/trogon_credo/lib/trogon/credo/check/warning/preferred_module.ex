@@ -27,6 +27,10 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       Typespecs are not reported, since naming the discouraged module in a
       `@spec` or a `@type` is not a call to it.
 
+      A module written with an explicit `Elixir.` prefix, such as
+      `Elixir.Task`, names the same module as `Task` and is reported the same
+      way.
+
       The OpenTelemetry process propagator rule this check generalizes was
       originally described by David Bernheisel.
       """,
@@ -36,7 +40,7 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
     ]
 
   alias Credo.Code.Name
-  alias Trogon.Credo.Aliases
+  alias Trogon.Credo.ModuleName
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
 
@@ -45,7 +49,7 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
   def run(%SourceFile{} = source_file, params) do
     pairs = prepare_pairs(Params.get(params, :modules, __MODULE__))
     issue_meta = IssueMeta.for(source_file, params)
-    aliases = Aliases.collect(source_file)
+    aliases = ModuleName.collect_aliases(source_file)
 
     Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, pairs, aliases))
   end
@@ -63,7 +67,7 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
          aliases
        ) do
     written_name = Name.full(parts)
-    resolved_name = Aliases.resolve(parts, aliases)
+    resolved_name = ModuleName.resolve(parts, aliases)
 
     new_issues =
       pairs
@@ -89,8 +93,11 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
 
   defp prepare_pairs(modules) do
     Enum.map(modules, fn
-      {discouraged, preferred, message} -> {Name.full(discouraged), Name.full(preferred), message}
-      {discouraged, preferred} -> {Name.full(discouraged), Name.full(preferred), nil}
+      {discouraged, preferred, message} ->
+        {ModuleName.full(discouraged), ModuleName.full(preferred), message}
+
+      {discouraged, preferred} ->
+        {ModuleName.full(discouraged), ModuleName.full(preferred), nil}
     end)
   end
 end
