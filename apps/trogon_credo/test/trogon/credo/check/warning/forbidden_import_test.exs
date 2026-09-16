@@ -180,4 +180,32 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImportTest do
     |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
     |> refute_issues()
   end
+
+  test "resolves an import through a multi alias written with options" do
+    """
+    defmodule CredoSampleModule do
+      alias MyApp.{Fixtures}, warn: false
+
+      import Fixtures
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> assert_issue(fn issue ->
+      assert issue.message == "The `MyApp.Fixtures` module must not be imported."
+    end)
+  end
+
+  test "does not report an import through a multi alias rooted at a compile time segment" do
+    """
+    defmodule MyApp.Runner do
+      alias __MODULE__.{Fixtures}
+
+      import Fixtures
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> refute_issues()
+  end
 end

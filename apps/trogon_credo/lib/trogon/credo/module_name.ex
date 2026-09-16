@@ -17,6 +17,10 @@ defmodule Trogon.Credo.ModuleName do
 
   An `alias` written inside a `quote` block is not collected, since it takes
   effect wherever the macro expands rather than in the file that defines it.
+
+  A multi alias keeps whatever base it is written with, so
+  `alias __MODULE__.{Child}` records `Child` under the name `__MODULE__.Child`,
+  which no configured module matches.
   """
   def collect_aliases(source_file) do
     Credo.Code.prewalk(source_file, &traverse/2, %{})
@@ -54,10 +58,9 @@ defmodule Trogon.Credo.ModuleName do
     end
   end
 
-  defp traverse(
-         {:alias, _meta, [{{:., _, [{:__aliases__, _, base_parts}, :{}]}, _, alias_nodes}]},
-         aliases
-       ) do
+  defp traverse({:alias, _meta, [{{:., _, [base, :{}]}, _, alias_nodes} | _opts]}, aliases) do
+    base_parts = base_parts(base)
+
     new_aliases =
       Enum.reduce(alias_nodes, aliases, fn
         {:__aliases__, _, member_parts}, acc -> put_default(acc, base_parts ++ member_parts)
@@ -74,6 +77,9 @@ defmodule Trogon.Credo.ModuleName do
   defp traverse({:quote, _meta, _args}, aliases), do: {[], aliases}
 
   defp traverse(ast, aliases), do: {ast, aliases}
+
+  defp base_parts({:__aliases__, _meta, parts}), do: parts
+  defp base_parts(base), do: [base]
 
   defp put_default(aliases, parts) do
     Map.put(aliases, Name.last(parts), full(parts))
