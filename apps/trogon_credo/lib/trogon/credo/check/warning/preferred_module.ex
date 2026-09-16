@@ -31,6 +31,10 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       `Elixir.Task`, names the same module as `Task` and is reported the same
       way.
 
+      Naming the module in an `alias`, `import`, or `require` is not a call to
+      it, so directives are never reported. That includes the multi alias form
+      `Task.{Supervisor}`, which shares its AST shape with a function call.
+
       The OpenTelemetry process propagator rule this check generalizes was
       originally described by David Bernheisel.
       """,
@@ -43,6 +47,7 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
   alias Trogon.Credo.ModuleName
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
+  @directives [:alias, :import, :require]
 
   @doc false
   @impl true
@@ -56,6 +61,11 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
 
   defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _issue_meta, _pairs, _aliases)
        when attribute in @typespec_attributes do
+    {[], issues}
+  end
+
+  defp traverse({directive, _meta, args}, issues, _issue_meta, _pairs, _aliases)
+       when directive in @directives and is_list(args) do
     {[], issues}
   end
 

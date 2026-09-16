@@ -231,4 +231,31 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
       assert issue.message == "Use `OpentelemetryProcessPropagator.Task` instead of `Task`."
     end)
   end
+
+  test "does not report a multi alias naming the discouraged module" do
+    """
+    defmodule MyApp.Runner do
+      alias Task.{Supervisor}
+
+      def call, do: :ok
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> refute_issues()
+  end
+
+  test "does not report a require or an import naming the discouraged module" do
+    """
+    defmodule MyApp.Runner do
+      import Task
+      require Task
+
+      def call, do: :ok
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> refute_issues()
+  end
 end
