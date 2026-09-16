@@ -26,13 +26,15 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
           defp merge_target(target, target), do: target
           defp merge_target(_existing, _target), do: :ambiguous
 
-      A capture that names a function, `&merge_target/2` or
-      `&merge_target(&1, target)`, is not reported, since the name is right
-      there. A capture that names none is reported like any other anonymous
+      A capture is not reported when it says by name what it reaches for,
+      either a function, `&merge_target/2` and `&merge_target(&1, target)`, or a
+      field of its argument, `& &1.id` and `& &1.user.id`.
+
+      A capture that names nothing is reported like any other anonymous
       function, whether it computes, `&(&1 * 2)`, builds a term, `&{&1, &1}`,
-      or only reaches into its argument, `& &1.id`, `& &1.user.id` and
-      `& &1[:id]` included. Otherwise writing `fn item -> item.id end` as
-      `& &1.id` would be enough to silence this check without naming anything.
+      or calls the function it is handed, `& &1.()`. Otherwise writing
+      `fn item -> item * 2 end` as `&(&1 * 2)` would be enough to silence this
+      check without naming anything.
 
       Both parameters count against a single anonymous function, which is
       reported when it exceeds either one. The defaults of `0` report every
@@ -83,7 +85,7 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
   end
 
   defp traverse({:&, meta, [body]} = ast, issues, issue_meta, limits) do
-    if names_function?(body) do
+    if named?(body) do
       {ast, issues}
     else
       report_if_over_limit(ast, issues, issue_meta, meta, 1, expressions(body), limits)
@@ -100,31 +102,27 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
     end
   end
 
-  defp names_function?({:/, _meta, [{name, _, nil}, arity]})
+  defp named?({:/, _meta, [{name, _, nil}, arity]})
        when is_atom(name) and is_integer(arity) do
     true
   end
 
-  defp names_function?({:/, _meta, [{{:., _, [_module, name]}, _, []}, arity]})
+  defp named?({:/, _meta, [{{:., _, [_module, name]}, _, []}, arity]})
        when is_atom(name) and is_integer(arity) do
     true
   end
 
-  defp names_function?({{:., _meta, [Access, :get]}, _call_meta, _args}), do: false
-
-  defp names_function?({{:., _meta, [_module, name]}, call_meta, args})
+  defp named?({{:., _meta, [_target, name]}, _call_meta, args})
        when is_atom(name) and is_list(args) do
-    not field_access?(call_meta)
+    true
   end
 
-  defp names_function?({name, _meta, args}) when is_atom(name) and is_list(args) do
+  defp named?({name, _meta, args}) when is_atom(name) and is_list(args) do
     not Macro.operator?(name, length(args)) and
       Regex.match?(@function_name, Atom.to_string(name))
   end
 
-  defp names_function?(_body), do: false
-
-  defp field_access?(call_meta), do: Keyword.get(call_meta, :no_parens, false)
+  defp named?(_body), do: false
 
   defp over?(_count, :infinity), do: false
   defp over?(count, limit), do: count > limit

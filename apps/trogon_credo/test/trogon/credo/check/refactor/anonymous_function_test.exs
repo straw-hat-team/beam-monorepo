@@ -230,7 +230,7 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
     |> refute_issues()
   end
 
-  test "reports a capture that reaches into its argument" do
+  test "does not report a capture that reaches into its argument" do
     """
     defmodule MyApp.Runner do
       def call(items), do: Enum.map(items, & &1.id)
@@ -238,7 +238,7 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
     """
     |> to_source_file()
     |> run_check(AnonymousFunction)
-    |> assert_issue(fn issue -> assert issue.line_no == 2 end)
+    |> refute_issues()
   end
 
   test "reports a capture built out of operators" do
@@ -306,7 +306,7 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
     |> assert_issue()
   end
 
-  test "reports a capture that reaches deeper into its argument" do
+  test "does not report a capture that reaches deeper into its argument" do
     """
     defmodule MyApp.Runner do
       def call(items) do
@@ -314,13 +314,23 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
         |> Enum.map(& &1.user.id)
         |> Enum.map(& &1[:id])
         |> Enum.map(&label(&1).id)
-        |> Enum.map(& &1.())
       end
     end
     """
     |> to_source_file()
     |> run_check(AnonymousFunction)
-    |> assert_issues(fn issues -> assert length(issues) == 4 end)
+    |> refute_issues()
+  end
+
+  test "reports a capture that calls the function it is handed" do
+    """
+    defmodule MyApp.Runner do
+      def call(callbacks), do: Enum.map(callbacks, & &1.())
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issue(fn issue -> assert issue.line_no == 2 end)
   end
 
   test "does not report a capture of a function called without arguments" do
