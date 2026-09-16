@@ -2,7 +2,7 @@ defmodule Trogon.Credo.MixProject do
   use Mix.Project
 
   @app :trogon_credo
-  @version "0.1.0"
+  @version "0.0.1"
   @elixir_version "~> 1.18"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
