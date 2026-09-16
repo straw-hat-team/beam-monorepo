@@ -7,5 +7,5 @@
   "apps/trogon_object_id": "0.3.0",
   "apps/trogon_ecto": "0.5.0",
   "apps/eventstore_dashboard": "0.2.2",
-  "apps/trogon_credo": "0.0.1"
+  "apps/trogon_credo": "0.1.0"
 }
