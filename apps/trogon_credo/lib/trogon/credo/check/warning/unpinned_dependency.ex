@@ -17,6 +17,9 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
       Dependencies pinned with `branch:`, `tag:`, an operator requirement such
       as `"~> 1.2.0"`, or no `ref:` at all are reported.
 
+      Path and umbrella dependencies are never reported, since they are not
+      fetched from a mutable remote in the first place.
+
       Only the body of a `deps/0` function inside `mix.exs` is analyzed, so a
       Mix alias or any other keyword list that happens to share a name with a
       configured dependency is left alone. A `ref:` that is not a literal
@@ -89,10 +92,10 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
   end
 
   defp check_spec(dep, opts) when is_list(opts) do
-    if git_opts?(opts) do
-      check_git_opts(opts)
-    else
-      {:error, "declare a hex requirement for `#{dep}` and pin it to an exact version"}
+    cond do
+      git_opts?(opts) -> check_git_opts(opts)
+      local_opts?(opts) -> :ok
+      true -> {:error, "declare a hex requirement for `#{dep}` and pin it to an exact version"}
     end
   end
 
@@ -101,15 +104,19 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
   end
 
   defp check_tuple(dep, requirement, opts) do
-    if git_opts?(opts) do
-      check_git_opts(opts)
-    else
-      check_hex_requirement(requirement, dep)
+    cond do
+      git_opts?(opts) -> check_git_opts(opts)
+      local_opts?(opts) -> :ok
+      true -> check_hex_requirement(requirement, dep)
     end
   end
 
   defp git_opts?(opts) do
     Keyword.has_key?(opts, :git) or Keyword.has_key?(opts, :github)
+  end
+
+  defp local_opts?(opts) do
+    Keyword.has_key?(opts, :path) or Keyword.has_key?(opts, :in_umbrella)
   end
 
   defp check_git_opts(opts) do

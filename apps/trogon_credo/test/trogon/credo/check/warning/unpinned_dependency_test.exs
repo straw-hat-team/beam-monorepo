@@ -283,4 +283,34 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependencyTest do
     |> run_check(UnpinnedDependency, deps: [:some_dep])
     |> refute_issues()
   end
+
+  test "does not report a path dependency" do
+    """
+    defmodule MyApp.MixProject do
+      defp deps do
+        [
+          {:some_dep, path: "../some_dep"}
+        ]
+      end
+    end
+    """
+    |> to_source_file("mix.exs")
+    |> run_check(UnpinnedDependency, deps: [:some_dep])
+    |> refute_issues()
+  end
+
+  test "does not report an umbrella dependency" do
+    """
+    defmodule MyApp.MixProject do
+      defp deps do
+        [
+          {:some_dep, in_umbrella: true}
+        ]
+      end
+    end
+    """
+    |> to_source_file("mix.exs")
+    |> run_check(UnpinnedDependency, deps: [:some_dep])
+    |> refute_issues()
+  end
 end
