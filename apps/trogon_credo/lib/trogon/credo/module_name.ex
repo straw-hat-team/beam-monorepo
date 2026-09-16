@@ -23,15 +23,12 @@ defmodule Trogon.Credo.ModuleName do
   which no configured module matches.
 
   A name that the file binds to more than one module, two sibling modules
-  aliasing a different `Client` for instance, is left out entirely rather than
-  resolved to whichever binding came last, since the file as a whole does not
-  say which one a given reference means.
+  aliasing a different `Client` for instance, is mapped to `:ambiguous` rather
+  than to whichever binding came last, since the file as a whole does not say
+  which one a given reference means.
   """
   def collect_aliases(source_file) do
-    source_file
-    |> Credo.Code.prewalk(&traverse/2, %{})
-    |> Enum.reject(fn {_name, target} -> target == :ambiguous end)
-    |> Map.new()
+    Credo.Code.prewalk(source_file, &traverse/2, %{})
   end
 
   @doc """
@@ -43,11 +40,16 @@ defmodule Trogon.Credo.ModuleName do
   A reference whose first segment is not a plain name, `__MODULE__.Child` for
   instance, is rendered as written, since what it stands for is only known at
   compile time.
+
+  A reference through a name the file binds to more than one module resolves to
+  `nil`, which no configured module matches, since reading it as written would
+  report a module that the reference does not name.
   """
   def resolve([Elixir | rest], _aliases) when rest != [], do: Name.full(rest)
 
   def resolve([first | rest], aliases) when is_atom(first) do
     case Map.fetch(aliases, to_string(first)) do
+      {:ok, :ambiguous} -> nil
       {:ok, resolved_head} -> Name.full([resolved_head | rest])
       :error -> full([first | rest])
     end

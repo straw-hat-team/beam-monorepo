@@ -294,4 +294,21 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenUseTest do
     |> run_check(ForbiddenUse)
     |> refute_issues()
   end
+
+  test "does not report an ambiguous name as the module it is written as" do
+    """
+    defmodule A do
+      alias Vendor.Client
+      use Client
+    end
+
+    defmodule B do
+      alias MyApp.Client
+      use Client
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenUse, modules: [Client])
+    |> refute_issues()
+  end
 end

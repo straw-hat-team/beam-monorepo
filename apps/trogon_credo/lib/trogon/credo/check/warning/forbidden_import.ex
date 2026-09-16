@@ -20,8 +20,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
       macro expands and is therefore not collected.
 
       A name the file binds to more than one module, two sibling modules
-      aliasing a different `Client` for instance, resolves to neither, since
-      the file as a whole does not say which one a given reference means.
+      aliasing a different `Client` for instance, matches neither module, and
+      does not fall back to matching the name as written either, since the file
+      as a whole does not say which one a given reference means.
 
       A module written with an explicit `Elixir.` prefix, such as
       `Elixir.Foo.Bar`, names the same module as `Foo.Bar` and is reported
