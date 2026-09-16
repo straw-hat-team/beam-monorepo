@@ -56,8 +56,9 @@ defmodule Trogon.Credo.ModuleName do
          aliases
        ) do
     new_aliases =
-      Enum.reduce(alias_nodes, aliases, fn {:__aliases__, _, member_parts}, acc ->
-        put_default(acc, base_parts ++ member_parts)
+      Enum.reduce(alias_nodes, aliases, fn
+        {:__aliases__, _, member_parts}, acc -> put_default(acc, base_parts ++ member_parts)
+        _member, acc -> acc
       end)
 
     {[], new_aliases}

@@ -165,4 +165,19 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImportTest do
     |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
     |> refute_issues()
   end
+
+  test "does not crash on a multi import whose member is only known at compile time" do
+    """
+    defmodule MyApp.Macros do
+      defmacro build(module) do
+        quote do
+          import MyApp.{unquote(module)}
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> refute_issues()
+  end
 end

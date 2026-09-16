@@ -269,4 +269,19 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
     |> run_check(PreferredModule)
     |> refute_issues()
   end
+
+  test "does not crash on a multi alias whose member is only known at compile time" do
+    """
+    defmodule MyApp.Macros do
+      defmacro build(module) do
+        quote do
+          alias Task.{unquote(module)}
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> refute_issues()
+  end
 end

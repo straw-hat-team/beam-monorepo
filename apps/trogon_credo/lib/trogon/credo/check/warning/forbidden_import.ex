@@ -69,14 +69,18 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
          aliases
        ) do
     new_issues =
-      Enum.reduce(alias_nodes, [], fn {:__aliases__, meta, member_parts}, acc ->
-        module = ModuleName.resolve(base_parts ++ member_parts, aliases)
-        trigger = Name.full(member_parts)
+      Enum.reduce(alias_nodes, [], fn
+        {:__aliases__, meta, member_parts}, acc ->
+          module = ModuleName.resolve(base_parts ++ member_parts, aliases)
+          trigger = Name.full(member_parts)
 
-        case Map.fetch(modules, module) do
-          {:ok, message} -> [issue_for(issue_meta, meta, trigger, module, message) | acc]
-          :error -> acc
-        end
+          case Map.fetch(modules, module) do
+            {:ok, message} -> [issue_for(issue_meta, meta, trigger, module, message) | acc]
+            :error -> acc
+          end
+
+        _member, acc ->
+          acc
       end)
 
     {ast, new_issues ++ issues}
