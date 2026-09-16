@@ -32,9 +32,15 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
 
       A capture that names nothing is reported like any other anonymous
       function, whether it computes, `&(&1 * 2)`, builds a term, `&{&1, &1}`,
-      or calls the function it is handed, `& &1.()`. Otherwise writing
+      branches, `&(if &1, do: :ok)` and `&(case &1 do _ -> :ok end)`, or calls
+      the function it is handed, `& &1.()`. Otherwise writing
       `fn item -> item * 2 end` as `&(&1 * 2)` would be enough to silence this
       check without naming anything.
+
+      An anonymous function that returns its argument, `& &1` and
+      `fn value -> value end`, is reported with a message naming
+      `&Function.identity/1`, since the standard library already has a name for
+      it and there is nothing to extract.
 
       Both parameters count against a single anonymous function, which is
       reported when it exceeds either one. The defaults of `0` report every
@@ -60,7 +66,7 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
       ]
     ]
 
-  @function_name ~r/^[a-z]/
+  @control_flow [:if, :unless]
 
   @doc false
   @impl true
@@ -96,7 +102,7 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
 
   defp report_if_over_limit(ast, issues, issue_meta, meta, clauses, expressions, limits) do
     if over?(clauses, limits.max_clauses) or over?(expressions, limits.max_expressions) do
-      {ast, [issue_for(issue_meta, meta) | issues]}
+      {ast, [issue_for(issue_meta, ast, meta) | issues]}
     else
       {ast, issues}
     end
@@ -118,8 +124,10 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
   end
 
   defp named?({name, _meta, args}) when is_atom(name) and is_list(args) do
-    not Macro.operator?(name, length(args)) and
-      Regex.match?(@function_name, Atom.to_string(name))
+    arity = length(args)
+
+    not Macro.operator?(name, arity) and not Macro.special_form?(name, arity) and
+      name not in @control_flow
   end
 
   defp named?(_body), do: false
@@ -137,13 +145,33 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
   defp expressions({:__block__, _meta, expressions}), do: length(expressions)
   defp expressions(_body), do: 1
 
-  defp issue_for(issue_meta, meta) do
+  defp issue_for(issue_meta, ast, meta) do
     format_issue(
       issue_meta,
-      message: "Prefer a named function over an anonymous function.",
-      trigger: "fn",
+      message: message_for(ast),
+      trigger: trigger_for(ast),
       line_no: meta[:line],
       column: meta[:column]
     )
   end
+
+  defp message_for(ast) do
+    if identity?(ast) do
+      "Prefer `&Function.identity/1` over an anonymous function that returns its argument."
+    else
+      "Prefer a named function over an anonymous function."
+    end
+  end
+
+  defp identity?({:&, _meta, [{:&, _position_meta, [1]}]}), do: true
+
+  defp identity?({:fn, _meta, [{:->, _clause_meta, [[{name, _, context}], {name, _, context}]}]})
+       when is_atom(name) and is_atom(context) do
+    true
+  end
+
+  defp identity?(_ast), do: false
+
+  defp trigger_for({:fn, _meta, _clauses}), do: "fn"
+  defp trigger_for({:&, _meta, _body}), do: "&"
 end

@@ -330,7 +330,10 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
     """
     |> to_source_file()
     |> run_check(AnonymousFunction)
-    |> assert_issue(fn issue -> assert issue.line_no == 2 end)
+    |> assert_issue(fn issue ->
+      assert issue.line_no == 2
+      assert issue.trigger == "&"
+    end)
   end
 
   test "does not report a capture of a function called without arguments" do
@@ -355,5 +358,130 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
     |> to_source_file()
     |> run_check(AnonymousFunction)
     |> refute_issues()
+  end
+
+  test "reports a capture that branches instead of naming a function" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(&(if &1, do: :ok, else: :error))
+        |> Enum.map(&(unless &1, do: :error))
+        |> Enum.map(&(case &1 do nil -> :error; value -> value end))
+        |> Enum.map(&(cond do &1 -> :ok; true -> :error end))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issues(fn issues -> assert length(issues) == 4 end)
+  end
+
+  test "reports a capture that loops or handles instead of naming a function" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(&(for value <- &1, do: value))
+        |> Enum.map(&(with {:ok, value} <- &1, do: value))
+        |> Enum.map(&(try do &1.() rescue _ -> :error end))
+        |> Enum.map(&(receive do _ -> &1 end))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issues(fn issues -> assert length(issues) == 4 end)
+  end
+
+  test "reports a capture that quotes instead of naming a function" do
+    """
+    defmodule MyApp.Runner do
+      defmacro call(value), do: quote(do: unquote(value))
+
+      def build(values), do: Enum.map(values, &quote(do: unquote(&1)))
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issue(fn issue -> assert issue.line_no == 4 end)
+  end
+
+  test "does not report a capture of a macro that names what it does" do
+    """
+    defmodule MyApp.Runner do
+      def call(messages) do
+        messages
+        |> Enum.map(&raise(&1))
+        |> Enum.map(&throw(&1))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> refute_issues()
+  end
+
+  test "names the identity function when a capture returns its argument" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, & &1)
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Prefer `&Function.identity/1` over an anonymous function that returns its argument."
+    end)
+  end
+
+  test "names the identity function when an anonymous function returns its argument" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, fn value -> value end)
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Prefer `&Function.identity/1` over an anonymous function that returns its argument."
+    end)
+  end
+
+  test "does not name the identity function when a clause guards its argument" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, fn value when is_integer(value) -> value end)
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issue(fn issue ->
+      assert issue.message == "Prefer a named function over an anonymous function."
+    end)
+  end
+
+  test "does not name the identity function when an argument goes unreturned" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(fn value -> {value} end)
+        |> Enum.map(fn value, _index -> value end)
+        |> Enum.map(&{&1})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issues(fn issues ->
+      assert length(issues) == 3
+
+      for issue <- issues do
+        assert issue.message == "Prefer a named function over an anonymous function."
+      end
+    end)
   end
 end
