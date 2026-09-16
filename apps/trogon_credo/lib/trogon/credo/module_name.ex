@@ -24,15 +24,21 @@ defmodule Trogon.Credo.ModuleName do
   given aliases. Only the first segment participates, mirroring how Elixir
   itself expands an alias, and a name rooted at `Elixir` bypasses aliases
   altogether.
+
+  A reference whose first segment is not a plain name, `__MODULE__.Child` for
+  instance, is rendered as written, since what it stands for is only known at
+  compile time.
   """
   def resolve([Elixir | rest], _aliases) when rest != [], do: Name.full(rest)
 
-  def resolve([first | rest], aliases) do
+  def resolve([first | rest], aliases) when is_atom(first) do
     case Map.fetch(aliases, to_string(first)) do
       {:ok, resolved_head} -> Name.full([resolved_head | rest])
       :error -> full([first | rest])
     end
   end
+
+  def resolve(parts, _aliases), do: Name.full(parts)
 
   defp traverse({:alias, _meta, [{:__aliases__, _, parts}, opts]}, aliases)
        when is_list(opts) do

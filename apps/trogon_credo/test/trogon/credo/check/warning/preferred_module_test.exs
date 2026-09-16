@@ -258,4 +258,15 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
     |> run_check(PreferredModule)
     |> refute_issues()
   end
+
+  test "does not report a call through a segment that is only known at compile time" do
+    """
+    defmodule MyApp.Runner do
+      def call, do: __MODULE__.Child.fun()
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> refute_issues()
+  end
 end

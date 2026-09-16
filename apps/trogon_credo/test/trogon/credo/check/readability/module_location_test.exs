@@ -144,4 +144,15 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
     |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs")
     |> assert_issue()
   end
+
+  test "does not report a use through a segment that is only known at compile time" do
+    """
+    defmodule MyApp.SendWelcomeEmail do
+      use __MODULE__.Base
+    end
+    """
+    |> to_source_file("lib/my_app/send_welcome_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs")
+    |> refute_issues()
+  end
 end

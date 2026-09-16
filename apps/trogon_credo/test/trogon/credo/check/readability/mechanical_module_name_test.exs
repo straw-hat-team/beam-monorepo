@@ -182,4 +182,15 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleNameTest do
     |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
     |> assert_issue()
   end
+
+  test "does not report a use through a segment that is only known at compile time" do
+    """
+    defmodule MyApp.SendWelcomeEmailWorker do
+      use __MODULE__.Base
+    end
+    """
+    |> to_source_file()
+    |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
+    |> refute_issues()
+  end
 end

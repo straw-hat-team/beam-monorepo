@@ -154,4 +154,15 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImportTest do
       assert issue.message == "The `MyApp.Fixtures` module must not be imported."
     end)
   end
+
+  test "does not report an import through a segment that is only known at compile time" do
+    """
+    defmodule MyApp.Runner do
+      import __MODULE__.Foo
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> refute_issues()
+  end
 end
