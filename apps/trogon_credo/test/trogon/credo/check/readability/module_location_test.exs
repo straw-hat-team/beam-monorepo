@@ -155,4 +155,19 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
     |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs")
     |> refute_issues()
   end
+
+  test "does not attribute a use written inside a quote block to the enclosing module" do
+    """
+    defmodule MyApp.Macros do
+      defmacro build do
+        quote do
+          use Oban.Worker
+        end
+      end
+    end
+    """
+    |> to_source_file("lib/my_app/macros.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs", namespace_segment: :Jobs)
+    |> refute_issues()
+  end
 end

@@ -31,6 +31,10 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
 
       The default `suffixes` list is opinionated. Projects should trim it down
       to the conventions they actually want enforced.
+
+      Code inside a `quote` block is not analyzed, since a module defined
+      there, or a `use` written there, belongs to wherever the macro expands
+      rather than to the module that defines the macro.
       """,
       params: [
         for_use: """
@@ -73,6 +77,8 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     {[], walk(rest, parts, put_module(acc, parts, parts, meta), aliases)}
   end
 
+  defp traverse({:quote, _meta, _args}, acc, _aliases), do: {[], acc}
+
   defp traverse(ast, acc, _aliases), do: {ast, acc}
 
   # Manual recursion (mirroring `traverse/3` above) so that a nested
@@ -87,6 +93,8 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
   defp walk({:use, _meta, [{:__aliases__, _, used_parts} | _]}, namespace, {modules, uses}, aliases) do
     {modules, [{namespace, ModuleName.resolve(used_parts, aliases)} | uses]}
   end
+
+  defp walk({:quote, _meta, _args}, _namespace, acc, _aliases), do: acc
 
   defp walk({_, _, args}, namespace, acc, aliases) when is_list(args) do
     walk(args, namespace, acc, aliases)

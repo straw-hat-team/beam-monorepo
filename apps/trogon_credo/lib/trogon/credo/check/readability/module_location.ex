@@ -24,6 +24,10 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       Moving or renaming a module that is referenced by persisted data, a
       background job row naming its worker module, for instance, may need a
       data migration or an alias, so the rename is not always free.
+
+      Code inside a `quote` block is not analyzed, since a module defined
+      there, or a `use` written there, belongs to wherever the macro expands
+      rather than to the module that defines the macro.
       """,
       params: [
         for_use: """
@@ -74,6 +78,8 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     {[], walk(rest, parts, issues, context)}
   end
 
+  defp traverse({:quote, _meta, _args}, issues, _context), do: {[], issues}
+
   defp traverse(ast, issues, _context), do: {ast, issues}
 
   # Manual recursion (mirroring `traverse/3` above) so that a nested
@@ -90,6 +96,8 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       issues
     end
   end
+
+  defp walk({:quote, _meta, _args}, _namespace, issues, _context), do: issues
 
   defp walk({_, _, args}, namespace, issues, context) when is_list(args) do
     walk(args, namespace, issues, context)
