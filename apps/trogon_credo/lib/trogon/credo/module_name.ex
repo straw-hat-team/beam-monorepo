@@ -14,6 +14,9 @@ defmodule Trogon.Credo.ModuleName do
   @doc """
   The aliases declared anywhere in a source file, as a map of the name a module
   is written under to the fully qualified name it resolves to.
+
+  An `alias` written inside a `quote` block is not collected, since it takes
+  effect wherever the macro expands rather than in the file that defines it.
   """
   def collect_aliases(source_file) do
     Credo.Code.prewalk(source_file, &traverse/2, %{})
@@ -67,6 +70,8 @@ defmodule Trogon.Credo.ModuleName do
   defp traverse({:alias, _meta, [{:__aliases__, _, parts}]}, aliases) do
     {[], put_default(aliases, parts)}
   end
+
+  defp traverse({:quote, _meta, _args}, aliases), do: {[], aliases}
 
   defp traverse(ast, aliases), do: {ast, aliases}
 

@@ -208,4 +208,23 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleNameTest do
     |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
     |> refute_issues()
   end
+
+  test "does not resolve a use through an alias written inside a quote block" do
+    """
+    defmodule MyApp.Macros do
+      defmacro build do
+        quote do
+          alias Oban.Worker
+        end
+      end
+    end
+
+    defmodule MyApp.SendWelcomeEmailWorker do
+      use Worker
+    end
+    """
+    |> to_source_file("lib/my_app/macros.ex")
+    |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
+    |> refute_issues()
+  end
 end

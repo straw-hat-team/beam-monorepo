@@ -284,4 +284,25 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
     |> run_check(PreferredModule)
     |> refute_issues()
   end
+
+  test "is not suppressed by an alias written inside a quote block" do
+    """
+    defmodule MyApp.Macros do
+      defmacro build do
+        quote do
+          alias OpentelemetryProcessPropagator.Task
+        end
+      end
+    end
+
+    defmodule MyApp.Runner do
+      def call, do: Task.async(fn -> :ok end)
+    end
+    """
+    |> to_source_file("lib/my_app/macros.ex")
+    |> run_check(PreferredModule)
+    |> assert_issue(fn issue ->
+      assert issue.message == "Use `OpentelemetryProcessPropagator.Task` instead of `Task`."
+    end)
+  end
 end

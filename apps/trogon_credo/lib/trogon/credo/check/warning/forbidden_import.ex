@@ -15,7 +15,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
 
       Aliases are resolved before matching, so an `import` written through an
       alias is reported under the name of the module it resolves to. Aliases are
-      collected for the whole file rather than per lexical scope.
+      collected for the whole file rather than per lexical scope, except for an
+      `alias` written inside a `quote` block, which takes effect wherever the
+      macro expands and is therefore not collected.
 
       A module written with an explicit `Elixir.` prefix, such as
       `Elixir.Foo.Bar`, names the same module as `Foo.Bar` and is reported

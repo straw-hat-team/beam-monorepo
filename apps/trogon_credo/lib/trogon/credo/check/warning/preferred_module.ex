@@ -22,7 +22,9 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
 
       Aliases are collected for the whole file rather than per lexical scope,
       so a module that aliases the preferred module suppresses findings
-      across the entire file.
+      across the entire file. An `alias` written inside a `quote` block is the
+      exception: it takes effect wherever the macro expands, so it is not
+      collected.
 
       Typespecs are not reported, since naming the discouraged module in a
       `@spec` or a `@type` is not a call to it.
