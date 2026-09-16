@@ -15,7 +15,7 @@
 ```elixir
 def deps do
   [
-    {:trogon_credo, "~> 0.1", only: [:dev, :test], runtime: false}
+    {:trogon_credo, "~> 0.0.1", only: [:dev, :test], runtime: false}
   ]
 end
 ```
@@ -44,78 +44,11 @@ Run `mix credo` as usual and the enabled checks run alongside Credo's built-in o
 
 ## References
 
-### `Trogon.Credo.Check.Warning.ForbiddenImport`
+Every check documents what it flags and the parameters it accepts in its own
+module documentation, so the two never drift apart. Browse them under
+`Trogon.Credo.Check` in the [published documentation](https://hexdocs.pm/trogon_credo),
+or read one from a project that already depends on the package:
 
-Flags `import` of modules that should always be called explicitly. The `import` counterpart to Credo's built-in `Credo.Check.Warning.ForbiddenModule`. Calls to the module are never flagged, only `import` directives, including the multi-import form `import Foo.{Bar, Baz}`. Aliases are resolved before matching, so an `import` written through an alias is still reported. A module written with an explicit `Elixir.` prefix names the same module as the unprefixed form, in every check that resolves module names.
-
-```elixir
-{Trogon.Credo.Check.Warning.ForbiddenImport,
- [modules: [MyApp.Fixtures, {MyApp.Helpers, "Call MyApp.Helpers functions explicitly."}]]}
+```console
+$ mix credo explain Trogon.Credo.Check.Warning.ForbiddenImport
 ```
-
-| Param | Default | Meaning |
-| --- | --- | --- |
-| `modules` | `[]` | Modules, or `{Module, "message"}` tuples, that must not be imported. |
-
-### `Trogon.Credo.Check.Warning.UnpinnedDependency`
-
-Flags dependencies that are not pinned to an immutable reference, so builds stay reproducible. Only the body of `deps/0` inside `mix.exs` is analyzed, so a Mix alias sharing a name with a dependency is left alone. Path and umbrella dependencies are never reported, since they are not fetched from a mutable remote in the first place. A dependency counts as pinned when it is a git dependency with `ref:` set to a full 40 character commit sha, or a Hex dependency with an exact version such as `"0.5.0"`. A `branch:`, a `tag:`, a short sha, and operator requirements like `~> 0.5.0` are all rejected. A `ref:` that is not a literal string, a module attribute for instance, cannot be read statically and is not reported.
-
-```elixir
-{Trogon.Credo.Check.Warning.UnpinnedDependency,
- [deps: [:some_dep, {:other_dep, "This fork must stay pinned to a commit sha."}]]}
-```
-
-| Param | Default | Meaning |
-| --- | --- | --- |
-| `deps` | `[]` | Dependency atoms, or `{:dep, "message"}` tuples, that must be pinned. |
-
-### `Trogon.Credo.Check.Warning.PreferredModule`
-
-Flags calls to a module when a drop in replacement should be used instead, for example a wrapper that preserves OpenTelemetry context across a spawned process. Aliases are resolved before comparing, so `alias OpentelemetryProcessPropagator.Task` followed by `Task.async/1` is correctly left alone. Aliases are collected for the whole file rather than per lexical scope, and `Elixir.Task` names the same module as `Task`. Typespecs are not reported, since naming the discouraged module in a `@spec` or a `@type` is not a call to it.
-
-This is the one check that ships with a non empty default, so a project that does not use OpenTelemetry should override `modules`.
-
-```elixir
-{Trogon.Credo.Check.Warning.PreferredModule,
- [modules: [{Logger, MyApp.Logger, "Use MyApp.Logger so request metadata is attached."}]]}
-```
-
-| Param | Default | Meaning |
-| --- | --- | --- |
-| `modules` | the two `OpentelemetryProcessPropagator` pairs | `{Discouraged, Preferred}` or `{Discouraged, Preferred, "message"}` tuples. |
-
-The OpenTelemetry process propagator rule this check generalizes was originally described by David Bernheisel.
-
-### `Trogon.Credo.Check.Readability.MechanicalModuleName`
-
-Flags modules named after the execution mechanism that runs them rather than the domain role they perform. Whether a module runs as a background job or a GenServer is already visible from its `use` line, so restating it in the name is redundant and forces a rename whenever the mechanism changes. The corresponding file name suffix is flagged too, at most once per file.
-
-The default `suffixes` list is deliberately opinionated. Trim it to the conventions you actually want enforced, and set `for_use` to narrow the check to one mechanism.
-
-```elixir
-{Trogon.Credo.Check.Readability.MechanicalModuleName,
- [for_use: [Oban.Worker], suffixes: ["Worker"]]}
-```
-
-| Param | Default | Meaning |
-| --- | --- | --- |
-| `for_use` | `[]` | Modules to narrow the check to. Empty means every module in the analyzed files. |
-| `suffixes` | `["Worker", "Job", "Manager", "Helper", "Util", "Utils"]` | Mechanical suffixes rejected on the last segment of the module name. |
-
-### `Trogon.Credo.Check.Readability.ModuleLocation`
-
-Flags modules that belong to an architectural layer but do not live where that layer is expected to live. Ships inert, because there is no universal expected location; configure it per project.
-
-```elixir
-{Trogon.Credo.Check.Readability.ModuleLocation,
- [for_use: [Oban.Worker], path_segment: "jobs", namespace_segment: :Jobs]}
-```
-
-| Param | Default | Meaning |
-| --- | --- | --- |
-| `for_use` | `[]` | Modules to apply the check to. Empty makes the check inert. |
-| `path_segment` | `nil` | Directory name a matching module's file must live under. `nil` skips the check. |
-| `namespace_segment` | `nil` | Module name segment that must appear in a matching module's namespace. `nil` skips the check. |
-
-Note that moving or renaming a module referenced by persisted data, such as a background job row naming its worker module, may need a data migration or an alias.
