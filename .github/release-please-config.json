@@ -36,6 +36,9 @@
     },
     "apps/eventstore_dashboard": {
       "component": "eventstore_dashboard"
+    },
+    "apps/trogon_credo": {
+      "component": "trogon_credo"
     }
   },
   "plugins": [

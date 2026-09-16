@@ -32,7 +32,7 @@ defmodule BeamMonorepoUmbrella.MixProject do
 
   defp dialyzer do
     [
-      plt_add_apps: [:mix],
+      plt_add_apps: [:credo, :mix],
       plt_local_path: "priv/plts"
     ]
   end
