@@ -248,6 +248,42 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenUseTest do
     |> refute_issues()
   end
 
+  test "does not report a use through a name that sibling modules bind to different modules" do
+    """
+    defmodule A do
+      alias Vendor.Client
+      use Client
+    end
+
+    defmodule B do
+      alias MyApp.Client
+      use Client
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenUse, modules: [MyApp.Client])
+    |> refute_issues()
+  end
+
+  test "still reports a use through a name that sibling modules bind to the same module" do
+    """
+    defmodule A do
+      alias MyApp.Client
+      use Client
+    end
+
+    defmodule B do
+      alias MyApp.Client
+      use Client
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenUse, modules: [MyApp.Client])
+    |> assert_issues(fn issues ->
+      assert length(issues) == 2
+    end)
+  end
+
   test "is inert when no module is configured" do
     """
     defmodule CredoSampleModule do

@@ -208,4 +208,21 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImportTest do
     |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
     |> refute_issues()
   end
+
+  test "does not report an import through a name that sibling modules bind to different modules" do
+    """
+    defmodule A do
+      alias Vendor.Fixtures
+      import Fixtures
+    end
+
+    defmodule B do
+      alias MyApp.Fixtures
+      import Fixtures
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> refute_issues()
+  end
 end

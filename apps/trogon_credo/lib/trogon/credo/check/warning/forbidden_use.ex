@@ -24,6 +24,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenUse do
       `alias` written inside a `quote` block, which takes effect wherever the
       macro expands and is therefore not collected.
 
+      A name the file binds to more than one module, two sibling modules
+      aliasing a different `Client` for instance, resolves to neither, since
+      the file as a whole does not say which one a given reference means.
+
       A `use` written inside a `quote` block is reported, since the macro
       injects that `use` into every module that expands it.
 

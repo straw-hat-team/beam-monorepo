@@ -21,9 +21,17 @@ defmodule Trogon.Credo.ModuleName do
   A multi alias keeps whatever base it is written with, so
   `alias __MODULE__.{Child}` records `Child` under the name `__MODULE__.Child`,
   which no configured module matches.
+
+  A name that the file binds to more than one module, two sibling modules
+  aliasing a different `Client` for instance, is left out entirely rather than
+  resolved to whichever binding came last, since the file as a whole does not
+  say which one a given reference means.
   """
   def collect_aliases(source_file) do
-    Credo.Code.prewalk(source_file, &traverse/2, %{})
+    source_file
+    |> Credo.Code.prewalk(&traverse/2, %{})
+    |> Enum.reject(fn {_name, target} -> target == :ambiguous end)
+    |> Map.new()
   end
 
   @doc """
@@ -51,7 +59,7 @@ defmodule Trogon.Credo.ModuleName do
        when is_list(opts) do
     case Keyword.fetch(opts, :as) do
       {:ok, {:__aliases__, _, as_parts}} ->
-        {[], Map.put(aliases, full(as_parts), full(parts))}
+        {[], put_alias(aliases, full(as_parts), full(parts))}
 
       _ ->
         {[], put_default(aliases, parts)}
@@ -82,6 +90,13 @@ defmodule Trogon.Credo.ModuleName do
   defp base_parts(base), do: [base]
 
   defp put_default(aliases, parts) do
-    Map.put(aliases, Name.last(parts), full(parts))
+    put_alias(aliases, Name.last(parts), full(parts))
+  end
+
+  defp put_alias(aliases, name, target) do
+    Map.update(aliases, name, target, fn
+      ^target -> target
+      _other -> :ambiguous
+    end)
   end
 end
