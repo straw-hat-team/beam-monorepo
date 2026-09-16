@@ -305,4 +305,45 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
     |> run_check(AnonymousFunction, max_clauses: 1, max_expressions: 1)
     |> assert_issue()
   end
+
+  test "reports a capture that reaches deeper into its argument" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(& &1.user.id)
+        |> Enum.map(& &1[:id])
+        |> Enum.map(&label(&1).id)
+        |> Enum.map(& &1.())
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issues(fn issues -> assert length(issues) == 4 end)
+  end
+
+  test "does not report a capture of a function called without arguments" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, &Foo.bar())
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> refute_issues()
+  end
+
+  test "does not report a capture of a function named on a module attribute" do
+    """
+    defmodule MyApp.Runner do
+      @client MyApp.Client
+
+      def call(items), do: Enum.map(items, &@client.fetch(&1))
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> refute_issues()
+  end
 end

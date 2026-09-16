@@ -28,10 +28,11 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
 
       A capture that names a function, `&merge_target/2` or
       `&merge_target(&1, target)`, is not reported, since the name is right
-      there. A capture that names none, `& &1.id` or `&(&1 * 2)`, is reported
-      like any other anonymous function, otherwise writing
-      `fn item -> item.id end` as `& &1.id` would be enough to silence this
-      check without naming anything.
+      there. A capture that names none is reported like any other anonymous
+      function, whether it computes, `&(&1 * 2)`, builds a term, `&{&1, &1}`,
+      or only reaches into its argument, `& &1.id`, `& &1.user.id` and
+      `& &1[:id]` included. Otherwise writing `fn item -> item.id end` as
+      `& &1.id` would be enough to silence this check without naming anything.
 
       Both parameters count against a single anonymous function, which is
       reported when it exceeds either one. The defaults of `0` report every
@@ -109,11 +110,11 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
     true
   end
 
-  defp names_function?({{:., _meta, [{:&, _, _position}, _name]}, _, _args}), do: false
+  defp names_function?({{:., _meta, [Access, :get]}, _call_meta, _args}), do: false
 
-  defp names_function?({{:., _meta, [_module, name]}, _, args})
+  defp names_function?({{:., _meta, [_module, name]}, call_meta, args})
        when is_atom(name) and is_list(args) do
-    true
+    not field_access?(call_meta)
   end
 
   defp names_function?({name, _meta, args}) when is_atom(name) and is_list(args) do
@@ -122,6 +123,8 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
   end
 
   defp names_function?(_body), do: false
+
+  defp field_access?(call_meta), do: Keyword.get(call_meta, :no_parens, false)
 
   defp over?(_count, :infinity), do: false
   defp over?(count, limit), do: count > limit
