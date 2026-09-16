@@ -24,6 +24,9 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       so a module that aliases the preferred module suppresses findings
       across the entire file.
 
+      Typespecs are not reported, since naming the discouraged module in a
+      `@spec` or a `@type` is not a call to it.
+
       The OpenTelemetry process propagator rule this check generalizes was
       originally described by David Bernheisel.
       """,
@@ -33,48 +36,23 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
     ]
 
   alias Credo.Code.Name
+  alias Trogon.Credo.Aliases
+
+  @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     pairs = prepare_pairs(Params.get(params, :modules, __MODULE__))
     issue_meta = IssueMeta.for(source_file, params)
-    aliases = Credo.Code.prewalk(source_file, &collect_aliases/2, %{})
+    aliases = Aliases.collect(source_file)
 
     Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, pairs, aliases))
   end
 
-  defp collect_aliases({:alias, _meta, [{:__aliases__, _, parts}, opts]}, aliases)
-       when is_list(opts) do
-    case Keyword.fetch(opts, :as) do
-      {:ok, {:__aliases__, _, as_parts}} ->
-        {[], Map.put(aliases, Name.full(as_parts), Name.full(parts))}
-
-      :error ->
-        {[], put_default_alias(aliases, parts)}
-    end
-  end
-
-  defp collect_aliases(
-         {:alias, _meta, [{{:., _, [{:__aliases__, _, base_parts}, :{}]}, _, alias_nodes}]},
-         aliases
-       ) do
-    new_aliases =
-      Enum.reduce(alias_nodes, aliases, fn {:__aliases__, _, member_parts}, acc ->
-        put_default_alias(acc, base_parts ++ member_parts)
-      end)
-
-    {[], new_aliases}
-  end
-
-  defp collect_aliases({:alias, _meta, [{:__aliases__, _, parts}]}, aliases) do
-    {[], put_default_alias(aliases, parts)}
-  end
-
-  defp collect_aliases(ast, aliases), do: {ast, aliases}
-
-  defp put_default_alias(aliases, parts) do
-    Map.put(aliases, Name.last(parts), Name.full(parts))
+  defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _issue_meta, _pairs, _aliases)
+       when attribute in @typespec_attributes do
+    {[], issues}
   end
 
   defp traverse(
@@ -85,7 +63,7 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
          aliases
        ) do
     written_name = Name.full(parts)
-    resolved_name = resolve_alias(parts, aliases)
+    resolved_name = Aliases.resolve(parts, aliases)
 
     new_issues =
       pairs
@@ -98,13 +76,6 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
   end
 
   defp traverse(ast, issues, _issue_meta, _pairs, _aliases), do: {ast, issues}
-
-  defp resolve_alias([first | rest], aliases) do
-    case Map.fetch(aliases, to_string(first)) do
-      {:ok, resolved_head} -> Name.full([resolved_head | rest])
-      :error -> Name.full([first | rest])
-    end
-  end
 
   defp issue_for(issue_meta, meta, trigger, discouraged, preferred, message) do
     format_issue(

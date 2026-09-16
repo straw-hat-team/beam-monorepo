@@ -12,6 +12,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
       Credo already ships `Credo.Check.Warning.ForbiddenModule` to forbid usage of a
       module altogether. This check is the narrower counterpart: it only forbids
       `import`-ing the module, while calling it with its full name remains allowed.
+
+      Aliases are resolved before matching, so an `import` written through an
+      alias is reported under the name of the module it resolves to. Aliases are
+      collected for the whole file rather than per lexical scope.
       """,
       params: [
         modules: "List of modules or `{Module, \"Custom message\"}` tuples that must not be imported."
@@ -19,27 +23,30 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
     ]
 
   alias Credo.Code.Name
+  alias Trogon.Credo.Aliases
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     modules = prepare_modules(Params.get(params, :modules, __MODULE__))
     issue_meta = IssueMeta.for(source_file, params)
+    aliases = Aliases.collect(source_file)
 
-    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, modules))
+    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, modules, aliases))
   end
 
   defp traverse(
          {:import, _meta, [{:__aliases__, meta, parts} | _]} = ast,
          issues,
          issue_meta,
-         modules
+         modules,
+         aliases
        ) do
-    module = Name.full(parts)
+    module = Aliases.resolve(parts, aliases)
 
     case Map.fetch(modules, module) do
       {:ok, message} ->
-        {ast, [issue_for(issue_meta, meta, module, message) | issues]}
+        {ast, [issue_for(issue_meta, meta, Name.full(parts), module, message) | issues]}
 
       :error ->
         {ast, issues}
@@ -54,15 +61,16 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
           ]} = ast,
          issues,
          issue_meta,
-         modules
+         modules,
+         aliases
        ) do
     new_issues =
       Enum.reduce(alias_nodes, [], fn {:__aliases__, meta, member_parts}, acc ->
-        module = Name.full(base_parts ++ member_parts)
+        module = Aliases.resolve(base_parts ++ member_parts, aliases)
         trigger = Name.full(member_parts)
 
         case Map.fetch(modules, module) do
-          {:ok, message} -> [issue_for(issue_meta, meta, trigger, message) | acc]
+          {:ok, message} -> [issue_for(issue_meta, meta, trigger, module, message) | acc]
           :error -> acc
         end
       end)
@@ -70,12 +78,12 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
     {ast, new_issues ++ issues}
   end
 
-  defp traverse(ast, issues, _issue_meta, _modules), do: {ast, issues}
+  defp traverse(ast, issues, _issue_meta, _modules, _aliases), do: {ast, issues}
 
-  defp issue_for(issue_meta, meta, trigger, message) do
+  defp issue_for(issue_meta, meta, trigger, module, message) do
     format_issue(
       issue_meta,
-      message: message || "The `#{trigger}` module must not be imported.",
+      message: message || "The `#{module}` module must not be imported.",
       trigger: trigger,
       line_no: meta[:line],
       column: meta[:column]

@@ -16,6 +16,12 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
 
       Dependencies pinned with `branch:`, `tag:`, an operator requirement such
       as `"~> 1.2.0"`, or no `ref:` at all are reported.
+
+      Only the body of a `deps/0` function inside `mix.exs` is analyzed, so a
+      Mix alias or any other keyword list that happens to share a name with a
+      configured dependency is left alone. A `ref:` that is not a literal
+      string, a module attribute for instance, cannot be read statically and is
+      not reported.
       """,
       params: [
         deps: "List of dependency names (atoms) or `{:dep, \"Custom message\"}` tuples that must be pinned."
@@ -40,38 +46,47 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
     end
   end
 
-  defp traverse({dep, spec} = ast, issues, issue_meta, deps)
-       when is_atom(dep) and (is_binary(spec) or is_list(spec)) do
-    case Map.fetch(deps, dep) do
-      {:ok, message} ->
-        case check_spec(dep, spec) do
-          :ok -> {ast, issues}
-          {:error, reason} -> {ast, [issue_for(issue_meta, nil, dep, message, reason) | issues]}
-        end
-
-      :error ->
-        {ast, issues}
-    end
-  end
-
-  defp traverse({:{}, meta, [dep, requirement, opts]} = ast, issues, issue_meta, deps)
-       when is_atom(dep) and is_list(opts) do
-    case Map.fetch(deps, dep) do
-      {:ok, message} ->
-        case check_tuple(dep, requirement, opts) do
-          :ok ->
-            {ast, issues}
-
-          {:error, reason} ->
-            {ast, [issue_for(issue_meta, meta[:line], dep, message, reason) | issues]}
-        end
-
-      :error ->
-        {ast, issues}
-    end
+  defp traverse({definition, _meta, [{:deps, _, args}, [do: body]]}, issues, issue_meta, deps)
+       when definition in [:def, :defp] and (is_nil(args) or args == []) do
+    {[], walk(body, issues, issue_meta, deps)}
   end
 
   defp traverse(ast, issues, _issue_meta, _deps), do: {ast, issues}
+
+  # Manual recursion (rather than a second `Credo.Code.prewalk/3`) so that only
+  # the body of `deps/0` is inspected for dependency tuples.
+  defp walk({dep, spec}, issues, issue_meta, deps)
+       when is_atom(dep) and (is_binary(spec) or is_list(spec)) do
+    check_dep(dep, nil, fn -> check_spec(dep, spec) end, issues, issue_meta, deps)
+  end
+
+  defp walk({:{}, meta, [dep, requirement, opts]}, issues, issue_meta, deps)
+       when is_atom(dep) and is_list(opts) do
+    check_dep(dep, meta[:line], fn -> check_tuple(dep, requirement, opts) end, issues, issue_meta, deps)
+  end
+
+  defp walk({_, _, args}, issues, issue_meta, deps) when is_list(args) do
+    walk(args, issues, issue_meta, deps)
+  end
+
+  defp walk({left, right}, issues, issue_meta, deps) do
+    walk(right, walk(left, issues, issue_meta, deps), issue_meta, deps)
+  end
+
+  defp walk(list, issues, issue_meta, deps) when is_list(list) do
+    Enum.reduce(list, issues, fn item, acc -> walk(item, acc, issue_meta, deps) end)
+  end
+
+  defp walk(_ast, issues, _issue_meta, _deps), do: issues
+
+  defp check_dep(dep, line_no, check, issues, issue_meta, deps) do
+    with {:ok, message} <- Map.fetch(deps, dep),
+         {:error, reason} <- check.() do
+      [issue_for(issue_meta, line_no, dep, message, reason) | issues]
+    else
+      _ -> issues
+    end
+  end
 
   defp check_spec(dep, opts) when is_list(opts) do
     if git_opts?(opts) do
@@ -105,6 +120,9 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
         else
           {:error, "use a full 40 character commit sha in `ref:` instead of `#{ref}`"}
         end
+
+      {:ok, _ref} ->
+        :ok
 
       :error ->
         cond do

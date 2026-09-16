@@ -80,6 +80,54 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImportTest do
     end)
   end
 
+  test "reports an import written through an alias" do
+    """
+    defmodule CredoSampleModule do
+      alias MyApp.Fixtures
+
+      import Fixtures
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Fixtures"
+      assert issue.message == "The `MyApp.Fixtures` module must not be imported."
+    end)
+  end
+
+  test "reports an import written through a renamed alias" do
+    """
+    defmodule CredoSampleModule do
+      alias MyApp.Fixtures, as: Helpers
+
+      import Helpers
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Helpers"
+      assert issue.message == "The `MyApp.Fixtures` module must not be imported."
+    end)
+  end
+
+  test "reports a multi-import written through an alias" do
+    """
+    defmodule CredoSampleModule do
+      alias MyApp.Fixtures
+
+      import Fixtures.{Accounts, Billing}
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenImport, modules: [MyApp.Fixtures.Billing])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Billing"
+      assert issue.message == "The `MyApp.Fixtures.Billing` module must not be imported."
+    end)
+  end
+
   test "uses a custom message when configured" do
     """
     defmodule CredoSampleModule do

@@ -199,4 +199,18 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
       assert issue.message == "Use `OpentelemetryProcessPropagator.Task` instead of `Task`."
     end)
   end
+
+  test "does not report the discouraged module named in a typespec" do
+    """
+    defmodule CredoSampleModule do
+      @type job :: Task.t()
+
+      @spec run(Task.t()) :: :ok
+      def run(_task), do: :ok
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> refute_issues()
+  end
 end

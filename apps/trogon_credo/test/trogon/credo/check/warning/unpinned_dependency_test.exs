@@ -231,6 +231,44 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependencyTest do
     |> assert_issue(fn issue -> assert issue.message =~ "use an exact version" end)
   end
 
+  test "does not report a mix alias sharing a name with a configured dependency" do
+    """
+    defmodule MyApp.MixProject do
+      defp aliases do
+        [
+          some_dep: ["cmd --some-flag"]
+        ]
+      end
+
+      defp deps do
+        [
+          {:some_dep, "1.2.3"}
+        ]
+      end
+    end
+    """
+    |> to_source_file("mix.exs")
+    |> run_check(UnpinnedDependency, deps: [:some_dep])
+    |> refute_issues()
+  end
+
+  test "does not report a git dependency whose ref is not a literal string" do
+    """
+    defmodule MyApp.MixProject do
+      @some_dep_sha "abcdef0123456789abcdef0123456789abcdef01"
+
+      defp deps do
+        [
+          {:some_dep, git: "https://example.com/some_dep.git", ref: @some_dep_sha}
+        ]
+      end
+    end
+    """
+    |> to_source_file("mix.exs")
+    |> run_check(UnpinnedDependency, deps: [:some_dep])
+    |> refute_issues()
+  end
+
   test "does not report an exact hex version carrying a pre-release" do
     """
     defmodule MyApp.MixProject do

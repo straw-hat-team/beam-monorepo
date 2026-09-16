@@ -46,7 +46,7 @@ Run `mix credo` as usual and the enabled checks run alongside Credo's built-in o
 
 ### `Trogon.Credo.Check.Warning.ForbiddenImport`
 
-Flags `import` of modules that should always be called explicitly. The `import` counterpart to Credo's built-in `Credo.Check.Warning.ForbiddenModule`. Calls to the module are never flagged, only `import` directives, including the multi-import form `import Foo.{Bar, Baz}`.
+Flags `import` of modules that should always be called explicitly. The `import` counterpart to Credo's built-in `Credo.Check.Warning.ForbiddenModule`. Calls to the module are never flagged, only `import` directives, including the multi-import form `import Foo.{Bar, Baz}`. Aliases are resolved before matching, so an `import` written through an alias is still reported.
 
 ```elixir
 {Trogon.Credo.Check.Warning.ForbiddenImport,
@@ -59,7 +59,7 @@ Flags `import` of modules that should always be called explicitly. The `import` 
 
 ### `Trogon.Credo.Check.Warning.UnpinnedDependency`
 
-Flags dependencies that are not pinned to an immutable reference, so builds stay reproducible. Only analyzes `mix.exs`. A dependency counts as pinned when it is a git dependency with `ref:` set to a full 40 character commit sha, or a Hex dependency with an exact version such as `"0.5.0"`. A `branch:`, a `tag:`, a short sha, and operator requirements like `~> 0.5.0` are all rejected.
+Flags dependencies that are not pinned to an immutable reference, so builds stay reproducible. Only the body of `deps/0` inside `mix.exs` is analyzed, so a Mix alias sharing a name with a dependency is left alone. A dependency counts as pinned when it is a git dependency with `ref:` set to a full 40 character commit sha, or a Hex dependency with an exact version such as `"0.5.0"`. A `branch:`, a `tag:`, a short sha, and operator requirements like `~> 0.5.0` are all rejected. A `ref:` that is not a literal string, a module attribute for instance, cannot be read statically and is not reported.
 
 ```elixir
 {Trogon.Credo.Check.Warning.UnpinnedDependency,
@@ -72,7 +72,7 @@ Flags dependencies that are not pinned to an immutable reference, so builds stay
 
 ### `Trogon.Credo.Check.Warning.PreferredModule`
 
-Flags calls to a module when a drop in replacement should be used instead, for example a wrapper that preserves OpenTelemetry context across a spawned process. Aliases are resolved before comparing, so `alias OpentelemetryProcessPropagator.Task` followed by `Task.async/1` is correctly left alone. Aliases are collected for the whole file rather than per lexical scope.
+Flags calls to a module when a drop in replacement should be used instead, for example a wrapper that preserves OpenTelemetry context across a spawned process. Aliases are resolved before comparing, so `alias OpentelemetryProcessPropagator.Task` followed by `Task.async/1` is correctly left alone. Aliases are collected for the whole file rather than per lexical scope. Typespecs are not reported, since naming the discouraged module in a `@spec` or a `@type` is not a call to it.
 
 This is the one check that ships with a non empty default, so a project that does not use OpenTelemetry should override `modules`.
 
