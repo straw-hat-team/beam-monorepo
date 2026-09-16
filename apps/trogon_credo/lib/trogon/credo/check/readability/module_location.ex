@@ -33,6 +33,10 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       time, `defmodule __MODULE__.Child` for instance, is still checked against
       `path_segment`, but not against `namespace_segment`, since the namespace
       it ends up in cannot be read statically.
+
+      A `defmodule` whose name is not written as an alias, `defmodule :worker`
+      or `defmodule Module.concat(Foo, Bar)` for instance, does not nest inside
+      the namespace of the module it is written in, and is treated accordingly.
       """,
       params: [
         for_use: """
@@ -83,6 +87,10 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     {[], walk(rest, parts, issues, context)}
   end
 
+  defp traverse({:defmodule, _meta, [name | rest]}, issues, context) do
+    {[], walk(rest, [name], issues, context)}
+  end
+
   defp traverse({:quote, _meta, _args}, issues, _context), do: {[], issues}
 
   defp traverse(ast, issues, _context), do: {ast, issues}
@@ -92,6 +100,10 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
   # attributed to its enclosing module's fully qualified name.
   defp walk({:defmodule, _meta, [{:__aliases__, _, parts} | rest]}, namespace, issues, context) do
     walk(rest, namespace ++ parts, issues, context)
+  end
+
+  defp walk({:defmodule, _meta, [name | rest]}, _namespace, issues, context) do
+    walk(rest, [name], issues, context)
   end
 
   defp walk({:use, _meta, [{:__aliases__, meta, used_parts} | _]}, namespace, issues, context) do

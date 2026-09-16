@@ -227,4 +227,17 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleNameTest do
     |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
     |> refute_issues()
   end
+
+  test "does not attribute a use inside a module named by an atom to the enclosing module" do
+    """
+    defmodule MyApp.SendWelcomeEmailWorker do
+      defmodule :helper do
+        use Oban.Worker
+      end
+    end
+    """
+    |> to_source_file("lib/my_app/send_welcome_email.ex")
+    |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
+    |> refute_issues()
+  end
 end

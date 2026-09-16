@@ -77,6 +77,10 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     {[], walk(rest, parts, put_module(acc, parts, parts, meta), aliases)}
   end
 
+  defp traverse({:defmodule, _meta, [name | rest]}, acc, aliases) do
+    {[], walk(rest, [name], acc, aliases)}
+  end
+
   defp traverse({:quote, _meta, _args}, acc, _aliases), do: {[], acc}
 
   defp traverse(ast, acc, _aliases), do: {ast, acc}
@@ -88,6 +92,10 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     full_namespace = namespace ++ parts
 
     walk(rest, full_namespace, put_module(acc, full_namespace, parts, meta), aliases)
+  end
+
+  defp walk({:defmodule, _meta, [name | rest]}, _namespace, acc, aliases) do
+    walk(rest, [name], acc, aliases)
   end
 
   defp walk({:use, _meta, [{:__aliases__, _, used_parts} | _]}, namespace, {modules, uses}, aliases) do

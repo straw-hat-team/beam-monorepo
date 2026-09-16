@@ -196,4 +196,30 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
     |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs", namespace_segment: :Workers)
     |> assert_issue(fn issue -> assert issue.message =~ "`jobs/` directory" end)
   end
+
+  test "does not attribute a use inside a module named by an atom to the enclosing namespace" do
+    """
+    defmodule MyApp.Workers do
+      defmodule :my_worker do
+        use Oban.Worker
+      end
+    end
+    """
+    |> to_source_file("lib/workers/my_worker.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: :Workers)
+    |> assert_issue(fn issue -> assert issue.message =~ "namespace containing `Workers`" end)
+  end
+
+  test "does not check the namespace of a module whose name is built by a call" do
+    """
+    defmodule MyApp.Jobs do
+      defmodule Module.concat(Foo, Bar) do
+        use Oban.Worker
+      end
+    end
+    """
+    |> to_source_file("lib/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: :Workers)
+    |> refute_issues()
+  end
 end
