@@ -484,4 +484,24 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
       end
     end)
   end
+
+  test "reports a capture that branches or loops across several clauses" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(&(for value <- &1, other <- value, do: other))
+        |> Enum.map(&(for value <- &1, value > 1, do: value))
+        |> Enum.map(&(with {:ok, value} <- &1, {:ok, other} <- value, do: other))
+        |> Enum.map(&(with {:ok, value} <- &1, do: value, else: (_ -> :error)))
+        |> Enum.map(&(receive do value -> value after 0 -> &1 end))
+        |> Enum.map(&(try do &1.() rescue _ -> :error after :ok end))
+        |> Enum.map(&quote(bind_quoted: [value: &1], do: value))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issues(fn issues -> assert length(issues) == 7 end)
+  end
 end
