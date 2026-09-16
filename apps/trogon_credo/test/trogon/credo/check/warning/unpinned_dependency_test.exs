@@ -330,4 +330,21 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependencyTest do
     |> run_check(UnpinnedDependency, deps: [:some_dep])
     |> refute_issues()
   end
+
+  test "does not report a requirement that is only known at compile time" do
+    """
+    defmodule MyApp.MixProject do
+      use Mix.Project
+
+      defp deps do
+        [
+          {:some_dep, @some_dep_version, only: :test}
+        ]
+      end
+    end
+    """
+    |> to_source_file("mix.exs")
+    |> run_check(UnpinnedDependency, deps: [:some_dep])
+    |> refute_issues()
+  end
 end

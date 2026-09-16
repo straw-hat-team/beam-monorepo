@@ -23,9 +23,9 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
 
       Only the body of a `deps/0` function inside `mix.exs` is analyzed, so a
       Mix alias or any other keyword list that happens to share a name with a
-      configured dependency is left alone. A `ref:` that is not a literal
-      string, a module attribute for instance, cannot be read statically and is
-      not reported.
+      configured dependency is left alone. A requirement or a `ref:` that is not
+      a literal string, a module attribute for instance, cannot be read
+      statically and is not reported.
       """,
       params: [
         deps: "List of dependency names (atoms) or `{:dep, \"Custom message\"}` tuples that must be pinned."
@@ -104,11 +104,12 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
     check_hex_requirement(requirement)
   end
 
-  defp check_tuple(dep, requirement, opts) do
+  defp check_tuple(_dep, requirement, opts) do
     cond do
       git_opts?(opts) -> check_git_opts(opts)
       local_opts?(opts) -> :ok
-      true -> check_hex_requirement(requirement, dep)
+      is_binary(requirement) -> check_hex_requirement(requirement)
+      true -> :ok
     end
   end
 
@@ -146,18 +147,12 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
     end
   end
 
-  defp check_hex_requirement(requirement, dep \\ nil)
-
-  defp check_hex_requirement(requirement, _dep) when is_binary(requirement) do
+  defp check_hex_requirement(requirement) do
     if exact_version?(requirement) do
       :ok
     else
       {:error, "use an exact version instead of `#{requirement}`"}
     end
-  end
-
-  defp check_hex_requirement(_requirement, dep) do
-    {:error, "declare a hex requirement for `#{dep}` and pin it to an exact version"}
   end
 
   # `== 1.2.3` is the operator spelling of the same pin as `1.2.3`.
