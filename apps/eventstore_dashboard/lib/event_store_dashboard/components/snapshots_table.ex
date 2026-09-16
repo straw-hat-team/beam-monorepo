@@ -106,13 +106,16 @@ defmodule EventStoreDashboard.Components.SnapshotsTable do
 
       %{
         entries: Enum.map(rows, &Repo.row_to_snapshot_summary/1),
-        total_entries: total_entries,
+        total_entries: format_total(total_entries, search_term),
         total_pages: total_pages
       }
     else
       _ -> %{entries: [], total_entries: 0, total_pages: 0}
     end
   end
+
+  defp format_total(total_entries, nil), do: "~#{total_entries}"
+  defp format_total(total_entries, _search_term), do: total_entries
 
   defp like_pattern(nil), do: nil
   defp like_pattern(term), do: "%" <> term <> "%"

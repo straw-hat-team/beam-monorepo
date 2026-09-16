@@ -88,13 +88,16 @@ defmodule EventStoreDashboard.Components.StreamsTable do
 
       %{
         entries: Enum.map(rows, &row_to_stream/1),
-        total_entries: total_entries,
+        total_entries: format_total(total_entries, search_term),
         total_pages: total_pages
       }
     else
       _ -> %{entries: [], total_entries: 0, total_pages: 0}
     end
   end
+
+  defp format_total(total_entries, "%"), do: "~#{total_entries}"
+  defp format_total(total_entries, _search_term), do: total_entries
 
   defp query_streams(node, %Context{} = ctx, sort_by, sort_dir, search_term, limit, offset) do
     sql =

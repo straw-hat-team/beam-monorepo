@@ -163,13 +163,16 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
 
       %{
         entries: Enum.map(rows, &row_to_subscription/1),
-        total_entries: total_entries,
+        total_entries: format_total(total_entries, search_term),
         total_pages: total_pages
       }
     else
       _ -> %{entries: [], total_entries: 0, total_pages: 0}
     end
   end
+
+  defp format_total(total_entries, nil), do: "~#{total_entries}"
+  defp format_total(total_entries, _search_term), do: total_entries
 
   defp query_subscriptions(node, %Context{} = ctx, sort_by, sort_dir, search_term, limit, offset) do
     {where, params} = search_clause(search_term, [limit, offset], 3)
