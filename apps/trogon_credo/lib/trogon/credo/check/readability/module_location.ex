@@ -28,6 +28,11 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       Code inside a `quote` block is not analyzed, since a module defined
       there, or a `use` written there, belongs to wherever the macro expands
       rather than to the module that defines the macro.
+
+      A module whose namespace carries a segment that is only known at compile
+      time, `defmodule __MODULE__.Child` for instance, is still checked against
+      `path_segment`, but not against `namespace_segment`, since the namespace
+      it ends up in cannot be read statically.
       """,
       params: [
         for_use: """
@@ -130,7 +135,8 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       path_segment != nil and not path_compliant?(issue_meta, path_segment) ->
         [path_issue(issue_meta, meta, used_module, path_segment) | issues]
 
-      namespace_segment != nil and not namespace_compliant?(namespace, namespace_segment) ->
+      namespace_segment != nil and readable_namespace?(namespace) and
+          not namespace_compliant?(namespace, namespace_segment) ->
         [namespace_issue(issue_meta, meta, used_module, namespace_segment) | issues]
 
       true ->
@@ -145,6 +151,8 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     |> Path.split()
     |> Enum.member?(path_segment)
   end
+
+  defp readable_namespace?(namespace), do: Enum.all?(namespace, &is_atom/1)
 
   defp namespace_compliant?(namespace, namespace_segment) do
     Enum.any?(namespace, fn part -> to_string(part) == namespace_segment end)

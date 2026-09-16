@@ -170,4 +170,30 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
     |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs", namespace_segment: :Jobs)
     |> refute_issues()
   end
+
+  test "does not check the namespace of a module whose namespace is only known at compile time" do
+    """
+    defmodule MyApp.Jobs do
+      defmodule __MODULE__.SendEmail do
+        use Oban.Worker
+      end
+    end
+    """
+    |> to_source_file("lib/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: :Workers)
+    |> refute_issues()
+  end
+
+  test "still checks the path of a module whose namespace is only known at compile time" do
+    """
+    defmodule MyApp.Jobs do
+      defmodule __MODULE__.SendEmail do
+        use Oban.Worker
+      end
+    end
+    """
+    |> to_source_file("lib/my_app/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs", namespace_segment: :Workers)
+    |> assert_issue(fn issue -> assert issue.message =~ "`jobs/` directory" end)
+  end
 end
