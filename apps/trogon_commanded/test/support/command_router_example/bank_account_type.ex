@@ -1,4 +1,4 @@
-defmodule TestSupport.CommandRouterExample.BankAccountType do
+defmodule Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountType do
   @moduledoc false
 
   use Trogon.Commanded.Enum,

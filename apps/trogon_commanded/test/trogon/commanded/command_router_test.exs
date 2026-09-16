@@ -1,7 +1,7 @@
 defmodule Trogon.Commanded.CommandRouterTest do
   use ExUnit.Case, async: true
 
-  alias TestSupport.CommandRouterExample.{
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.{
     CommandRouter,
     OpenBankAccount,
     CloseBankAccount,
@@ -9,12 +9,12 @@ defmodule Trogon.Commanded.CommandRouterTest do
   }
 
   @dispatch_opts [
-    application: TestSupport.DefaultApp,
+    application: Trogon.Commanded.TestSupport.DefaultApp,
     returning: :execution_result
   ]
 
   setup do
-    start_supervised!(TestSupport.DefaultApp)
+    start_supervised!(Trogon.Commanded.TestSupport.DefaultApp)
     :ok
   end
 

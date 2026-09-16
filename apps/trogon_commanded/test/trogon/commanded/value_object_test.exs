@@ -1,5 +1,8 @@
 defmodule Trogon.Commanded.ValueObjectTest do
   use ExUnit.Case, async: true
+
+  alias Trogon.Commanded.TestSupport
+
   doctest Trogon.Commanded.ValueObject
 
   describe "new/1" do

@@ -1,7 +1,7 @@
-defmodule TestSupport.CommandRouterExample.OpenBankAccount.Aggregate do
+defmodule Trogon.Commanded.TestSupport.CommandRouterExample.OpenBankAccount.Aggregate do
   @moduledoc false
   use Trogon.Commanded.Aggregate, identifier: :uuid
-  alias TestSupport.CommandRouterExample.BankAccountOpened
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountOpened
 
   embedded_schema do
   end
@@ -13,7 +13,7 @@ defmodule TestSupport.CommandRouterExample.OpenBankAccount.Aggregate do
   end
 end
 
-defmodule TestSupport.CommandRouterExample.OpenBankAccount do
+defmodule Trogon.Commanded.TestSupport.CommandRouterExample.OpenBankAccount do
   @moduledoc false
   use Trogon.Commanded.CommandHandler
 
@@ -21,7 +21,7 @@ defmodule TestSupport.CommandRouterExample.OpenBankAccount do
     aggregate_identifier: :uuid,
     identity_prefix: "bank-account-"
 
-  alias TestSupport.CommandRouterExample.{
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.{
     BankAccountOpened,
     OpenBankAccount
   }

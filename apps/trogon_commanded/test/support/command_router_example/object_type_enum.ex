@@ -1,4 +1,4 @@
-defmodule TestSupport.CommandRouterExample.ObjectTypeEnum do
+defmodule Trogon.Commanded.TestSupport.CommandRouterExample.ObjectTypeEnum do
   @moduledoc false
 
   use Trogon.Commanded.Enum,

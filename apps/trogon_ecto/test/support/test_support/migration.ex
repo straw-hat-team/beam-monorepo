@@ -1,4 +1,4 @@
-defmodule Trogon.Ecto.MigrationTestSupport do
+defmodule Trogon.Ecto.TestSupport.Migration do
   @moduledoc false
 
   import ExUnit.Callbacks, only: [on_exit: 1]
