@@ -1,20 +1,25 @@
-defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
+defmodule Trogon.Credo.Check.Warning.ForbiddenUse do
   use Credo.Check,
     base_priority: :high,
     category: :warning,
     param_defaults: [modules: []],
     explanations: [
       check: """
-      Some modules are only meant to be called with a fully qualified name, either
-      because they are meant for a specific context (like test support helpers) or
-      because importing them hides where a function comes from.
+      Some modules should not be brought into another module with `use`, because
+      the macro they inject settles behavior at compile time and injects
+      functions into the using module's public API. Building the same thing
+      explicitly keeps it configurable per call site and keeps the module's
+      public API its own.
 
-      Credo already ships `Credo.Check.Warning.ForbiddenModule` to forbid usage of a
-      module altogether. This check is the narrower counterpart: it only forbids
-      `import`-ing the module, while calling it with its full name remains allowed.
+      Credo already ships `Credo.Check.Warning.ForbiddenModule` to forbid a
+      module outright. This check is the narrower counterpart: only `use` is
+      reported, so calling the module by its full name stays allowed.
 
-      Aliases are resolved before matching, so an `import` written through an
-      alias is reported under the name of the module it resolves to. Aliases are
+          {Trogon.Credo.Check.Warning.ForbiddenUse,
+           [modules: [{MyApp.Client, "Build a client with MyApp.Client.new/1 instead."}]]}
+
+      Aliases are resolved before matching, so a `use` written through an alias
+      is reported under the name of the module it resolves to. Aliases are
       collected for the whole file rather than per lexical scope, except for an
       `alias` written inside a `quote` block, which takes effect wherever the
       macro expands and is therefore not collected.
@@ -24,12 +29,15 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
       does not fall back to matching the name as written either, since the file
       as a whole does not say which one a given reference means.
 
+      A `use` written inside a `quote` block is reported, since the macro
+      injects that `use` into every module that expands it.
+
       A module written with an explicit `Elixir.` prefix, such as
-      `Elixir.Foo.Bar`, names the same module as `Foo.Bar` and is reported
-      the same way.
+      `Elixir.Foo.Bar`, names the same module as `Foo.Bar` and is reported the
+      same way.
       """,
       params: [
-        modules: "List of modules or `{Module, \"Custom message\"}` tuples that must not be imported."
+        modules: "List of modules or `{Module, \"Custom message\"}` tuples that must not be brought in with `use`."
       ]
     ]
 
@@ -47,7 +55,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
   end
 
   defp traverse(
-         {:import, _meta, [{:__aliases__, meta, parts} | _]} = ast,
+         {:use, _meta, [{:__aliases__, meta, parts} | _]} = ast,
          issues,
          issue_meta,
          modules,
@@ -64,41 +72,12 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
     end
   end
 
-  defp traverse(
-         {:import, _meta,
-          [
-            {{:., _, [{:__aliases__, _, base_parts}, :{}]}, _, alias_nodes}
-            | _
-          ]} = ast,
-         issues,
-         issue_meta,
-         modules,
-         aliases
-       ) do
-    new_issues =
-      Enum.reduce(alias_nodes, [], fn
-        {:__aliases__, meta, member_parts}, acc ->
-          module = ModuleName.resolve(base_parts ++ member_parts, aliases)
-          trigger = Name.full(member_parts)
-
-          case Map.fetch(modules, module) do
-            {:ok, message} -> [issue_for(issue_meta, meta, trigger, module, message) | acc]
-            :error -> acc
-          end
-
-        _member, acc ->
-          acc
-      end)
-
-    {ast, new_issues ++ issues}
-  end
-
   defp traverse(ast, issues, _issue_meta, _modules, _aliases), do: {ast, issues}
 
   defp issue_for(issue_meta, meta, trigger, module, message) do
     format_issue(
       issue_meta,
-      message: message || "The `#{module}` module must not be imported.",
+      message: message || "The `#{module}` module must not be brought in with `use`.",
       trigger: trigger,
       line_no: meta[:line],
       column: meta[:column]

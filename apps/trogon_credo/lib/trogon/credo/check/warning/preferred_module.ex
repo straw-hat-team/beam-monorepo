@@ -26,6 +26,11 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       exception: it takes effect wherever the macro expands, so it is not
       collected.
 
+      A name the file binds to more than one module, two sibling modules
+      aliasing a different `Client` for instance, matches neither module, and
+      does not fall back to matching the name as written either, since the file
+      as a whole does not say which one a given reference means.
+
       Typespecs are not reported, since naming the discouraged module in a
       `@spec` or a `@type` is not a call to it.
 

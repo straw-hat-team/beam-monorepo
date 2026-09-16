@@ -305,4 +305,23 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
       assert issue.message == "Use `OpentelemetryProcessPropagator.Task` instead of `Task`."
     end)
   end
+
+  test "does not report an ambiguous name as the module it is written as" do
+    """
+    defmodule A do
+      alias Vendor.Task
+
+      def call, do: Task.async(fn -> :ok end)
+    end
+
+    defmodule B do
+      alias MyApp.Task
+
+      def call, do: Task.async(fn -> :ok end)
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> refute_issues()
+  end
 end
