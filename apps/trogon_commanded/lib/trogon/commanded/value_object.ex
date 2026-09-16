@@ -185,23 +185,23 @@ defmodule Trogon.Commanded.ValueObject do
 
   Creating a simple value object:
 
-      iex> Trogon.Commanded.ValueObject.new(Trogon.Commanded.TestSupport.MessageOne, %{title: "Hello"})
-      {:ok, %Trogon.Commanded.TestSupport.MessageOne{title: "Hello"}}
+      iex> Trogon.Commanded.ValueObject.new(TestSupport.MessageOne, %{title: "Hello"})
+      {:ok, %TestSupport.MessageOne{title: "Hello"}}
 
   Creating a value object with validation:
 
-      iex> Trogon.Commanded.ValueObject.new(Trogon.Commanded.TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
-      {:ok, %Trogon.Commanded.TestSupport.TransferableMoney{amount: 100, currency: :USD}}
+      iex> Trogon.Commanded.ValueObject.new(TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
+      {:ok, %TestSupport.TransferableMoney{amount: 100, currency: :USD}}
 
   Validation failure example:
 
-      iex> {:error, changeset} = Trogon.Commanded.ValueObject.new(Trogon.Commanded.TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
+      iex> {:error, changeset} = Trogon.Commanded.ValueObject.new(TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
       iex> changeset.valid?
       false
 
   Missing required field:
 
-      iex> {:error, changeset} = Trogon.Commanded.ValueObject.new(Trogon.Commanded.TestSupport.MyValueOject, %{amount: 25})
+      iex> {:error, changeset} = Trogon.Commanded.ValueObject.new(TestSupport.MyValueOject, %{amount: 25})
       iex> changeset.valid?
       false
 
@@ -228,18 +228,18 @@ defmodule Trogon.Commanded.ValueObject do
 
   Creating a simple value object:
 
-      iex> Trogon.Commanded.ValueObject.new!(Trogon.Commanded.TestSupport.MessageOne, %{title: "Hello"})
-      %Trogon.Commanded.TestSupport.MessageOne{title: "Hello"}
+      iex> Trogon.Commanded.ValueObject.new!(TestSupport.MessageOne, %{title: "Hello"})
+      %TestSupport.MessageOne{title: "Hello"}
 
   Creating a value object with validation:
 
-      iex> Trogon.Commanded.ValueObject.new!(Trogon.Commanded.TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
-      %Trogon.Commanded.TestSupport.TransferableMoney{amount: 100, currency: :USD}
+      iex> Trogon.Commanded.ValueObject.new!(TestSupport.TransferableMoney, %{amount: 100, currency: :USD})
+      %TestSupport.TransferableMoney{amount: 100, currency: :USD}
 
   Validation failure raises an exception:
 
       iex> try do
-      ...>   Trogon.Commanded.ValueObject.new!(Trogon.Commanded.TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
+      ...>   Trogon.Commanded.ValueObject.new!(TestSupport.TransferableMoney, %{amount: -5, currency: :USD})
       ...> rescue
       ...>   Ecto.InvalidChangesetError -> :error_raised
       ...> end
@@ -248,7 +248,7 @@ defmodule Trogon.Commanded.ValueObject do
   Missing required field raises an exception:
 
       iex> try do
-      ...>   Trogon.Commanded.ValueObject.new!(Trogon.Commanded.TestSupport.MyValueOject, %{amount: 25})
+      ...>   Trogon.Commanded.ValueObject.new!(TestSupport.MyValueOject, %{amount: 25})
       ...> rescue
       ...>   Ecto.InvalidChangesetError -> :error_raised
       ...> end
