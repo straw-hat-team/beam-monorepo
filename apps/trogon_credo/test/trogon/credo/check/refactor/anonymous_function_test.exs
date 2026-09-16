@@ -210,4 +210,99 @@ defmodule Trogon.Credo.Check.Refactor.AnonymousFunctionTest do
     |> run_check(AnonymousFunction, max_clauses: 1, max_expressions: 1)
     |> refute_issues()
   end
+
+  test "does not report a capture that names a function" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(&to_string/1)
+        |> Enum.map(&String.pad_leading/3)
+        |> Enum.map(&:erlang.phash2/1)
+        |> Enum.map(&pad(&1, 2))
+        |> Enum.map(&String.trim(&1, "0"))
+        |> Enum.map(&:erlang.phash2(&1, 8))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> refute_issues()
+  end
+
+  test "reports a capture that reaches into its argument" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, & &1.id)
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issue(fn issue -> assert issue.line_no == 2 end)
+  end
+
+  test "reports a capture built out of operators" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(&(&1 * 2))
+        |> Enum.filter(&(&1 in [2, 4]))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issues(fn issues -> assert length(issues) == 2 end)
+  end
+
+  test "reports a capture that only builds a term" do
+    """
+    defmodule MyApp.Runner do
+      def call(items) do
+        items
+        |> Enum.map(&{&1, &1})
+        |> Enum.map(&[&1])
+        |> Enum.map(&%{id: &1})
+        |> Enum.map(& &1)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> assert_issues(fn issues -> assert length(issues) == 4 end)
+  end
+
+  test "does not count an argument position as an anonymous function" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, &pad(&1, &2))
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction)
+    |> refute_issues()
+  end
+
+  test "does not report a capture that names no function when a clause is allowed" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, & &1.id)
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction, max_clauses: 1, max_expressions: 1)
+    |> refute_issues()
+  end
+
+  test "counts the expressions of a capture body" do
+    """
+    defmodule MyApp.Runner do
+      def call(items), do: Enum.map(items, &(log(&1); &1))
+    end
+    """
+    |> to_source_file()
+    |> run_check(AnonymousFunction, max_clauses: 1, max_expressions: 1)
+    |> assert_issue()
+  end
 end
