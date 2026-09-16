@@ -12,7 +12,8 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
 
       A dependency is considered pinned when it is either a git dependency
       pointing at a full 40 character commit sha through `ref:`, or a hex
-      dependency whose requirement is an exact version, such as `"1.2.3"`.
+      dependency whose requirement is an exact version, such as `"1.2.3"` or
+      its operator spelling `"== 1.2.3"`.
 
       Dependencies pinned with `branch:`, `tag:`, an operator requirement such
       as `"~> 1.2.0"`, or no `ref:` at all are reported.
@@ -148,7 +149,7 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
   defp check_hex_requirement(requirement, dep \\ nil)
 
   defp check_hex_requirement(requirement, _dep) when is_binary(requirement) do
-    if Regex.match?(@exact_version, requirement) do
+    if exact_version?(requirement) do
       :ok
     else
       {:error, "use an exact version instead of `#{requirement}`"}
@@ -157,6 +158,13 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
 
   defp check_hex_requirement(_requirement, dep) do
     {:error, "declare a hex requirement for `#{dep}` and pin it to an exact version"}
+  end
+
+  # `== 1.2.3` is the operator spelling of the same pin as `1.2.3`.
+  defp exact_version?(requirement) do
+    normalized = requirement |> String.replace_prefix("==", "") |> String.trim()
+
+    Regex.match?(@exact_version, normalized)
   end
 
   defp issue_for(issue_meta, line_no, dep, message, reason) do

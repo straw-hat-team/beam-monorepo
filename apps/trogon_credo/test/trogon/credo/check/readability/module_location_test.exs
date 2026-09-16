@@ -131,4 +131,17 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
       assert issue.message =~ "must live under a `jobs/` directory"
     end)
   end
+
+  test "applies to a use written through an alias" do
+    """
+    defmodule MyApp.SendWelcomeEmail do
+      alias Oban.Worker
+
+      use Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_welcome_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs")
+    |> assert_issue()
+  end
 end

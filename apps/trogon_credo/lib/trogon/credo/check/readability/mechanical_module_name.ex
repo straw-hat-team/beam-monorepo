@@ -60,7 +60,8 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     for_use = params |> Params.get(:for_use, __MODULE__) |> Enum.map(&ModuleName.full/1)
     suffixes = Params.get(params, :suffixes, __MODULE__)
 
-    {modules, uses} = Credo.Code.prewalk(source_file, &traverse/2, {[], []})
+    aliases = ModuleName.collect_aliases(source_file)
+    {modules, uses} = Credo.Code.prewalk(source_file, &traverse(&1, &2, aliases), {[], []})
 
     modules
     |> Enum.reverse()
@@ -68,38 +69,38 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     |> issues_for(issue_meta, suffixes)
   end
 
-  defp traverse({:defmodule, _meta, [{:__aliases__, meta, parts} | rest]}, acc) do
-    {[], walk(rest, parts, put_module(acc, parts, parts, meta))}
+  defp traverse({:defmodule, _meta, [{:__aliases__, meta, parts} | rest]}, acc, aliases) do
+    {[], walk(rest, parts, put_module(acc, parts, parts, meta), aliases)}
   end
 
-  defp traverse(ast, acc), do: {ast, acc}
+  defp traverse(ast, acc, _aliases), do: {ast, acc}
 
-  # Manual recursion (mirroring `traverse/2` above) so that a nested
+  # Manual recursion (mirroring `traverse/3` above) so that a nested
   # `defmodule` extends the namespace of the enclosing one and a `use` site is
   # attributed to its enclosing module's fully qualified name.
-  defp walk({:defmodule, _meta, [{:__aliases__, meta, parts} | rest]}, namespace, acc) do
+  defp walk({:defmodule, _meta, [{:__aliases__, meta, parts} | rest]}, namespace, acc, aliases) do
     full_namespace = namespace ++ parts
 
-    walk(rest, full_namespace, put_module(acc, full_namespace, parts, meta))
+    walk(rest, full_namespace, put_module(acc, full_namespace, parts, meta), aliases)
   end
 
-  defp walk({:use, _meta, [{:__aliases__, _, used_parts} | _]}, namespace, {modules, uses}) do
-    {modules, [{namespace, ModuleName.full(used_parts)} | uses]}
+  defp walk({:use, _meta, [{:__aliases__, _, used_parts} | _]}, namespace, {modules, uses}, aliases) do
+    {modules, [{namespace, ModuleName.resolve(used_parts, aliases)} | uses]}
   end
 
-  defp walk({_, _, args}, namespace, acc) when is_list(args) do
-    walk(args, namespace, acc)
+  defp walk({_, _, args}, namespace, acc, aliases) when is_list(args) do
+    walk(args, namespace, acc, aliases)
   end
 
-  defp walk({left, right}, namespace, acc) do
-    walk(right, namespace, walk(left, namespace, acc))
+  defp walk({left, right}, namespace, acc, aliases) do
+    walk(right, namespace, walk(left, namespace, acc, aliases), aliases)
   end
 
-  defp walk(list, namespace, acc) when is_list(list) do
-    Enum.reduce(list, acc, &walk(&1, namespace, &2))
+  defp walk(list, namespace, acc, aliases) when is_list(list) do
+    Enum.reduce(list, acc, &walk(&1, namespace, &2, aliases))
   end
 
-  defp walk(_ast, _namespace, acc), do: acc
+  defp walk(_ast, _namespace, acc, _aliases), do: acc
 
   defp put_module({modules, uses}, namespace, parts, meta) do
     {[%{namespace: namespace, parts: parts, meta: meta} | modules], uses}

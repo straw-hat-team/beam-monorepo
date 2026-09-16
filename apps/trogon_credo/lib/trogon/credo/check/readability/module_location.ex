@@ -50,117 +50,72 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    issue_meta = IssueMeta.for(source_file, params)
     for_use = Params.get(params, :for_use, __MODULE__)
-    path_segment = Params.get(params, :path_segment, __MODULE__)
-    namespace_segment = normalize_segment(Params.get(params, :namespace_segment, __MODULE__))
 
     if for_use == [] do
       []
     else
-      Credo.Code.prewalk(
-        source_file,
-        &traverse(&1, &2, issue_meta, for_use, path_segment, namespace_segment),
-        []
-      )
+      context = %{
+        issue_meta: IssueMeta.for(source_file, params),
+        for_use: Enum.map(for_use, &ModuleName.full/1),
+        path_segment: Params.get(params, :path_segment, __MODULE__),
+        namespace_segment: normalize_segment(Params.get(params, :namespace_segment, __MODULE__)),
+        aliases: ModuleName.collect_aliases(source_file)
+      }
+
+      Credo.Code.prewalk(source_file, &traverse(&1, &2, context), [])
     end
   end
 
   defp normalize_segment(nil), do: nil
   defp normalize_segment(segment), do: to_string(segment)
 
-  defp traverse(
-         {:defmodule, _meta, [{:__aliases__, _, parts} | rest]},
-         issues,
-         issue_meta,
-         for_use,
-         path_segment,
-         namespace_segment
-       ) do
-    {[], walk(rest, parts, issues, issue_meta, for_use, path_segment, namespace_segment)}
+  defp traverse({:defmodule, _meta, [{:__aliases__, _, parts} | rest]}, issues, context) do
+    {[], walk(rest, parts, issues, context)}
   end
 
-  defp traverse(ast, issues, _issue_meta, _for_use, _path_segment, _namespace_segment) do
-    {ast, issues}
-  end
+  defp traverse(ast, issues, _context), do: {ast, issues}
 
-  # Manual recursion (mirroring `traverse/6` above) so that a nested
+  # Manual recursion (mirroring `traverse/3` above) so that a nested
   # `defmodule` extends the namespace of the enclosing one and a `use` site is
   # attributed to its enclosing module's fully qualified name.
-  defp walk(
-         {:defmodule, _meta, [{:__aliases__, _, parts} | rest]},
-         namespace,
-         issues,
-         issue_meta,
-         for_use,
-         path_segment,
-         namespace_segment
-       ) do
-    full_namespace = namespace ++ parts
-
-    walk(rest, full_namespace, issues, issue_meta, for_use, path_segment, namespace_segment)
+  defp walk({:defmodule, _meta, [{:__aliases__, _, parts} | rest]}, namespace, issues, context) do
+    walk(rest, namespace ++ parts, issues, context)
   end
 
-  defp walk(
-         {:use, _meta, [{:__aliases__, meta, used_parts} | _]},
-         namespace,
-         issues,
-         issue_meta,
-         for_use,
-         path_segment,
-         namespace_segment
-       ) do
-    if used_module?(for_use, used_parts) do
-      check_location(
-        namespace,
-        used_parts,
-        meta,
-        issue_meta,
-        path_segment,
-        namespace_segment,
-        issues
-      )
+  defp walk({:use, _meta, [{:__aliases__, meta, used_parts} | _]}, namespace, issues, context) do
+    if used_module?(context, used_parts) do
+      check_location(namespace, used_parts, meta, issues, context)
     else
       issues
     end
   end
 
-  defp walk({_, _, args}, namespace, issues, issue_meta, for_use, path_segment, namespace_segment)
-       when is_list(args) do
-    walk(args, namespace, issues, issue_meta, for_use, path_segment, namespace_segment)
+  defp walk({_, _, args}, namespace, issues, context) when is_list(args) do
+    walk(args, namespace, issues, context)
   end
 
-  defp walk({left, right}, namespace, issues, issue_meta, for_use, path_segment, namespace_segment) do
-    issues = walk(left, namespace, issues, issue_meta, for_use, path_segment, namespace_segment)
-    walk(right, namespace, issues, issue_meta, for_use, path_segment, namespace_segment)
+  defp walk({left, right}, namespace, issues, context) do
+    walk(right, namespace, walk(left, namespace, issues, context), context)
   end
 
-  defp walk(list, namespace, issues, issue_meta, for_use, path_segment, namespace_segment)
-       when is_list(list) do
-    Enum.reduce(list, issues, fn item, acc ->
-      walk(item, namespace, acc, issue_meta, for_use, path_segment, namespace_segment)
-    end)
+  defp walk(list, namespace, issues, context) when is_list(list) do
+    Enum.reduce(list, issues, fn item, acc -> walk(item, namespace, acc, context) end)
   end
 
-  defp walk(_ast, _namespace, issues, _issue_meta, _for_use, _path_segment, _namespace_segment) do
-    issues
+  defp walk(_ast, _namespace, issues, _context), do: issues
+
+  defp used_module?(context, used_parts) do
+    ModuleName.resolve(used_parts, context.aliases) in context.for_use
   end
 
-  defp used_module?(for_use, used_parts) do
-    used_full = ModuleName.full(used_parts)
+  defp check_location(namespace, used_parts, meta, issues, context) do
+    %{
+      issue_meta: issue_meta,
+      path_segment: path_segment,
+      namespace_segment: namespace_segment
+    } = context
 
-    Enum.any?(for_use, fn candidate -> ModuleName.full(candidate) == used_full end)
-  end
-
-  defp check_location(
-         namespace,
-         used_parts,
-         meta,
-         issue_meta,
-         path_segment,
-         namespace_segment,
-         issues
-       ) do
     used_module = Name.full(used_parts)
 
     cond do

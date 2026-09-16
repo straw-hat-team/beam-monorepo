@@ -169,4 +169,17 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleNameTest do
       assert issue.trigger == "MyApp.SendWelcomeEmailWorker"
     end)
   end
+
+  test "applies to a use written through an alias" do
+    """
+    defmodule MyApp.SendWelcomeEmailWorker do
+      alias Oban.Worker
+
+      use Worker
+    end
+    """
+    |> to_source_file()
+    |> run_check(MechanicalModuleName, for_use: [Oban.Worker], suffixes: ["Worker"])
+    |> assert_issue()
+  end
 end
