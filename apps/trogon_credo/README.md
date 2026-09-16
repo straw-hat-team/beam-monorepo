@@ -10,16 +10,6 @@
 
 ## How-to
 
-### Install
-
-Add `trogon_credo` to your list of dependencies in `mix.exs`, scoped to the
-environments you run Credo in. See the latest version on
-[Hex](https://hex.pm/packages/trogon_credo).
-
-```elixir
-{:trogon_credo, "~> <version>", only: [:dev, :test], runtime: false}
-```
-
 ### Enable a check
 
 Add the check module to the `checks: %{enabled: [...]}` list in your project's `.credo.exs`:
