@@ -211,14 +211,15 @@ defmodule Trogon.Commanded.Enum do
   end
 
   defp resolve_proto_options(opts, caller) do
-    case {Keyword.has_key?(opts, :values), Keyword.pop(opts, :proto)} do
-      {_has_values, {nil, opts}} ->
-        opts
-
-      {true, {_proto, _opts}} ->
+    case {Keyword.has_key?(opts, :values), Keyword.has_key?(opts, :proto)} do
+      {true, true} ->
         raise ArgumentError, "expected either :values or :proto, got both"
 
-      {false, {proto, opts}} ->
+      {_has_values, false} ->
+        opts
+
+      {false, true} ->
+        {proto, opts} = Keyword.pop(opts, :proto)
         Keyword.put(opts, :values, proto_values(proto, caller))
     end
   end
@@ -239,6 +240,10 @@ defmodule Trogon.Commanded.Enum do
 
   defp proto_source(module, caller) do
     {proto_module!(Macro.expand(module, caller)), []}
+  end
+
+  defp proto_module!(nil) do
+    raise ArgumentError, "expected :proto to be a protobuf enum module, got: nil"
   end
 
   defp proto_module!(module) when is_atom(module) do

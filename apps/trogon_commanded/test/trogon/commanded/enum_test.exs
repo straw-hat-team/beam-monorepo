@@ -269,5 +269,23 @@ defmodule Trogon.Commanded.EnumTest do
         end
       end
     end
+
+    test "raises when :values is given alongside a nil :proto" do
+      assert_raise ArgumentError, ~r/expected either :values or :proto, got both/, fn ->
+        defmodule ValuesAndNilProtoEnum do
+          use Trogon.Commanded.Enum,
+            values: [:business],
+            proto: nil
+        end
+      end
+    end
+
+    test "raises when :proto is nil" do
+      assert_raise ArgumentError, ~r/expected :proto to be a protobuf enum module, got: nil/, fn ->
+        defmodule NilProtoEnum do
+          use Trogon.Commanded.Enum, proto: nil
+        end
+      end
+    end
   end
 end
