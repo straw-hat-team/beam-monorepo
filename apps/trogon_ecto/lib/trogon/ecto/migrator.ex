@@ -111,12 +111,12 @@ defmodule Trogon.Ecto.Migrator do
       |> Enum.max(&>=/2, fn -> 0 end)
 
     statuses
-    |> Enum.filter(fn
-      {:down, version, _name} -> version < highest_applied
-      {:up, _version, _name} -> false
-    end)
+    |> Enum.filter(&out_of_order?(&1, highest_applied))
     |> raise_out_of_order!(highest_applied)
   end
+
+  defp out_of_order?({:down, version, _name}, highest_applied), do: version < highest_applied
+  defp out_of_order?({:up, _version, _name}, _highest_applied), do: false
 
   defp raise_out_of_order!([], _highest_applied), do: :ok
 
