@@ -43,6 +43,19 @@ defmodule Trogon.Commanded.Enum do
       end
 
   The enum values are derived at compile time, sorted by their proto field number.
+
+  A proto enum carries a zero value that rarely belongs in a value object, so
+  the module accepts `:except` to drop values from the derived list:
+
+      defmodule ObjectTypeEnum do
+        use Trogon.Commanded.Enum,
+          proto: {Acme.Type.V1.ObjectType, except: [:OBJECT_TYPE_UNSPECIFIED]}
+      end
+
+  `:except` rejects names the proto enum does not define, so a renamed or
+  removed proto value fails the build instead of silently widening the enum.
+
+  `:values` and `:proto` are mutually exclusive.
   """
   defmacro __using__(opts) do
     values =
@@ -198,16 +211,83 @@ defmodule Trogon.Commanded.Enum do
   end
 
   defp resolve_proto_options(opts, caller) do
-    case Keyword.pop(opts, :proto) do
-      {nil, opts} ->
+    case {Keyword.has_key?(opts, :values), Keyword.has_key?(opts, :proto)} do
+      {true, true} ->
+        raise ArgumentError, "expected either :values or :proto, got both"
+
+      {_has_values, false} ->
         opts
 
-      {proto_module, opts} ->
-        mod = Macro.expand(proto_module, caller)
-
-        Code.ensure_compiled!(mod)
-        values = mod.mapping() |> Map.keys() |> Enum.sort_by(&mod.value/1)
-        Keyword.put_new(opts, :values, values)
+      {false, true} ->
+        {proto, opts} = Keyword.pop(opts, :proto)
+        Keyword.put(opts, :values, proto_values(proto, caller))
     end
   end
+
+  defp proto_values(proto, caller) do
+    {module, proto_opts} = proto_source(proto, caller)
+    values = module.mapping() |> Map.keys() |> Enum.sort_by(&module.value/1)
+    except = proto_except!(module, proto_opts, values)
+
+    values
+    |> Enum.reject(&(&1 in except))
+    |> ensure_any_value!(module)
+  end
+
+  defp proto_source({module, proto_opts}, caller) when is_list(proto_opts) do
+    {proto_module!(Macro.expand(module, caller)), proto_opts}
+  end
+
+  defp proto_source(module, caller) do
+    {proto_module!(Macro.expand(module, caller)), []}
+  end
+
+  defp proto_module!(nil) do
+    raise ArgumentError, "expected :proto to be a protobuf enum module, got: nil"
+  end
+
+  defp proto_module!(module) when is_atom(module) do
+    Code.ensure_compiled!(module)
+
+    if Code.ensure_loaded?(module) and function_exported?(module, :mapping, 0) and
+         function_exported?(module, :value, 1) do
+      module
+    else
+      raise ArgumentError, "expected :proto to be a protobuf enum module, got: #{inspect(module)}"
+    end
+  end
+
+  defp proto_module!(module) do
+    raise ArgumentError, "expected :proto to be a module, got: #{Macro.to_string(module)}"
+  end
+
+  defp proto_except!(module, proto_opts, values) do
+    case Keyword.split(proto_opts, [:except]) do
+      {_except, [{key, _value} | _rest]} ->
+        raise ArgumentError, "unknown option #{inspect(key)} given to :proto, expected :except"
+
+      {except, []} ->
+        proto_names!(module, Keyword.get(except, :except, []), values)
+    end
+  end
+
+  defp proto_names!(module, names, values) when is_list(names) do
+    case names -- values do
+      [] ->
+        names
+
+      unknown ->
+        raise ArgumentError, "#{inspect(module)} does not define the enum values: #{inspect(unknown)}"
+    end
+  end
+
+  defp proto_names!(_module, names, _values) do
+    raise ArgumentError, "expected a list of enum values, got: #{inspect(names)}"
+  end
+
+  defp ensure_any_value!([], module) do
+    raise ArgumentError, "filtering #{inspect(module)} left an empty enum"
+  end
+
+  defp ensure_any_value!(values, _module), do: values
 end

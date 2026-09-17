@@ -3,6 +3,7 @@ defmodule Trogon.Commanded.EnumTest do
 
   alias Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountType
   alias Trogon.Commanded.TestSupport.CommandRouterExample.ObjectTypeEnum
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.ObjectTypeExceptUnspecifiedEnum
 
   describe "new/1" do
     test "returns a value object" do
@@ -194,6 +195,97 @@ defmodule Trogon.Commanded.EnumTest do
     test "Jason.Encoder" do
       assert Jason.encode!(%ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}) ==
                ~s("OBJECT_TYPE_TICKET")
+    end
+  end
+
+  describe "filtered proto-driven enum" do
+    test "values/0 drops the values given to :except" do
+      assert ObjectTypeExceptUnspecifiedEnum.values() == [
+               :OBJECT_TYPE_TICKET,
+               :OBJECT_TYPE_WORKSPACE
+             ]
+    end
+
+    test "new/1 rejects a value dropped by :except" do
+      assert {:error, changeset} = ObjectTypeExceptUnspecifiedEnum.new(:OBJECT_TYPE_UNSPECIFIED)
+      assert %{value: ["is invalid"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
+    end
+
+    test "cast/1 rejects the string form of a value dropped by :except" do
+      assert ObjectTypeExceptUnspecifiedEnum.cast("OBJECT_TYPE_UNSPECIFIED") == :error
+    end
+
+    test "load/1 rejects the string form of a value dropped by :except" do
+      assert ObjectTypeExceptUnspecifiedEnum.load("OBJECT_TYPE_UNSPECIFIED") == :error
+    end
+
+    test "raises when :except names a value the proto enum does not define" do
+      assert_raise ArgumentError, ~r/does not define the enum values: \[:OBJECT_TYPE_MISSING\]/, fn ->
+        defmodule UnknownExceptEnum do
+          use Trogon.Commanded.Enum,
+            proto: {Acme.Type.V1.ObjectType, except: [:OBJECT_TYPE_MISSING]}
+        end
+      end
+    end
+
+    test "raises when :except leaves no values" do
+      assert_raise ArgumentError, ~r/left an empty enum/, fn ->
+        defmodule EmptyProtoEnum do
+          use Trogon.Commanded.Enum,
+            proto:
+              {Acme.Type.V1.ObjectType,
+               except: [
+                 :OBJECT_TYPE_UNSPECIFIED,
+                 :OBJECT_TYPE_TICKET,
+                 :OBJECT_TYPE_WORKSPACE
+               ]}
+        end
+      end
+    end
+
+    test "raises on an unknown :proto option" do
+      assert_raise ArgumentError, ~r/unknown option :drop/, fn ->
+        defmodule UnknownProtoOptionEnum do
+          use Trogon.Commanded.Enum,
+            proto: {Acme.Type.V1.ObjectType, drop: [:OBJECT_TYPE_UNSPECIFIED]}
+        end
+      end
+    end
+
+    test "raises when :proto is not a protobuf enum module" do
+      assert_raise ArgumentError, ~r/expected :proto to be a protobuf enum module/, fn ->
+        defmodule NotAProtoEnum do
+          use Trogon.Commanded.Enum, proto: Trogon.Commanded.TestSupport
+        end
+      end
+    end
+
+    test "raises when both :values and :proto are given" do
+      assert_raise ArgumentError, ~r/expected either :values or :proto, got both/, fn ->
+        defmodule ValuesAndProtoEnum do
+          use Trogon.Commanded.Enum,
+            values: [:business],
+            proto: Acme.Type.V1.ObjectType
+        end
+      end
+    end
+
+    test "raises when :values is given alongside a nil :proto" do
+      assert_raise ArgumentError, ~r/expected either :values or :proto, got both/, fn ->
+        defmodule ValuesAndNilProtoEnum do
+          use Trogon.Commanded.Enum,
+            values: [:business],
+            proto: nil
+        end
+      end
+    end
+
+    test "raises when :proto is nil" do
+      assert_raise ArgumentError, ~r/expected :proto to be a protobuf enum module, got: nil/, fn ->
+        defmodule NilProtoEnum do
+          use Trogon.Commanded.Enum, proto: nil
+        end
+      end
     end
   end
 end
