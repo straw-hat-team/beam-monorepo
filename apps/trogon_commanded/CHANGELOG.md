@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.1.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.0.2...trogon_commanded@v1.1.0) (2026-09-17)
+
+
+### Features
+
+* **trogon_commanded:** Let a proto-driven enum leave out the values it must not accept ([#464](https://github.com/straw-hat-team/beam-monorepo/issues/464)) ([1bb7d4a](https://github.com/straw-hat-team/beam-monorepo/commit/1bb7d4a454d1176bc121aaf8f0f2d6db9f2d01d9))
+
 ## [1.0.2](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.0.1...trogon_commanded@v1.0.2) (2026-08-04)
 
 
