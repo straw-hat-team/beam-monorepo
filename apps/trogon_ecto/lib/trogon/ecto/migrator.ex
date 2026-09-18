@@ -30,6 +30,14 @@ defmodule Trogon.Ecto.Migrator do
   means giving the offending migration a version above everything applied and deploying
   again.
 
+  The applied versions are read under the migration lock `Ecto.Migrator.migrations/3`
+  takes, and that lock is released before the migrations run, so two releases deploying
+  at once can each pass the check and still interleave. Holding a single lock across both
+  is not reachable from outside `ecto_sql`, since `lock_for_migrations/4` is private and
+  `Ecto.Migrator.run/4` reacquires the same self conflicting lock on another connection.
+  `run/4` already selects its pending migrations under one lock and applies each of them
+  under another, so this narrows the window it has rather than closing one.
+
   Requires `ecto_sql`, which `trogon_ecto` lists as an optional dependency.
   """
 
