@@ -222,4 +222,225 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
     |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: :Workers)
     |> refute_issues()
   end
+
+  test "does not append anything to the message by default" do
+    """
+    defmodule MyApp.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: "jobs")
+    |> assert_issue(fn issue ->
+      assert issue.message == "Modules that use `Oban.Worker` must live under a `jobs/` directory."
+    end)
+  end
+
+  test "appends the hint to a path issue" do
+    """
+    defmodule MyApp.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_email.ex")
+    |> run_check(ModuleLocation,
+      for_use: [Oban.Worker],
+      path_segment: "jobs",
+      hint: "Move it under lib/my_app/jobs/."
+    )
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Modules that use `Oban.Worker` must live under a `jobs/` directory. Move it under lib/my_app/jobs/."
+    end)
+  end
+
+  test "appends the hint to a namespace issue" do
+    """
+    defmodule MyApp.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation,
+      for_use: [Oban.Worker],
+      namespace_segment: :Jobs,
+      hint: "Rename it to MyApp.Jobs.SendEmail."
+    )
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Modules that use `Oban.Worker` must be in a namespace containing `Jobs`. Rename it to MyApp.Jobs.SendEmail."
+    end)
+  end
+
+  test "accepts a list of path_segment alternatives, matching one of them" do
+    """
+    defmodule MyApp.Workers.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/workers/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: ["jobs", "workers"])
+    |> refute_issues()
+  end
+
+  test "reports a module matching none of the path_segment alternatives" do
+    """
+    defmodule MyApp.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: ["jobs", "workers"])
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Modules that use `Oban.Worker` must live under one of these directories: `jobs/`, `workers/`."
+    end)
+  end
+
+  test "accepts a namespace_segment pinned to a positive position" do
+    """
+    defmodule MyApp.Jobs.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Jobs, 2})
+    |> refute_issues()
+  end
+
+  test "reports a module whose segment at a positive position does not match" do
+    """
+    defmodule MyApp.Workers.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Jobs, 2})
+    |> assert_issue(fn issue ->
+      assert issue.message == "Modules that use `Oban.Worker` must be in a namespace with `Jobs` as segment 2."
+    end)
+  end
+
+  test "accepts a namespace_segment pinned to a negative position" do
+    """
+    defmodule MyApp.SendEmail.Jobs do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Jobs, -1})
+    |> refute_issues()
+  end
+
+  test "counts a negative position over the module's own name as well" do
+    """
+    defmodule MyApp.Jobs.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Jobs, -2})
+    |> refute_issues()
+  end
+
+  test "reports a module whose segment at a negative position does not match" do
+    """
+    defmodule MyApp.Jobs.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Jobs, -1})
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Modules that use `Oban.Worker` must be in a namespace with `Jobs` as segment 1 counting from the end."
+    end)
+  end
+
+  test "does not match a position that falls outside the namespace" do
+    """
+    defmodule MyApp.Jobs.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Jobs, 5})
+    |> assert_issue(fn issue ->
+      assert issue.message == "Modules that use `Oban.Worker` must be in a namespace with `Jobs` as segment 5."
+    end)
+  end
+
+  test "accepts a mixed list of namespace_segment rules, matching the second one" do
+    """
+    defmodule MyApp.Workers.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: [:Jobs, {:Workers, 2}])
+    |> refute_issues()
+  end
+
+  test "reports a module matching none of a mixed list of namespace_segment rules" do
+    """
+    defmodule MyApp.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: [:Jobs, {:Processor, 3}])
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Modules that use `Oban.Worker` must be in a namespace containing `Jobs`, or a namespace with `Processor` as segment 3."
+    end)
+  end
+
+  test "does not check a positional namespace_segment rule against a compile-time namespace" do
+    """
+    defmodule MyApp.Jobs do
+      defmodule __MODULE__.SendEmail do
+        use Oban.Worker
+      end
+    end
+    """
+    |> to_source_file("lib/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Workers, 1})
+    |> refute_issues()
+  end
+
+  test "treats an empty path_segment list the same as nil" do
+    """
+    defmodule MyApp.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], path_segment: [])
+    |> refute_issues()
+  end
+
+  test "treats an empty namespace_segment list the same as nil" do
+    """
+    defmodule MyApp.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: [])
+    |> refute_issues()
+  end
+
+  test "raises when a namespace_segment tuple's position is not a non-zero integer" do
+    source_file =
+      """
+      defmodule MyApp.SendEmail do
+        use Oban.Worker
+      end
+      """
+      |> to_source_file("lib/my_app/send_email.ex")
+
+    assert_raise ArgumentError, ~r/invalid namespace_segment {:Jobs, 0}/, fn ->
+      ModuleLocation.run(source_file, for_use: [Oban.Worker], namespace_segment: {:Jobs, 0})
+    end
+  end
 end

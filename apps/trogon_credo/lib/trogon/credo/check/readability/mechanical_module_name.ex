@@ -4,7 +4,8 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     category: :readability,
     param_defaults: [
       for_use: [],
-      suffixes: ["Worker", "Job", "Manager", "Helper", "Util", "Utils"]
+      suffixes: ["Worker", "Job", "Manager", "Helper", "Util", "Utils"],
+      hint: nil
     ],
     explanations: [
       check: """
@@ -35,6 +36,9 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
       Code inside a `quote` block is not analyzed, since a module defined
       there, or a `use` written there, belongs to wherever the macro expands
       rather than to the module that defines the macro.
+
+      This check states what is wrong with the name. A `hint` lets a project
+      add, in its own words, what to do instead.
       """,
       params: [
         for_use: """
@@ -49,6 +53,11 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
         the module name. Each configured suffix also rejects the
         corresponding file name suffix, for example `"Worker"` rejects file
         names ending in `_worker.ex`.
+        """,
+        hint: """
+        A sentence appended to the message of every issue this check reports, so a
+        project can say in its own words what to do instead. Skipped when set to
+        `nil`, the default.
         """
       ]
     ]
@@ -63,6 +72,7 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     issue_meta = IssueMeta.for(source_file, params)
     for_use = params |> Params.get(:for_use, __MODULE__) |> Enum.map(&ModuleName.full/1)
     suffixes = Params.get(params, :suffixes, __MODULE__)
+    hint = Params.get(params, :hint, __MODULE__)
 
     aliases = ModuleName.collect_aliases(source_file)
     {modules, uses} = Credo.Code.prewalk(source_file, &traverse(&1, &2, aliases), {[], []})
@@ -70,7 +80,7 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     modules
     |> Enum.reverse()
     |> Enum.filter(&applies_to?(&1, uses, for_use))
-    |> issues_for(issue_meta, suffixes)
+    |> issues_for(issue_meta, suffixes, hint)
   end
 
   defp traverse({:defmodule, _meta, [{:__aliases__, meta, parts} | rest]}, acc, aliases) do
@@ -130,52 +140,61 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     end)
   end
 
-  defp issues_for(modules, issue_meta, suffixes) do
+  defp issues_for(modules, issue_meta, suffixes, hint) do
     {issues, well_named_meta} =
       Enum.reduce(modules, {[], nil}, fn module, {issues, well_named_meta} ->
         last_segment = module.parts |> List.last() |> to_string()
 
         case Enum.find(suffixes, &String.ends_with?(last_segment, &1)) do
           nil -> {issues, well_named_meta || module.meta}
-          suffix -> {[module_name_issue(issue_meta, module, suffix) | issues], well_named_meta}
+          suffix -> {[module_name_issue(issue_meta, module, suffix, hint) | issues], well_named_meta}
         end
       end)
 
-    issues ++ file_name_issues(issue_meta, suffixes, well_named_meta)
+    issues ++ file_name_issues(issue_meta, suffixes, well_named_meta, hint)
   end
 
-  defp file_name_issues(_issue_meta, _suffixes, nil), do: []
+  defp file_name_issues(_issue_meta, _suffixes, nil, _hint), do: []
 
-  defp file_name_issues(issue_meta, suffixes, meta) do
+  defp file_name_issues(issue_meta, suffixes, meta, hint) do
     filename = IssueMeta.source_file(issue_meta).filename
 
     suffixes
     |> Enum.find(&String.ends_with?(filename, "_" <> Macro.underscore(&1) <> ".ex"))
     |> case do
       nil -> []
-      suffix -> [file_name_issue(issue_meta, meta, suffix)]
+      suffix -> [file_name_issue(issue_meta, meta, suffix, hint)]
     end
   end
 
-  defp module_name_issue(issue_meta, module, suffix) do
+  defp module_name_issue(issue_meta, module, suffix, hint) do
     format_issue(
       issue_meta,
       message:
-        "Module name ends with the mechanical suffix `#{suffix}`. Name the module after the domain action it performs, not after the mechanism that runs it.",
+        with_hint(
+          "Module name ends with the mechanical suffix `#{suffix}`. Name the module after the domain action it performs, not after the mechanism that runs it.",
+          hint
+        ),
       trigger: Name.full(module.parts),
       line_no: module.meta[:line],
       column: module.meta[:column]
     )
   end
 
-  defp file_name_issue(issue_meta, meta, suffix) do
+  defp file_name_issue(issue_meta, meta, suffix, hint) do
     format_issue(
       issue_meta,
       message:
-        "File name ends with the mechanical suffix `#{suffix}`. Name the file after the domain action it performs, not after the mechanism that runs it.",
+        with_hint(
+          "File name ends with the mechanical suffix `#{suffix}`. Name the file after the domain action it performs, not after the mechanism that runs it.",
+          hint
+        ),
       trigger: Issue.no_trigger(),
       line_no: meta[:line],
       column: meta[:column]
     )
   end
+
+  defp with_hint(message, nil), do: message
+  defp with_hint(message, hint), do: "#{message} #{hint}"
 end

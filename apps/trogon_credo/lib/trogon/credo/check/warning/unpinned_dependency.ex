@@ -15,6 +15,10 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
       dependency whose requirement is an exact version, such as `"1.2.3"` or
       its operator spelling `"== 1.2.3"`.
 
+      An exact version must name major, minor, and patch. A requirement such
+      as `"1.2"` is therefore reported: Hex resolves it to `1.2.0`, but a pin
+      should name in full the version it means.
+
       Dependencies pinned with `branch:`, `tag:`, an operator requirement such
       as `"~> 1.2.0"`, or no `ref:` at all are reported.
 

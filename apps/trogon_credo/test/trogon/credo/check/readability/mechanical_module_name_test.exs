@@ -228,6 +228,42 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleNameTest do
     |> refute_issues()
   end
 
+  test "appends the hint to a module name issue" do
+    """
+    defmodule MyApp.SendWelcomeEmailWorker do
+    end
+    """
+    |> to_source_file()
+    |> run_check(MechanicalModuleName, hint: "Name it after the action it performs.")
+    |> assert_issue(fn issue ->
+      assert issue.message =~ "not after the mechanism that runs it. Name it after the action it performs."
+    end)
+  end
+
+  test "appends the hint to a file name issue" do
+    """
+    defmodule MyApp.SendWelcomeEmail do
+    end
+    """
+    |> to_source_file("lib/my_app/send_welcome_email_worker.ex")
+    |> run_check(MechanicalModuleName, hint: "Name it after the action it performs.")
+    |> assert_issue(fn issue ->
+      assert issue.message =~ "not after the mechanism that runs it. Name it after the action it performs."
+    end)
+  end
+
+  test "does not append anything when hint is left at its default" do
+    """
+    defmodule MyApp.SendWelcomeEmailWorker do
+    end
+    """
+    |> to_source_file()
+    |> run_check(MechanicalModuleName)
+    |> assert_issue(fn issue ->
+      assert String.ends_with?(issue.message, "not after the mechanism that runs it.")
+    end)
+  end
+
   test "does not attribute a use inside a module named by an atom to the enclosing module" do
     """
     defmodule MyApp.SendWelcomeEmailWorker do
