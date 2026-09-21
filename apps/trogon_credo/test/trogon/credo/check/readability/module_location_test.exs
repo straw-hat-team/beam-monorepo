@@ -332,6 +332,17 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocationTest do
     |> refute_issues()
   end
 
+  test "counts a negative position over the module's own name as well" do
+    """
+    defmodule MyApp.Jobs.SendEmail do
+      use Oban.Worker
+    end
+    """
+    |> to_source_file("lib/my_app/jobs/send_email.ex")
+    |> run_check(ModuleLocation, for_use: [Oban.Worker], namespace_segment: {:Jobs, -2})
+    |> refute_issues()
+  end
+
   test "reports a module whose segment at a negative position does not match" do
     """
     defmodule MyApp.Jobs.SendEmail do

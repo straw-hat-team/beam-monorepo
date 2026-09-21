@@ -42,6 +42,12 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       A position that falls outside the namespace never matches, so
       `{:Jobs, 4}` never matches a three segment namespace.
 
+      A position counts over every segment of the module name, including the
+      last one, which names the module itself rather than a namespace it sits
+      in. `MyApp.Jobs.SendEmail` has three segments, so `{:Jobs, 2}` and
+      `{:Jobs, -2}` both match it while `{:Jobs, -1}` does not, since the last
+      segment is `SendEmail`.
+
       Moving or renaming a module that is referenced by persisted data, a
       background job row naming its worker module, for instance, may need a
       data migration or an alias, so the rename is not always free.
@@ -78,8 +84,10 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
         also be given as `{segment, position}`, where `position` is a
         non-zero integer, counting from the root of the namespace when
         positive and from the end when negative, so `{:Jobs, 2}` requires
-        the second segment of the namespace to be `Jobs` and `{:Jobs, -1}`
-        requires the last segment to be `Jobs`. A list of any of these forms
+        the second segment to be `Jobs` and `{:Jobs, -1}` requires the last
+        segment to be `Jobs`. The count covers every segment of the module
+        name, the last one included, which names the module itself rather
+        than a namespace it sits in. A list of any of these forms
         means satisfying any one of them is enough. Skipped when set to `nil`,
         the default, or to an empty list.
         """,
