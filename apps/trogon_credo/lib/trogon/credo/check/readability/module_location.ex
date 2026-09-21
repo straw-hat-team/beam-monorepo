@@ -5,7 +5,8 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     param_defaults: [
       for_use: [],
       path_segment: nil,
-      namespace_segment: nil
+      namespace_segment: nil,
+      hint: nil
     ],
     explanations: [
       check: """
@@ -20,6 +21,26 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       With the configuration above, a module that uses `Oban.Worker` is
       expected to live under a `jobs/` directory and inside a namespace
       containing the `Jobs` segment.
+
+      `path_segment` and `namespace_segment` each accept a single value or a
+      list of values, a list meaning a module satisfies the check as long as
+      it matches any one of them. `namespace_segment` also accepts a
+      `{segment, position}` tuple that pins the segment to a specific place
+      in the namespace, counting from the root when `position` is positive
+      and from the end when negative.
+
+          {Trogon.Credo.Check.Readability.ModuleLocation,
+           [for_use: [Oban.Worker],
+            path_segment: ["jobs", "workers"],
+            namespace_segment: [:Jobs, {:Processor, 3}]]}
+
+      With the configuration above, a module that uses `Oban.Worker` is
+      expected to live under a `jobs/` or `workers/` directory, and inside a
+      namespace that either contains the `Jobs` segment or carries
+      `Processor` as its third segment.
+
+      A position that falls outside the namespace never matches, so
+      `{:Jobs, 4}` never matches a three segment namespace.
 
       Moving or renaming a module that is referenced by persisted data, a
       background job row naming its worker module, for instance, may need a
@@ -46,13 +67,26 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
         explicit `Elixir.` prefix names the same module.
         """,
         path_segment: """
-        A single directory name that a matching module's file is expected to
-        live under. Skipped when set to `nil`, the default.
+        A single directory name, or a list of directory names, that a
+        matching module's file is expected to live under. A list means the
+        module's file may live under any one of the directories. Skipped
+        when set to `nil`, the default, or to an empty list.
         """,
         namespace_segment: """
         A single module name segment, given as an atom or a string, that is
-        expected to appear anywhere in a matching module's namespace. Skipped
-        when set to `nil`, the default.
+        expected to appear anywhere in a matching module's namespace. It can
+        also be given as `{segment, position}`, where `position` is a
+        non-zero integer, counting from the root of the namespace when
+        positive and from the end when negative, so `{:Jobs, 2}` requires
+        the second segment of the namespace to be `Jobs` and `{:Jobs, -1}`
+        requires the last segment to be `Jobs`. A list of any of these forms
+        means satisfying any one of them is enough. Skipped when set to `nil`,
+        the default, or to an empty list.
+        """,
+        hint: """
+        A sentence appended to the message of every issue this check reports, so a
+        project can say in its own words what to do instead. Skipped when set to
+        `nil`, the default.
         """
       ]
     ]
@@ -71,8 +105,9 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
       context = %{
         issue_meta: IssueMeta.for(source_file, params),
         for_use: Enum.map(for_use, &ModuleName.full/1),
-        path_segment: Params.get(params, :path_segment, __MODULE__),
-        namespace_segment: normalize_segment(Params.get(params, :namespace_segment, __MODULE__)),
+        path_segment: normalize_path_segments(Params.get(params, :path_segment, __MODULE__)),
+        namespace_segment: normalize_namespace_segments(Params.get(params, :namespace_segment, __MODULE__)),
+        hint: Params.get(params, :hint, __MODULE__),
         aliases: ModuleName.collect_aliases(source_file)
       }
 
@@ -80,8 +115,29 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     end
   end
 
-  defp normalize_segment(nil), do: nil
-  defp normalize_segment(segment), do: to_string(segment)
+  defp normalize_path_segments(nil), do: nil
+  defp normalize_path_segments([]), do: nil
+  defp normalize_path_segments(segments) when is_list(segments), do: Enum.map(segments, &to_string/1)
+  defp normalize_path_segments(segment), do: [to_string(segment)]
+
+  defp normalize_namespace_segments(nil), do: nil
+  defp normalize_namespace_segments([]), do: nil
+
+  defp normalize_namespace_segments(segments) when is_list(segments),
+    do: Enum.map(segments, &normalize_namespace_rule/1)
+
+  defp normalize_namespace_segments(segment), do: [normalize_namespace_rule(segment)]
+
+  defp normalize_namespace_rule({segment, position}) when is_integer(position) and position != 0 do
+    {to_string(segment), position}
+  end
+
+  defp normalize_namespace_rule({_segment, position} = rule) do
+    raise ArgumentError,
+          "invalid namespace_segment #{inspect(rule)}: position must be a non-zero integer, got: #{inspect(position)}"
+  end
+
+  defp normalize_namespace_rule(segment), do: {to_string(segment), nil}
 
   defp traverse({:defmodule, _meta, [{:__aliases__, _, parts} | rest]}, issues, context) do
     {[], walk(rest, parts, issues, context)}
@@ -138,18 +194,19 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     %{
       issue_meta: issue_meta,
       path_segment: path_segment,
-      namespace_segment: namespace_segment
+      namespace_segment: namespace_segment,
+      hint: hint
     } = context
 
     used_module = Name.full(used_parts)
 
     cond do
       path_segment != nil and not path_compliant?(issue_meta, path_segment) ->
-        [path_issue(issue_meta, meta, used_module, path_segment) | issues]
+        [path_issue(issue_meta, meta, used_module, path_segment, hint) | issues]
 
       namespace_segment != nil and readable_namespace?(namespace) and
           not namespace_compliant?(namespace, namespace_segment) ->
-        [namespace_issue(issue_meta, meta, used_module, namespace_segment) | issues]
+        [namespace_issue(issue_meta, meta, used_module, namespace_segment, hint) | issues]
 
       true ->
         issues
@@ -158,35 +215,74 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
 
   defp path_compliant?(issue_meta, path_segment) do
     source_file = IssueMeta.source_file(issue_meta)
+    parts = Path.split(source_file.filename)
 
-    source_file.filename
-    |> Path.split()
-    |> Enum.member?(path_segment)
+    Enum.any?(path_segment, &Enum.member?(parts, &1))
   end
 
   defp readable_namespace?(namespace), do: Enum.all?(namespace, &is_atom/1)
 
   defp namespace_compliant?(namespace, namespace_segment) do
-    Enum.any?(namespace, fn part -> to_string(part) == namespace_segment end)
+    Enum.any?(namespace_segment, &namespace_rule_compliant?(namespace, &1))
   end
 
-  defp path_issue(issue_meta, meta, used_module, path_segment) do
+  defp namespace_rule_compliant?(namespace, {segment, nil}) do
+    Enum.any?(namespace, fn part -> to_string(part) == segment end)
+  end
+
+  defp namespace_rule_compliant?(namespace, {segment, position}) do
+    case Enum.at(namespace, position_index(position)) do
+      nil -> false
+      part -> to_string(part) == segment
+    end
+  end
+
+  defp position_index(position) when position > 0, do: position - 1
+  defp position_index(position) when position < 0, do: position
+
+  defp path_issue(issue_meta, meta, used_module, path_segment, hint) do
     format_issue(
       issue_meta,
-      message: "Modules that use `#{used_module}` must live under a `#{path_segment}/` directory.",
+      message: path_segment |> path_message(used_module) |> append_hint(hint),
       trigger: used_module,
       line_no: meta[:line],
       column: meta[:column]
     )
   end
 
-  defp namespace_issue(issue_meta, meta, used_module, namespace_segment) do
+  defp path_message([segment], used_module) do
+    "Modules that use `#{used_module}` must live under a `#{segment}/` directory."
+  end
+
+  defp path_message(segments, used_module) do
+    directories = Enum.map_join(segments, ", ", &"`#{&1}/`")
+    "Modules that use `#{used_module}` must live under one of these directories: #{directories}."
+  end
+
+  defp namespace_issue(issue_meta, meta, used_module, namespace_segment, hint) do
     format_issue(
       issue_meta,
-      message: "Modules that use `#{used_module}` must be in a namespace containing `#{namespace_segment}`.",
+      message: namespace_segment |> namespace_message(used_module) |> append_hint(hint),
       trigger: used_module,
       line_no: meta[:line],
       column: meta[:column]
     )
   end
+
+  defp namespace_message(namespace_segment, used_module) do
+    descriptions = Enum.map(namespace_segment, &namespace_rule_description/1)
+
+    "Modules that use `#{used_module}` must be in a namespace " <>
+      Enum.join(descriptions, ", or a namespace ") <> "."
+  end
+
+  defp namespace_rule_description({segment, nil}), do: "containing `#{segment}`"
+  defp namespace_rule_description({segment, position}) when position > 0, do: "with `#{segment}` as segment #{position}"
+
+  defp namespace_rule_description({segment, position}) when position < 0 do
+    "with `#{segment}` as segment #{-position} counting from the end"
+  end
+
+  defp append_hint(message, nil), do: message
+  defp append_hint(message, hint), do: "#{message} #{hint}"
 end
