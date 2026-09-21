@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.1.0...trogon_credo@v0.2.0) (2026-09-21)
+
+
+### Features
+
+* **trogon_credo:** Let a project fit these checks to conventions it already has ([#467](https://github.com/straw-hat-team/beam-monorepo/issues/467)) ([0d9bd7c](https://github.com/straw-hat-team/beam-monorepo/commit/0d9bd7c150324f3e89b1ce566e82072f6e681f0f))
+
 ## [0.1.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.0.1...trogon_credo@v0.1.0) (2026-09-16)
 
 
