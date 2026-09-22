@@ -4,6 +4,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     category: :warning,
     param_defaults: [
       calls: [],
+      except: [],
       hint: nil
     ],
     explanations: [
@@ -44,6 +45,19 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       them. A pattern that matches `Kernel` cannot name a whole module either, and
       raises the same way. An issue from a pattern entry names the module the call
       resolved to, so an Erlang module reads as the atom it is written as.
+
+      An entry that covers more than a project means carves the part it allows out with
+      `except`, which takes the same entries without their messages.
+
+          {Trogon.Credo.Check.Warning.ForbiddenFunctionCall,
+           [calls: ["Acme.Legacy.**"],
+            except: [{Acme.Legacy.Client, :fetch}]]}
+
+      With the configuration above every call into the legacy namespace is reported
+      except `Acme.Legacy.Client.fetch`, which is how a project forbids a namespace
+      while it still has one supported way in. An `except` entry naming a module on its
+      own allows every call to it, and `except` on its own, with nothing in `calls`,
+      leaves the check inert.
 
       Scoping a rule to a single layer is done through Credo's own per check `files:`
       param. Arity is deliberately not part of an entry, so every arity of the named
@@ -116,6 +130,15 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
         default empty list makes the check inert, since there is no universal
         forbidden call.
         """,
+        except: """
+        A list of entries that carve exceptions out of `calls`. A call matching
+        any of them is never reported, even when it also matches a forbidden
+        entry. The entry forms are the ones `calls` takes, without their
+        `{entry, "message"}` form, since an exception reports nothing and so has
+        no message to carry, and `Kernel` may be named on its own here. The
+        default empty list means there is no exception; `nil` is also accepted
+        and treated the same way.
+        """,
         hint: """
         A sentence appended to the message of every issue this check reports, so a
         project can say in its own words what to do instead. Skipped when set to
@@ -146,6 +169,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       context = %{
         issue_meta: IssueMeta.for(source_file, params),
         calls: calls,
+        except: prepare_except(Params.get(params, :except, __MODULE__) || []),
         hint: Params.get(params, :hint, __MODULE__),
         aliases: aliases,
         imports: collect_imports(source_file, aliases)
@@ -257,9 +281,11 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   defp unqualified_entry(context, {module, :open}, function, arity) do
-    case function_entry(context, module, function) do
+    case function_entry(context.calls, module, function) do
       {:ok, entry} ->
-        if imported_name?(module, function, arity), do: resolve_display(entry, module)
+        if imported_name?(module, function, arity) and not excepted?(context, module, function) do
+          resolve_display(entry, module)
+        end
 
       :error ->
         nil
@@ -507,24 +533,32 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   defp forbidden_entry(context, module, function) do
-    case entry_for(context, module, function) do
-      {:ok, entry} -> {:ok, resolve_display(entry, module)}
-      :error -> :error
+    if excepted?(context, module, function) do
+      :error
+    else
+      case entry_for(context.calls, module, function) do
+        {:ok, entry} -> {:ok, resolve_display(entry, module)}
+        :error -> :error
+      end
     end
   end
 
-  defp entry_for(context, module, function) do
-    with :error <- function_entry(context, module, function),
-         :error <- Map.fetch(context.calls.modules, module) do
-      matching_entry(context.calls.module_patterns, module)
+  defp excepted?(context, module, function) do
+    entry_for(context.except, module, function) != :error
+  end
+
+  defp entry_for(entries, module, function) do
+    with :error <- function_entry(entries, module, function),
+         :error <- Map.fetch(entries.modules, module) do
+      matching_entry(entries.module_patterns, module)
     end
   end
 
   # An entry naming a function is looked up on its own, since a bare call under
   # an unrestricted `import` is only ever read against one of those.
-  defp function_entry(context, module, function) do
-    with :error <- Map.fetch(context.calls.functions, {module, function}) do
-      matching_entry(context.calls.function_patterns, module, function)
+  defp function_entry(entries, module, function) do
+    with :error <- Map.fetch(entries.functions, {module, function}) do
+      matching_entry(entries.function_patterns, module, function)
     end
   end
 
@@ -565,14 +599,35 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp append_hint(message, hint), do: "#{message} #{hint}"
 
   defp prepare_calls(calls) do
-    entries = Enum.map(calls, &normalize_call/1)
+    calls |> Enum.map(&normalize_call/1) |> group_entries()
+  end
 
+  defp prepare_except(except) do
+    except |> Enum.map(&normalize_except/1) |> group_entries()
+  end
+
+  defp group_entries(entries) do
     %{
       functions: Map.new(for {{:function, module, function}, entry} <- entries, do: {{module, function}, entry}),
       modules: Map.new(for {{:module, module}, entry} <- entries, do: {module, entry}),
       function_patterns: for({{:function_pattern, regex, function}, entry} <- entries, do: {regex, function, entry}),
       module_patterns: for({{:module_pattern, regex}, entry} <- entries, do: {regex, entry})
     }
+  end
+
+  defp normalize_except({module, function})
+       when (is_atom(module) or is_binary(module)) and is_atom(function) do
+    {function_key(module, function), nil}
+  end
+
+  defp normalize_except(module) when is_atom(module) or is_binary(module) do
+    {module_key(module), nil}
+  end
+
+  defp normalize_except(entry) do
+    raise ArgumentError,
+          "invalid except entry #{inspect(entry)}: expected Module, a module name pattern, " <>
+            "or {Module, :function}, without a message, since an exception reports nothing"
   end
 
   defp normalize_call({{module, function}, message})
@@ -587,11 +642,11 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp normalize_call({module, message})
        when (is_atom(module) or is_binary(module)) and is_binary(message) do
-    {module_key(module), entry(module, message)}
+    {forbidden_module_key(module), entry(module, message)}
   end
 
   defp normalize_call(module) when is_atom(module) or is_binary(module) do
-    {module_key(module), entry(module, nil)}
+    {forbidden_module_key(module), entry(module, nil)}
   end
 
   defp normalize_call(entry) do
@@ -608,19 +663,21 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     {:function_pattern, ModulePattern.compile!(pattern), function}
   end
 
-  defp module_key(module) when is_atom(module) do
-    forbid_kernel!(module_name(module) == @kernel_module, module)
+  defp module_key(module) when is_atom(module), do: {:module, module_name(module)}
+  defp module_key(pattern), do: {:module_pattern, ModulePattern.compile!(pattern)}
 
-    {:module, module_name(module)}
+  # An exception reports nothing, so only a rule that would report every call in
+  # the file is refused.
+  defp forbidden_module_key(module) do
+    key = module_key(module)
+
+    forbid_kernel!(names_kernel?(key), module)
+
+    key
   end
 
-  defp module_key(pattern) do
-    regex = ModulePattern.compile!(pattern)
-
-    forbid_kernel!(Regex.match?(regex, @kernel_module), pattern)
-
-    {:module_pattern, regex}
-  end
+  defp names_kernel?({:module, name}), do: name == @kernel_module
+  defp names_kernel?({:module_pattern, regex}), do: Regex.match?(regex, @kernel_module)
 
   defp forbid_kernel!(false, _named), do: :ok
 

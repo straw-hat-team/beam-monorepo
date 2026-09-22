@@ -1238,4 +1238,149 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
       ForbiddenFunctionCall.run(source_file, calls: ["Kern*"])
     end
   end
+
+  test "does not report a function an except entry names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: ["Acme.Legacy.**"],
+      except: [{Acme.Legacy.Client, :fetch}]
+    )
+    |> refute_issues()
+  end
+
+  test "reports another function on a module an except entry names a function of" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.write()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: ["Acme.Legacy.**"],
+      except: [{Acme.Legacy.Client, :fetch}]
+    )
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Acme.Legacy.Client.write"
+    end)
+  end
+
+  test "does not report any call to a module an except entry names on its own" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.write()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: ["Acme.Legacy.**"],
+      except: [Acme.Legacy.Client]
+    )
+    |> refute_issues()
+  end
+
+  test "does not report a call to a module an except pattern names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.Http.fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: ["Acme.Legacy.**"],
+      except: ["Acme.Legacy.Client.**"]
+    )
+    |> refute_issues()
+  end
+
+  test "does not report a bare call an except entry names" do
+    """
+    defmodule CredoSampleModule do
+      import Acme.Legacy.Client
+
+      def run do
+        fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: [{"Acme.Legacy.**", :fetch}],
+      except: [{Acme.Legacy.Client, :fetch}]
+    )
+    |> refute_issues()
+  end
+
+  test "does not report a bare call an except entry names through an import list" do
+    """
+    defmodule CredoSampleModule do
+      import Acme.Legacy.Client, only: [fetch: 0]
+
+      def run do
+        fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: ["Acme.Legacy.**"],
+      except: [{Acme.Legacy.Client, :fetch}]
+    )
+    |> refute_issues()
+  end
+
+  test "is silent when only except is configured" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        System.get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, except: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "is silent when except is explicitly set to nil" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: ["Acme.Other.**"], except: nil)
+    |> refute_issues()
+  end
+
+  test "raises when an except entry carries a message" do
+    source_file =
+      """
+      defmodule CredoSampleModule do
+        def run, do: :ok
+      end
+      """
+      |> to_source_file()
+
+    assert_raise ArgumentError, ~r/invalid except entry/, fn ->
+      ForbiddenFunctionCall.run(source_file,
+        calls: ["Acme.Legacy.**"],
+        except: [{Acme.Legacy.Client, "Allowed for now."}]
+      )
+    end
+  end
 end
