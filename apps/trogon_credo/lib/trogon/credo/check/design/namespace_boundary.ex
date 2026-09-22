@@ -4,7 +4,9 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     category: :design,
     param_defaults: [
       forbidden: [],
+      private_to: [],
       except: [],
+      in_patterns: true,
       hint: nil
     ],
     explanations: [
@@ -26,7 +28,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
             except: ["MyApp.**.Domain.**", "MyApp.Domain", "MyApp.Domain.**"],
             files: %{included: ["lib/my_app/*/domain/"]}]}
 
-          # an error module is private to the namespace that defines it
+          # a domain error may only be built in the layers that own it
           {Trogon.Credo.Check.Design.NamespaceBoundary,
            [forbidden: [{"MyApp.**.Domain.**Error", "A domain error may only be raised from its own context."}],
             files: %{excluded: ["lib/my_app/*/domain/", "lib/my_app/*/command/"]}]}
@@ -35,6 +37,32 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       whole application namespace, then except the part the domain layer may use.
       `forbidden` on its own says "must not depend on this one thing", scoped by
       `files:` to every file that is not itself part of the namespace being protected.
+
+      A boundary that is the same rule in every namespace, an error module private to
+      whichever service defines it, is written once with `private_to` rather than once
+      per namespace. The parenthesized prefix of the pattern names the owning namespace,
+      and what follows it is what that namespace keeps to itself.
+
+          # an error is private to the service namespace that defines it
+          {Trogon.Credo.Check.Design.NamespaceBoundary,
+           [private_to: ["(MyApp.*Service).**Error"]]}
+
+          # a processor may not reach into another processor
+          {Trogon.Credo.Check.Design.NamespaceBoundary,
+           [private_to: ["(MyApp.Processor.*)"],
+            files: %{included: ["lib/my_app/processor/"]}]}
+
+      With the first configuration above, `MyApp.BillingService.NotFoundError` may only
+      be referenced from inside `MyApp.BillingService`. A pattern that is only the
+      parenthesized prefix, as in the second, makes a namespace private to itself, the
+      module and everything under it. Ownership is read from the referencing file's own
+      outermost module name, so `files:` narrows which files the rule applies to without
+      changing who owns what. Where a pattern could bind the owning namespace in more
+      than one place, the longest match wins, so the innermost namespace that satisfies
+      the pattern is the owner.
+
+      `forbidden` and `private_to` express different rules, so one instance of the check
+      sets one or the other.
 
       A pattern matches a fully qualified module name, anchored at both ends. Everything
       other than a wildcard is literal, including a character that would otherwise be
@@ -65,7 +93,18 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       checked; a module named in a typespec; anything inside a `quote` block, which
       belongs to wherever the macro expands; and an Erlang module written as a plain
       atom, `:os.system_time()` for instance, which no pattern has an atom form to
-      match and which `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` covers.
+      match and which `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` covers. Under
+      `private_to`, a reference in a file with no `defmodule`, or whose outermost
+      `defmodule` name is not written as an alias, is not reported either, since the
+      check cannot tell which namespace the reference is coming from.
+
+      A reference written in a pattern matches on a value rather than building or
+      calling one, so a project that means "this may be matched anywhere but only built
+      where it belongs" sets `in_patterns` to `false`. A clause head, a function head, a
+      `with` or `for` generator, the left of a match, and a `rescue` clause are then all
+      skipped, while a `cond` condition, an expression despite being written to the left
+      of a `->`, is not. A struct built as a default argument value sits inside a
+      function head, so it is skipped along with the rest of the head.
 
       This check reads what a file writes, so it catches the realistic mistake and
       misses what it cannot see: a reference reached transitively, built with `apply/3`,
@@ -85,13 +124,31 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
         check inert, since there is no universal boundary; a project configures its own with
         `forbidden` and, usually, with `files:`.
         """,
+        private_to: """
+        A pattern, or a list of patterns, whose parenthesized prefix names an owning
+        namespace and whose remainder names what that namespace keeps private. A module
+        matching the whole pattern may only be referenced from the namespace the prefix
+        bound. A pattern that is only the parenthesized prefix makes the namespace
+        private to itself, the module and everything under it. An entry may also be
+        given as a `{pattern, "message"}` tuple carrying its own message. The default
+        empty list makes the check inert, and setting this together with `forbidden`
+        raises, since the two express different rules.
+        """,
         except: """
-        A list of module name patterns that carve exceptions out of `forbidden`. A reference
-        matching any `except` pattern is never reported, even when it also matches a
-        `forbidden` one. The pattern syntax is the one `forbidden` uses, without its
+        A list of module name patterns that carve exceptions out of `forbidden` or
+        `private_to`. A reference matching any `except` pattern is never reported, even when
+        it also matches a forbidden or private one. The pattern syntax is the one `forbidden`
+        uses, without its
         `{pattern, "message"}` form, since an exception reports nothing and so has no message
         to carry. The default empty list means there is no exception; `nil` is also accepted
         and treated the same way.
+        """,
+        in_patterns: """
+        Whether a reference written in a pattern is reported. A pattern matches on a value
+        rather than building or calling one, so setting this to `false` reports only a
+        reference in expression position, which is how a project says a module may be
+        matched anywhere and only built where it belongs. Defaults to `true`, reporting a
+        reference wherever it is written.
         """,
         hint: """
         A sentence appended to the message of every issue this check reports, so a project
@@ -104,24 +161,76 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   alias Trogon.Credo.ModuleName
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
+  @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp, :defdelegate]
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    case Params.get(params, :forbidden, __MODULE__) do
-      forbidden when forbidden in [nil, []] ->
-        []
+    forbidden = Params.get(params, :forbidden, __MODULE__) || []
+    private_to = Params.get(params, :private_to, __MODULE__) || []
 
-      forbidden ->
-        context = %{
-          issue_meta: IssueMeta.for(source_file, params),
-          forbidden: prepare_forbidden(forbidden),
-          except: prepare_except(Params.get(params, :except, __MODULE__) || []),
-          hint: Params.get(params, :hint, __MODULE__),
-          aliases: ModuleName.collect_aliases(source_file)
-        }
+    case rule(forbidden, private_to) do
+      :unconfigured -> []
+      :configured -> analyze(source_file, params, forbidden, private_to)
+    end
+  end
 
-        Credo.Code.prewalk(source_file, &traverse(&1, &2, context))
+  defp rule([], []), do: :unconfigured
+
+  defp rule(forbidden, private_to) when forbidden != [] and private_to != [] do
+    raise ArgumentError,
+          "invalid configuration: `forbidden` and `private_to` express different rules, so one instance of this check must set only one of them"
+  end
+
+  defp rule(_forbidden, _private_to), do: :configured
+
+  defp analyze(source_file, params, forbidden, private_to) do
+    context = %{
+      issue_meta: IssueMeta.for(source_file, params),
+      forbidden: prepare_forbidden(forbidden),
+      private_to: prepare_private_to(private_to),
+      own_module: owning_module(source_file, private_to),
+      except: prepare_except(Params.get(params, :except, __MODULE__) || []),
+      in_patterns: in_patterns(Params.get(params, :in_patterns, __MODULE__)),
+      hint: Params.get(params, :hint, __MODULE__),
+      aliases: ModuleName.collect_aliases(source_file)
+    }
+
+    Credo.Code.prewalk(source_file, &traverse(&1, &2, context))
+  end
+
+  defp owning_module(_source_file, []), do: nil
+  defp owning_module(source_file, _private_to), do: own_module(source_file)
+
+  defp in_patterns(in_patterns) when is_boolean(in_patterns), do: in_patterns
+
+  defp in_patterns(in_patterns) do
+    raise ArgumentError, "invalid in_patterns #{inspect(in_patterns)}: expected a boolean"
+  end
+
+  defp own_module(source_file) do
+    source_file
+    |> Credo.Code.prewalk(&outermost/2, {false, nil})
+    |> elem(1)
+  end
+
+  defp outermost({:quote, _meta, _args}, acc), do: {[], acc}
+
+  defp outermost({:defmodule, _meta, _args}, {true, name}), do: {[], {true, name}}
+
+  defp outermost({:defmodule, _meta, [{:__aliases__, _alias_meta, parts} | _]}, {false, _name}) do
+    {[], {true, readable_name(parts)}}
+  end
+
+  defp outermost({:defmodule, _meta, _args}, {false, _name}), do: {[], {true, nil}}
+
+  defp outermost(ast, acc), do: {ast, acc}
+
+  defp readable_name(parts) do
+    if Enum.all?(parts, &is_atom/1) do
+      ModuleName.full(parts)
+    else
+      nil
     end
   end
 
@@ -142,6 +251,30 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     {{:defmodule, meta, [nil | rest]}, issues}
   end
 
+  defp traverse({:cond, _meta, [[{:do, clauses}]]}, issues, %{in_patterns: false})
+       when is_list(clauses) do
+    {Enum.map(clauses, &expose_cond_clause/1), issues}
+  end
+
+  defp traverse({:->, _meta, [_pattern, body]}, issues, %{in_patterns: false}) do
+    {body, issues}
+  end
+
+  defp traverse({operator, _meta, [_pattern, value]}, issues, %{in_patterns: false})
+       when operator in [:=, :<-] do
+    {value, issues}
+  end
+
+  defp traverse({kind, _meta, [{:when, _meta2, [_head, _guard]} | rest]}, issues, %{in_patterns: false})
+       when kind in @definition_kinds do
+    {rest, issues}
+  end
+
+  defp traverse({kind, _meta, [_head | rest]}, issues, %{in_patterns: false})
+       when kind in @definition_kinds do
+    {rest, issues}
+  end
+
   defp traverse({:__aliases__, meta, parts} = ast, issues, context) do
     module = ModuleName.resolve(parts, context.aliases)
 
@@ -150,10 +283,15 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
   defp traverse(ast, issues, _context), do: {ast, issues}
 
+  # A `cond` writes its conditions on the left of a `->`, where every other
+  # construct writes a pattern, so both sides are exposed as expressions.
+  defp expose_cond_clause({:->, meta, args}), do: {:__block__, meta, args}
+  defp expose_cond_clause(clause), do: clause
+
   defp maybe_report(nil, _meta, _trigger, issues, _context), do: issues
 
   defp maybe_report(module, meta, trigger, issues, context) do
-    case match_forbidden(module, context.forbidden, context.except) do
+    case violation(module, context) do
       nil ->
         issues
 
@@ -162,14 +300,43 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     end
   end
 
-  defp match_forbidden(module, forbidden, except) do
-    if excepted?(module, except) do
+  defp violation(module, context) do
+    if excepted?(module, context.except) do
       nil
     else
-      forbidden
-      |> Enum.find(fn {regex, _message} -> Regex.match?(regex, module) end)
-      |> forbidden_message(module)
+      forbidden_violation(module, context.forbidden) || private_violation(module, context)
     end
+  end
+
+  defp forbidden_violation(module, forbidden) do
+    forbidden
+    |> Enum.find(fn {regex, _message} -> Regex.match?(regex, module) end)
+    |> forbidden_message(module)
+  end
+
+  defp private_violation(module, context) do
+    Enum.find_value(context.private_to, &private_message(&1, module, context.own_module))
+  end
+
+  defp private_message({regex, message}, module, own_module) do
+    case Regex.run(regex, module) do
+      [_full, owner] -> owner_message(owner, module, message, own_module)
+      nil -> nil
+    end
+  end
+
+  defp owner_message(owner, module, message, own_module) do
+    if inside_owner?(own_module, owner) do
+      nil
+    else
+      message || "The module `#{module}` is private to `#{owner}`."
+    end
+  end
+
+  defp inside_owner?(nil, _owner), do: true
+
+  defp inside_owner?(own_module, owner) do
+    own_module == owner or String.starts_with?(own_module, owner <> ".")
   end
 
   defp excepted?(module, except), do: Enum.any?(except, &Regex.match?(&1, module))
@@ -210,6 +377,47 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     {compile_pattern(pattern), nil}
   end
 
+  defp prepare_private_to(patterns) when is_list(patterns) do
+    Enum.map(patterns, &prepare_private_entry/1)
+  end
+
+  defp prepare_private_to(pattern), do: [prepare_private_entry(pattern)]
+
+  defp prepare_private_entry({pattern, message}) when is_binary(message) do
+    {compile_private_pattern(pattern), message}
+  end
+
+  defp prepare_private_entry({_pattern, _message} = entry) do
+    raise ArgumentError,
+          "invalid private_to entry #{inspect(entry)}: the message in a {pattern, message} tuple must be a string"
+  end
+
+  defp prepare_private_entry(pattern) do
+    {compile_private_pattern(pattern), nil}
+  end
+
+  defp compile_private_pattern(pattern) when is_binary(pattern) do
+    case Regex.run(~r/^\(([^()]+)\)(.*)$/, pattern) do
+      [_full, owner, ""] ->
+        Regex.compile!("^(#{regex_source(owner)})(?:\\..+)?$")
+
+      [_full, owner, "." <> _ = private] ->
+        Regex.compile!("^(#{regex_source(owner)})#{regex_source(private)}$")
+
+      _other ->
+        raise ArgumentError, invalid_private_pattern(pattern)
+    end
+  end
+
+  defp compile_private_pattern(pattern) do
+    raise ArgumentError, invalid_private_pattern(pattern)
+  end
+
+  defp invalid_private_pattern(pattern) do
+    "invalid private_to pattern #{inspect(pattern)}: expected a string of the form " <>
+      "\"(owner)\" or \"(owner).private\", where the parenthesized prefix names the owning namespace"
+  end
+
   defp prepare_except(patterns) do
     Enum.map(patterns, &compile_pattern/1)
   end
@@ -228,12 +436,13 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   end
 
   defp to_regex(pattern) do
-    regex_source =
-      pattern
-      |> Regex.escape()
-      |> String.replace("\\*\\*", ".+")
-      |> String.replace("\\*", "[^.]+")
+    Regex.compile!("^#{regex_source(pattern)}$")
+  end
 
-    Regex.compile!("^#{regex_source}$")
+  defp regex_source(pattern) do
+    pattern
+    |> Regex.escape()
+    |> String.replace("\\*\\*", ".+")
+    |> String.replace("\\*", "[^.]+")
   end
 end
