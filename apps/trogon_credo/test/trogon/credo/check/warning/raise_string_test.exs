@@ -270,4 +270,79 @@ defmodule Trogon.Credo.Check.Warning.RaiseStringTest do
                "A `raise` must be given an exception, not a message string. Define an exception module and raise it instead."
     end)
   end
+
+  test "reports a qualified Kernel.raise of a string literal" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Kernel.raise("boom")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(RaiseString)
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Kernel.raise"
+      assert issue.message == "A `raise` must be given an exception, not a message string."
+    end)
+  end
+
+  test "reports a qualified Kernel.reraise of a string literal" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Kernel.reraise("boom", __STACKTRACE__)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(RaiseString)
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Kernel.reraise"
+      assert issue.message == "A `reraise` must be given an exception, not a message string."
+    end)
+  end
+
+  test "reports a qualified raise written with an explicit Elixir prefix" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Elixir.Kernel.raise("boom")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(RaiseString)
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Elixir.Kernel.raise"
+    end)
+  end
+
+  test "does not report a qualified Kernel.raise of an exception module" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Kernel.raise(MyApp.NotFoundError)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(RaiseString)
+    |> refute_issues()
+  end
+
+  test "does not report a raise on a module the file aliases as Kernel" do
+    """
+    defmodule CredoSampleModule do
+      alias MyApp.Kernel
+
+      def run do
+        Kernel.raise("boom")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(RaiseString)
+    |> refute_issues()
+  end
 end

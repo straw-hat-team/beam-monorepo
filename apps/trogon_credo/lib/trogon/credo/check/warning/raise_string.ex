@@ -22,6 +22,10 @@ defmodule Trogon.Credo.Check.Warning.RaiseString do
           raise "no user " <> id
           raise ~s(boom)
 
+      A qualified `Kernel.raise` or `Kernel.reraise` is reported the same way, since it
+      is the same call written the long way. Aliases are resolved first, so a `Kernel`
+      the file binds to another module is not read as the real one.
+
       Not reported: a `raise` given a variable, a function call, or a module attribute,
       `raise exception` for instance, since the check cannot know what a variable
       holds. This is the check's main blind spot, and a project that wants the rule
@@ -46,28 +50,52 @@ defmodule Trogon.Credo.Check.Warning.RaiseString do
       ]
     ]
 
+  alias Credo.Code.Name
+  alias Trogon.Credo.ModuleName
+
   @operations [:raise, :reraise]
   @sigils [:sigil_s, :sigil_S]
+  @kernel_module "Kernel"
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    issue_meta = IssueMeta.for(source_file, params)
-    hint = Params.get(params, :hint, __MODULE__)
+    context = %{
+      issue_meta: IssueMeta.for(source_file, params),
+      hint: Params.get(params, :hint, __MODULE__),
+      aliases: ModuleName.collect_aliases(source_file)
+    }
 
-    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, hint))
+    Credo.Code.prewalk(source_file, &traverse(&1, &2, context))
   end
 
-  defp traverse({operation, meta, [message | _rest]} = ast, issues, issue_meta, hint)
+  defp traverse(
+         {{:., _dot_meta, [{:__aliases__, alias_meta, parts}, operation]}, _call_meta, [message | _rest]} = ast,
+         issues,
+         context
+       )
        when operation in @operations do
-    if string?(message) do
-      {ast, [issue_for(issue_meta, meta, operation, hint) | issues]}
+    if ModuleName.resolve(parts, context.aliases) == @kernel_module do
+      {ast, maybe_report(message, operation, "#{Name.full(parts)}.#{operation}", alias_meta, issues, context)}
     else
       {ast, issues}
     end
   end
 
-  defp traverse(ast, issues, _issue_meta, _hint), do: {ast, issues}
+  defp traverse({operation, meta, [message | _rest]} = ast, issues, context)
+       when operation in @operations do
+    {ast, maybe_report(message, operation, to_string(operation), meta, issues, context)}
+  end
+
+  defp traverse(ast, issues, _context), do: {ast, issues}
+
+  defp maybe_report(message, operation, trigger, meta, issues, context) do
+    if string?(message) do
+      [issue_for(context, meta, operation, trigger) | issues]
+    else
+      issues
+    end
+  end
 
   defp string?(message) when is_binary(message), do: true
   defp string?({:<<>>, _meta, _parts}), do: true
@@ -75,11 +103,11 @@ defmodule Trogon.Credo.Check.Warning.RaiseString do
   defp string?({:<>, _meta, _args}), do: true
   defp string?(_other), do: false
 
-  defp issue_for(issue_meta, meta, operation, hint) do
+  defp issue_for(context, meta, operation, trigger) do
     format_issue(
-      issue_meta,
-      message: append_hint("A `#{operation}` must be given an exception, not a message string.", hint),
-      trigger: to_string(operation),
+      context.issue_meta,
+      message: append_hint("A `#{operation}` must be given an exception, not a message string.", context.hint),
+      trigger: trigger,
       line_no: meta[:line],
       column: meta[:column]
     )
