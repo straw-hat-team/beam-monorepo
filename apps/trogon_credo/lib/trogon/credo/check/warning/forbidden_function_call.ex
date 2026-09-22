@@ -29,9 +29,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       `Process.sleep/1` with a custom one, every function on `:rand`, and `new` on every
       module whose name matches `Acme.**.Domain.**Error`. An entry
       naming a module on its own covers every call to that module, which is how a
-      project says that none of it belongs in a layer, and is the one way to say that
-      about an Erlang module, since `Credo.Check.Warning.ForbiddenModule` reads written
-      aliases. `Kernel` cannot be named on its own, since it is auto imported into every
+      project says that none of it belongs in a layer, and works on an Erlang module as
+      well, which `Credo.Check.Warning.ForbiddenModule` cannot say, since it reads
+      written aliases. `Kernel` cannot be named on its own, since it is auto imported into every
       module, which would make the entry report every call in the file; such an entry
       raises, and the functions have to be named instead.
 

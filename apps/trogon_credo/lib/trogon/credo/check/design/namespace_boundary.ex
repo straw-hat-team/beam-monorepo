@@ -107,17 +107,24 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       resolved first, so a reference written through an alias is reported under what it
       resolves to, and a name the file binds to two modules resolves to neither.
 
+      An Erlang module is reported too, under the name a pattern names it by, so a
+      pattern `"os"` names the module `:os.system_time()` calls, and `"rand"` the one
+      `alias :rand, as: Random` renames. A message names such a module as the atom it is
+      written as, `:os`, since that is how the source spells it. The name has one
+      segment, so a pattern for an Erlang module is written without a `.`, and a
+      wildcard inside it, `"httpc*"`, matches within that one segment as it does
+      anywhere else.
+
       Not reported: a `defmodule` head, at any depth, since a boundary is normally
       scoped to the namespace's own directory; a bare `alias`, in any of its forms,
       since an alias alone creates no dependency, the multi form included; the members
       of a multi form directive whose base is not written as an alias,
       `__MODULE__.{Foo}` for instance, since what the base stands for is only known at
       compile time; a module named in a typespec; anything inside a `quote` block, which
-      belongs to wherever the macro expands; and an Erlang module written as a plain
-      atom, `:os.system_time()` for instance, which no pattern has an atom form to
-      match and which `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` covers, though
-      the same module reached through `alias :os, as: OS` resolves to `os` and a pattern
-      naming it matches. Under
+      belongs to wherever the macro expands; and an Erlang module named as a plain value
+      rather than as a call or directive target, `spawn(:os, :timestamp, [])` for
+      instance, since an atom on its own is indistinguishable from any other atom and
+      reporting one would report `:ok` under a pattern such as `"o*"`. Under
       `private_to`, a reference in a file with no `defmodule`, or whose outermost
       `defmodule` name is not written as an alias, is not reported either, since the
       check cannot tell which namespace the reference is coming from.
@@ -194,6 +201,10 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
   @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp, :defdelegate]
+
+  @erlang_module ~S<:(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[\p{L}\p{Nl}_][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}@]*[?!]?)>
+  @before_dot ~r/#{@erlang_module}$/u
+  @after_directive ~r/^(?:import|require|use)\s*\(?\s*(#{@erlang_module})/u
 
   @doc false
   @impl true
@@ -331,6 +342,24 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     {rest, issues}
   end
 
+  # An Erlang module is written as a plain atom, which is only distinguishable
+  # from any other atom where the source says the atom is a module: the target of
+  # a qualified call, or of a directive.
+  defp traverse({{:., dot_meta, [module, function]}, _call_meta, _args} = ast, issues, context)
+       when is_atom(module) and is_atom(function) do
+    {written, meta} = erlang_call(module, dot_meta, context)
+
+    {ast, report_erlang(module, written, meta, issues, context)}
+  end
+
+  defp traverse({directive, meta, [module | _rest]} = ast, issues, context)
+       when directive in [:import, :require, :use] and is_atom(module) and
+              module not in [nil, true, false] do
+    {written, meta} = erlang_directive(module, meta, context)
+
+    {ast, report_erlang(module, written, meta, issues, context)}
+  end
+
   defp traverse({:__aliases__, meta, parts} = ast, issues, context) do
     module = ModuleName.resolve(parts, context.aliases)
 
@@ -349,6 +378,46 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   end
 
   defp report_member(_member, issues, _base_parts, _context), do: issues
+
+  defp report_erlang(module, written, meta, issues, context) do
+    maybe_report(ModuleName.full(module), meta, written, issues, context)
+  end
+
+  # An Erlang module written as a plain atom carries no meta of its own, and the
+  # source may spell it quoted, which `inspect/1` does not return. Both where it
+  # is written and how it is spelled are read from the source text, which a call
+  # writes immediately to the left of the dot.
+  defp erlang_call(module, dot_meta, context) do
+    with column when is_integer(column) <- dot_meta[:column],
+         text when is_binary(text) <- line_text(dot_meta[:line], context),
+         [written] <- Regex.run(@before_dot, String.slice(text, 0, column - 1)) do
+      {written, Keyword.put(dot_meta, :column, column - String.length(written))}
+    else
+      _unread -> {inspect(module), Keyword.delete(dot_meta, :column)}
+    end
+  end
+
+  # A directive names its target to the right of the directive itself, written
+  # with or without parentheses.
+  defp erlang_directive(module, meta, context) do
+    with column when is_integer(column) <- meta[:column],
+         text when is_binary(text) <- line_text(meta[:line], context),
+         rest = String.slice(text, (column - 1)..-1//1),
+         [{offset, length}] <-
+           Regex.run(@after_directive, rest, return: :index, capture: :all_but_first) do
+      {binary_part(rest, offset, length), Keyword.put(meta, :column, column + offset)}
+    else
+      _unread -> {inspect(module), Keyword.delete(meta, :column)}
+    end
+  end
+
+  defp line_text(line, context) when is_integer(line) do
+    context.issue_meta
+    |> IssueMeta.source_file()
+    |> SourceFile.line_at(line)
+  end
+
+  defp line_text(_line, _context), do: nil
 
   # A `cond` writes its conditions, and a `receive` its `after` timeout, on the
   # left of a `->`, where every other construct writes a pattern, so both sides
@@ -407,7 +476,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     if inside_owner?(own_module, owner) do
       nil
     else
-      message || "The module `#{module}` is private to `#{owner}`."
+      message || "The module `#{ModulePattern.display(module)}` is private to `#{owner}`."
     end
   end
 
@@ -423,7 +492,9 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   defp forbidden_message({_regex, nil}, module), do: default_message(module)
   defp forbidden_message({_regex, message}, _module), do: message
 
-  defp default_message(module), do: "A module in this namespace must not reference `#{module}`."
+  defp default_message(module) do
+    "A module in this namespace must not reference `#{ModulePattern.display(module)}`."
+  end
 
   defp issue_for(issue_meta, meta, trigger, message, hint) do
     format_issue(
