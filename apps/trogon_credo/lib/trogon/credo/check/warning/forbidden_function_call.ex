@@ -61,8 +61,13 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       after the anonymous function that wrote it, is not read against it.
 
       A directive selects by name and arity, so a call at an arity it leaves out is not
-      the imported function. A piped call counts the argument the pipe supplies, since
-      that is the call Elixir makes. Two directives naming one module are read the way
+      the imported function. An unrestricted directive names no arity of its own, so a
+      bare call is read against what the module exports, and a call at an arity the
+      module does not have is a local function of the same name. A module the check
+      cannot load, one that only exists in another environment for instance, is read as
+      bringing the name in, so a rule is not stepped around by a module the check cannot
+      see. A piped call counts the argument the pipe supplies, since that is the call
+      Elixir makes. Two directives naming one module are read the way
       Elixir reads them: a later `only:` replaces what an earlier one brought in, while
       `except:` filters what is already there. Arity still plays no part in an entry of
       `calls:`, which names a function at every arity it has.
@@ -208,11 +213,11 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     states = imports_in_scope(context.imports, call_meta[:line])
     candidates = import_candidates(states, function, arity) ++ kernel_candidate(states)
 
-    case Enum.find_value(candidates, &unqualified_entry(context, &1, function)) do
+    case Enum.find_value(candidates, &unqualified_entry(context, &1, function, arity)) do
       nil ->
         issues
 
-      {message, display} ->
+      {message, display, _module} ->
         [issue_for(context, call_meta, to_string(function), display, function, message) | issues]
     end
   end
@@ -222,18 +227,48 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   # says nothing about which names it brings in, so only an entry naming the
   # function applies, which a local function of that name cannot be, since
   # Elixir refuses to compile a local definition that conflicts with an import.
-  defp unqualified_entry(context, {module, :only}, function) do
+  defp unqualified_entry(context, {module, :only}, function, _arity) do
     case forbidden_entry(context, module, function) do
       {:ok, entry} -> entry
       :error -> nil
     end
   end
 
-  defp unqualified_entry(context, {module, :open}, function) do
+  defp unqualified_entry(context, {module, :open}, function, arity) do
     case Map.fetch(context.calls, {module, function}) do
-      {:ok, entry} -> entry
-      :error -> nil
+      {:ok, {_message, _display, target} = entry} ->
+        if imported_name?(target, function, arity), do: entry
+
+      :error ->
+        nil
     end
+  end
+
+  # An unrestricted `import` brings in what the module exports, so a bare call at
+  # an arity the module does not have is a local function that happens to share
+  # the name rather than the imported one. A module the check cannot load is read
+  # as bringing the name in, so a rule is not stepped around by a module that is
+  # only there in another environment.
+  defp imported_name?(module, function, arity) do
+    if Code.ensure_loaded?(module) do
+      exported?(module, function, arity)
+    else
+      true
+    end
+  end
+
+  # Elixir's automatic import brings in `Kernel` and `Kernel.SpecialForms`, so a
+  # special form is read against the entry that names `Kernel`, since a module
+  # cannot define one of those for itself either way.
+  defp exported?(Kernel, function, arity) do
+    exports?(Kernel, function, arity) or exports?(Kernel.SpecialForms, function, arity)
+  end
+
+  defp exported?(module, function, arity), do: exports?(module, function, arity)
+
+  defp exports?(module, function, arity) do
+    Code.ensure_loaded?(module) and
+      (function_exported?(module, function, arity) or macro_exported?(module, function, arity))
   end
 
   # An `import` selects by name and arity, so a call at an arity the directive
@@ -430,7 +465,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp report(context, module, function, trigger, call_meta, issues) do
     case forbidden_entry(context, module, function) do
-      {:ok, {message, display}} ->
+      {:ok, {message, display, _module}} ->
         [issue_for(context, call_meta, trigger, display, function, message) | issues]
 
       :error ->
@@ -470,19 +505,19 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   defp normalize_call({{module, function}, message}) when is_atom(module) and is_atom(function) do
-    {{module_key(module), function}, {message, module_display(module)}}
+    {{module_key(module), function}, entry(module, message)}
   end
 
   defp normalize_call({module, function}) when is_atom(module) and is_atom(function) do
-    {{module_key(module), function}, {nil, module_display(module)}}
+    {{module_key(module), function}, entry(module, nil)}
   end
 
   defp normalize_call({module, message}) when is_atom(module) and is_binary(message) do
-    {whole_module_key(module), {message, module_display(module)}}
+    {whole_module_key(module), entry(module, message)}
   end
 
   defp normalize_call(module) when is_atom(module) do
-    {whole_module_key(module), {nil, module_display(module)}}
+    {whole_module_key(module), entry(module, nil)}
   end
 
   defp normalize_call(entry) do
@@ -502,6 +537,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
         key
     end
   end
+
+  defp entry(module, message), do: {message, module_display(module), module}
 
   defp module_key(module), do: ModuleName.full(module)
 

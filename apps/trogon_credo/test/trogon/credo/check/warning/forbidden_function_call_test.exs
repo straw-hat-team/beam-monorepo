@@ -490,6 +490,75 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> refute_issues()
   end
 
+  test "does not report a bare call at an arity the imported module does not export" do
+    """
+    defmodule CredoSampleModule do
+      import System
+
+      def run, do: get_env("HOME", "default", :keep)
+
+      defp get_env(name, default, keep), do: {name, default, keep}
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "reports a bare call at an arity the imported module exports as a macro" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, except: [inspect: 1]
+
+      def run(value), do: to_string(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :to_string}])
+    |> assert_issue(fn issue -> assert issue.trigger == "to_string" end)
+  end
+
+  test "does not report a bare call at an arity Kernel does not export" do
+    """
+    defmodule CredoSampleModule do
+      def run(value, opts, extra), do: to_string(value, opts, extra)
+
+      defp to_string(value, opts, extra), do: {value, opts, extra}
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :to_string}])
+    |> refute_issues()
+  end
+
+  test "reports a bare call to a special form Kernel is not the module of" do
+    """
+    defmodule CredoSampleModule do
+      def run(port) do
+        receive do
+          {^port, message} -> message
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :receive}])
+    |> assert_issue(fn issue -> assert issue.trigger == "receive" end)
+  end
+
+  test "reports a bare call to a module the check cannot load" do
+    """
+    defmodule CredoSampleModule do
+      import Vendor.System
+
+      def run, do: get_env("HOME", "default", :keep)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Vendor.System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
   test "does not report a bare call a later import of the same module leaves out" do
     """
     defmodule CredoSampleModule do
