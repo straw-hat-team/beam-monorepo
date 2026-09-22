@@ -137,11 +137,11 @@ defmodule Trogon.Credo.Check.Readability.ModuleNameMatchesPath do
   defp last_index(parts, root) do
     parts
     |> Enum.with_index()
-    |> Enum.reduce(nil, fn
-      {^root, index}, _acc -> index
-      _pair, acc -> acc
-    end)
+    |> Enum.reduce(nil, &last_root_index(&1, &2, root))
   end
+
+  defp last_root_index({root, index}, _acc, root), do: index
+  defp last_root_index(_pair, acc, _root), do: acc
 
   defp split_relative(parts) do
     {directories, [filename]} = Enum.split(parts, -1)
