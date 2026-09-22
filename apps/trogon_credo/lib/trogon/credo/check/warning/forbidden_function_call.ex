@@ -60,8 +60,14 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       leaves the check inert.
 
       Scoping a rule to a single layer is done through Credo's own per check `files:`
-      param. Arity is deliberately not part of an entry, so every arity of the named
-      function is reported: a project that forbids `Process.sleep` means all of it.
+      param. An entry may name an arity, as `{Process, :sleep, 1}`, and then covers that
+      arity alone, which is what a project that objects to one of several ways to call a
+      function needs. An entry without an arity covers every arity the function has,
+      which is what forbidding a function usually means.
+
+      An arity is read from the call as Elixir makes it, so a capture names the arity it
+      is written with, `&System.get_env/1` being arity one, and a piped call counts the
+      argument the pipe supplies.
 
       `Module` may be an Elixir module or an Erlang module given as a plain atom, `:os`
       or `:rand` for instance. Both a qualified call, `System.get_env("HOME")`, and a
@@ -98,8 +104,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       see. A piped call counts the argument the pipe supplies, since that is the call
       Elixir makes. Two directives naming one module are read the way
       Elixir reads them: a later `only:` replaces what an earlier one brought in, while
-      `except:` filters what is already there. Arity still plays no part in an entry of
-      `calls:`, which names a function at every arity it has.
+      `except:` filters what is already there.
 
       An entry naming a module on its own reaches a bare call only where an `import`
       lists the function in `only:`. An unrestricted `import` does not say which names
@@ -122,7 +127,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
         `{Module, :function}` tuple, a `Module` on its own to cover every
         function on it, or either of those paired with a custom message, as
         `{{Module, :function}, "Custom message"}` or `{Module, "Custom
-        message"}`. `Module` may be an Elixir module, an Erlang module given as
+        message"}`. An entry may name an arity, as `{Module, :function,
+        arity}`, to cover that arity alone rather than every arity of the
+        function. `Module` may be an Elixir module, an Erlang module given as
         a plain atom, or a module name pattern given as a string, which covers
         every module it matches, except that `Kernel` may not be named on its
         own, by name or by a pattern that matches it.
@@ -133,8 +140,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
         except: """
         A list of entries that carve exceptions out of `calls`. A call matching
         any of them is never reported, even when it also matches a forbidden
-        entry. The entry forms are the ones `calls` takes, without their
-        `{entry, "message"}` form, since an exception reports nothing and so has
+        entry. The entry forms are the ones `calls` takes, arity included and
+        without their `{entry, "message"}` form, since an exception reports nothing and so has
         no message to carry, and `Kernel` may be named on its own here. The
         default empty list means there is no exception; `nil` is also accepted
         and treated the same way.
@@ -205,16 +212,29 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     {[head_args(head) | rest], issues}
   end
 
+  # A capture names the function it captures at an arity of its own, and the call
+  # written inside it carries no arguments, so the arity is read from the capture
+  # and the call is left out of the walk.
+  defp traverse({:&, _meta, [{:/, _, [{{:., _, [_module, _function]}, _, []} = call, arity]}]}, issues, context)
+       when is_integer(arity) do
+    {[], report_qualified(context, call, arity, issues)}
+  end
+
+  # A piped call is written without its first argument, so a qualified one is
+  # reported at the arity the pipe gives it and left out of the walk, the way a
+  # bare piped call is.
+  defp traverse({:|>, _meta, [left, {{:., _, [_module, _function]}, _, args} = call]}, issues, context)
+       when is_list(args) do
+    {[left | args], report_qualified(context, call, length(args) + 1, issues)}
+  end
+
   defp traverse(
-         {{:., _dot_meta, [{:__aliases__, alias_meta, parts}, function]}, _call_meta, args} = ast,
+         {{:., _dot_meta, [{:__aliases__, _alias_meta, _parts}, function]}, _call_meta, args} = ast,
          issues,
          context
        )
        when is_atom(function) and is_list(args) do
-    module = ModuleName.resolve(parts, context.aliases)
-    trigger = "#{Name.full(parts)}.#{function}"
-
-    {ast, report(context, module, function, trigger, alias_meta, issues)}
+    {ast, report_qualified(context, ast, length(args), issues)}
   end
 
   # A piped call is written without its first argument, so the node carries one
@@ -229,13 +249,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     {[left | piped_args], issues}
   end
 
-  defp traverse({{:., dot_meta, [module, function]}, _call_meta, args} = ast, issues, context)
+  defp traverse({{:., _dot_meta, [module, function]}, _call_meta, args} = ast, issues, context)
        when is_atom(module) and is_atom(function) and is_list(args) do
-    written_module = inspect(module)
-    trigger = "#{written_module}.#{function}"
-    meta = erlang_call_meta(dot_meta, written_module)
-
-    {ast, report(context, ModuleName.full(module), function, trigger, meta, issues)}
+    {ast, report_qualified(context, ast, length(args), issues)}
   end
 
   defp traverse({function, call_meta, args} = ast, issues, context)
@@ -247,6 +263,30 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp head_args({_name, _meta, args}) when is_list(args), do: args
   defp head_args(_head), do: []
+
+  defp report_qualified(
+         context,
+         {{:., _dot_meta, [{:__aliases__, alias_meta, parts}, function]}, _call_meta, _args},
+         arity,
+         issues
+       )
+       when is_atom(function) do
+    module = ModuleName.resolve(parts, context.aliases)
+    trigger = "#{Name.full(parts)}.#{function}"
+
+    report(context, module, function, arity, trigger, alias_meta, issues)
+  end
+
+  defp report_qualified(context, {{:., dot_meta, [module, function]}, _call_meta, _args}, arity, issues)
+       when is_atom(module) and is_atom(function) do
+    written_module = inspect(module)
+    trigger = "#{written_module}.#{function}"
+    meta = erlang_call_meta(dot_meta, written_module)
+
+    report(context, ModuleName.full(module), function, arity, trigger, meta, issues)
+  end
+
+  defp report_qualified(_context, _call, _arity, issues), do: issues
 
   # An Erlang module written as a plain atom carries no meta of its own, so the
   # column of the call site is derived from the dot's column, which always
@@ -273,17 +313,17 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   # says nothing about which names it brings in, so only an entry naming the
   # function applies, which a local function of that name cannot be, since
   # Elixir refuses to compile a local definition that conflicts with an import.
-  defp unqualified_entry(context, {module, :only}, function, _arity) do
-    case forbidden_entry(context, module, function) do
+  defp unqualified_entry(context, {module, :only}, function, arity) do
+    case forbidden_entry(context, module, function, arity) do
       {:ok, entry} -> entry
       :error -> nil
     end
   end
 
   defp unqualified_entry(context, {module, :open}, function, arity) do
-    case function_entry(context.calls, module, function) do
+    case function_entry(context.calls, module, function, arity) do
       {:ok, entry} ->
-        if imported_name?(module, function, arity) and not excepted?(context, module, function) do
+        if imported_name?(module, function, arity) and not excepted?(context, module, function, arity) do
           resolve_display(entry, module)
         end
 
@@ -520,10 +560,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp function_pair({name, arity}) when is_atom(name) and is_integer(arity), do: [{name, arity}]
   defp function_pair(_entry), do: []
 
-  defp report(_context, nil, _function, _trigger, _call_meta, issues), do: issues
+  defp report(_context, nil, _function, _arity, _trigger, _call_meta, issues), do: issues
 
-  defp report(context, module, function, trigger, call_meta, issues) do
-    case forbidden_entry(context, module, function) do
+  defp report(context, module, function, arity, trigger, call_meta, issues) do
+    case forbidden_entry(context, module, function, arity) do
       {:ok, {message, display}} ->
         [issue_for(context, call_meta, trigger, display, function, message) | issues]
 
@@ -532,23 +572,23 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     end
   end
 
-  defp forbidden_entry(context, module, function) do
-    if excepted?(context, module, function) do
+  defp forbidden_entry(context, module, function, arity) do
+    if excepted?(context, module, function, arity) do
       :error
     else
-      case entry_for(context.calls, module, function) do
+      case entry_for(context.calls, module, function, arity) do
         {:ok, entry} -> {:ok, resolve_display(entry, module)}
         :error -> :error
       end
     end
   end
 
-  defp excepted?(context, module, function) do
-    entry_for(context.except, module, function) != :error
+  defp excepted?(context, module, function, arity) do
+    entry_for(context.except, module, function, arity) != :error
   end
 
-  defp entry_for(entries, module, function) do
-    with :error <- function_entry(entries, module, function),
+  defp entry_for(entries, module, function, arity) do
+    with :error <- function_entry(entries, module, function, arity),
          :error <- Map.fetch(entries.modules, module) do
       matching_entry(entries.module_patterns, module)
     end
@@ -556,9 +596,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   # An entry naming a function is looked up on its own, since a bare call under
   # an unrestricted `import` is only ever read against one of those.
-  defp function_entry(entries, module, function) do
-    with :error <- Map.fetch(entries.functions, {module, function}) do
-      matching_entry(entries.function_patterns, module, function)
+  defp function_entry(entries, module, function, arity) do
+    with :error <- Map.fetch(entries.functions, {module, function, arity}),
+         :error <- Map.fetch(entries.functions, {module, function, :any}) do
+      matching_entry(entries.function_patterns, module, function, arity)
     end
   end
 
@@ -568,15 +609,19 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     |> found_entry()
   end
 
-  defp matching_entry(patterns, module, function) do
+  defp matching_entry(patterns, module, function, arity) do
     patterns
-    |> Enum.find(fn {regex, name, _entry} -> name == function and Regex.match?(regex, module) end)
+    |> Enum.find(&matches_function?(&1, module, function, arity))
     |> found_entry()
+  end
+
+  defp matches_function?({regex, name, entry_arity, _entry}, module, function, arity) do
+    name == function and entry_arity in [:any, arity] and Regex.match?(regex, module)
   end
 
   defp found_entry(nil), do: :error
   defp found_entry({_regex, entry}), do: {:ok, entry}
-  defp found_entry({_regex, _function, entry}), do: {:ok, entry}
+  defp found_entry({_regex, _function, _arity, entry}), do: {:ok, entry}
 
   # A pattern entry says nothing about which module a call names, so the module
   # the call resolved to is what the message names.
@@ -608,16 +653,26 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp group_entries(entries) do
     %{
-      functions: Map.new(for {{:function, module, function}, entry} <- entries, do: {{module, function}, entry}),
+      functions:
+        Map.new(
+          for {{:function, module, function, arity}, entry} <- entries,
+              do: {{module, function, arity}, entry}
+        ),
       modules: Map.new(for {{:module, module}, entry} <- entries, do: {module, entry}),
-      function_patterns: for({{:function_pattern, regex, function}, entry} <- entries, do: {regex, function, entry}),
+      function_patterns:
+        for({{:function_pattern, regex, function, arity}, entry} <- entries, do: {regex, function, arity, entry}),
       module_patterns: for({{:module_pattern, regex}, entry} <- entries, do: {regex, entry})
     }
   end
 
+  defp normalize_except({module, function, arity})
+       when (is_atom(module) or is_binary(module)) and is_atom(function) and is_integer(arity) do
+    {function_key(module, function, arity), nil}
+  end
+
   defp normalize_except({module, function})
        when (is_atom(module) or is_binary(module)) and is_atom(function) do
-    {function_key(module, function), nil}
+    {function_key(module, function, :any), nil}
   end
 
   defp normalize_except(module) when is_atom(module) or is_binary(module) do
@@ -627,17 +682,29 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp normalize_except(entry) do
     raise ArgumentError,
           "invalid except entry #{inspect(entry)}: expected Module, a module name pattern, " <>
-            "or {Module, :function}, without a message, since an exception reports nothing"
+            "{Module, :function}, or {Module, :function, arity}, without a message, since an " <>
+            "exception reports nothing"
+  end
+
+  defp normalize_call({{module, function, arity}, message})
+       when (is_atom(module) or is_binary(module)) and is_atom(function) and is_integer(arity) and
+              is_binary(message) do
+    {function_key(module, function, arity), entry(module, message)}
   end
 
   defp normalize_call({{module, function}, message})
        when (is_atom(module) or is_binary(module)) and is_atom(function) and is_binary(message) do
-    {function_key(module, function), entry(module, message)}
+    {function_key(module, function, :any), entry(module, message)}
+  end
+
+  defp normalize_call({module, function, arity})
+       when (is_atom(module) or is_binary(module)) and is_atom(function) and is_integer(arity) do
+    {function_key(module, function, arity), entry(module, nil)}
   end
 
   defp normalize_call({module, function})
        when (is_atom(module) or is_binary(module)) and is_atom(function) do
-    {function_key(module, function), entry(module, nil)}
+    {function_key(module, function, :any), entry(module, nil)}
   end
 
   defp normalize_call({module, message})
@@ -652,15 +719,15 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp normalize_call(entry) do
     raise ArgumentError,
           "invalid calls entry #{inspect(entry)}: expected Module, a module name pattern, " <>
-            "{Module, :function}, or either of those paired with a message"
+            "{Module, :function}, {Module, :function, arity}, or any of those paired with a message"
   end
 
-  defp function_key(module, function) when is_atom(module) do
-    {:function, module_name(module), function}
+  defp function_key(module, function, arity) when is_atom(module) do
+    {:function, module_name(module), function, arity}
   end
 
-  defp function_key(pattern, function) do
-    {:function_pattern, ModulePattern.compile!(pattern), function}
+  defp function_key(pattern, function, arity) do
+    {:function_pattern, ModulePattern.compile!(pattern), function, arity}
   end
 
   defp module_key(module) when is_atom(module), do: {:module, module_name(module)}

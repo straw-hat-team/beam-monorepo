@@ -1069,7 +1069,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     end
   end
 
-  test "raises when a calls entry names an arity" do
+  test "raises when a calls entry names an arity that is not an integer" do
     source_file =
       """
       defmodule CredoSampleModule do
@@ -1078,8 +1078,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
       """
       |> to_source_file()
 
-    assert_raise ArgumentError, ~r/invalid calls entry {System, :get_env, 1}/, fn ->
-      ForbiddenFunctionCall.run(source_file, calls: [{System, :get_env, 1}])
+    assert_raise ArgumentError, ~r/invalid calls entry {System, :get_env, :one}/, fn ->
+      ForbiddenFunctionCall.run(source_file, calls: [{System, :get_env, :one}])
     end
   end
 
@@ -1382,5 +1382,230 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
         except: [{Acme.Legacy.Client, "Allowed for now."}]
       )
     end
+  end
+
+  test "reports a call at the arity an entry names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        System.get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 1}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "System.get_env"
+    end)
+  end
+
+  test "does not report a call at another arity than an entry names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        System.get_env("HOME", "default")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 1}])
+    |> refute_issues()
+  end
+
+  test "reports an entry naming an arity with its own message" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Process.sleep(100)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: [{{Process, :sleep, 1}, "Use a scheduled job instead of sleeping."}]
+    )
+    |> assert_issue(fn issue ->
+      assert issue.message == "Use a scheduled job instead of sleeping."
+    end)
+  end
+
+  test "reports a call at the arity an entry names on an Erlang module" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        :os.system_time(:second)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{:os, :system_time, 1}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ":os.system_time"
+    end)
+  end
+
+  test "counts the argument a pipe supplies to a qualified call" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        "HOME" |> System.get_env()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 1}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "System.get_env"
+    end)
+  end
+
+  test "does not report a piped qualified call at the arity it is written with" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        "HOME" |> System.get_env()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 0}])
+    |> refute_issues()
+  end
+
+  test "reports a piped qualified call once" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        "HOME" |> System.get_env() |> String.trim()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "System.get_env"
+    end)
+  end
+
+  test "reads the arity a capture names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        &System.get_env/1
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 1}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "System.get_env"
+    end)
+  end
+
+  test "does not report a capture at another arity than an entry names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        &System.get_env/1
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 2}])
+    |> refute_issues()
+  end
+
+  test "reports a bare call at the arity an entry names" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run do
+        get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 1}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "get_env"
+    end)
+  end
+
+  test "does not report a bare call at another arity than an entry names" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 2]
+
+      def run do
+        get_env("HOME", "default")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env, 1}])
+    |> refute_issues()
+  end
+
+  test "reports a pattern entry at the arity it names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch("id")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{"Acme.Legacy.**", :fetch, 1}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Acme.Legacy.Client.fetch"
+    end)
+  end
+
+  test "does not report a pattern entry at another arity than it names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch("id", [])
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{"Acme.Legacy.**", :fetch, 1}])
+    |> refute_issues()
+  end
+
+  test "does not report the arity an except entry names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch("id")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: ["Acme.Legacy.**"],
+      except: [{Acme.Legacy.Client, :fetch, 1}]
+    )
+    |> refute_issues()
+  end
+
+  test "reports another arity than an except entry names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch("id", [])
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: ["Acme.Legacy.**"],
+      except: [{Acme.Legacy.Client, :fetch, 1}]
+    )
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Acme.Legacy.Client.fetch"
+    end)
   end
 end
