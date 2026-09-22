@@ -481,6 +481,23 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
     end
   end
 
+  test "raises when an except entry carries a message" do
+    source_file =
+      """
+      defmodule CredoSampleModule do
+        def run, do: MyApp.Repo.get(1)
+      end
+      """
+      |> to_source_file()
+
+    assert_raise ArgumentError, ~r/invalid namespace boundary pattern/, fn ->
+      NamespaceBoundary.run(source_file,
+        forbidden: ["MyApp.**"],
+        except: [{"MyApp.Repo", "The repo is fine here."}]
+      )
+    end
+  end
+
   test "raises when an except pattern is not a binary or a module name" do
     source_file =
       """

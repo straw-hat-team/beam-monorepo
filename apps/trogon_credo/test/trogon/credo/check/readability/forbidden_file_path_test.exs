@@ -181,5 +181,16 @@ defmodule Trogon.Credo.Check.Readability.ForbiddenFilePathTest do
         ForbiddenFilePath.run(source_file, forbidden: ["test/**/*.ex"], except: [:nope])
       end
     end
+
+    test "raises when an except entry carries a message" do
+      source_file = to_source_file(@source, "test/fixtures/thing.ex")
+
+      assert_raise ArgumentError, ~r/invalid file path pattern/, fn ->
+        ForbiddenFilePath.run(source_file,
+          forbidden: ["test/**/*.ex"],
+          except: [{"test/support/**/*.ex", "Support files are fine."}]
+        )
+      end
+    end
   end
 end

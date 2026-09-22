@@ -102,10 +102,12 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
         `forbidden` and, usually, with `files:`.
         """,
         except: """
-        A list of patterns, in the same syntax as `forbidden`, that carve exceptions out of
-        it. A reference matching any `except` pattern is never reported, even when it also
-        matches a `forbidden` one. The default empty list means there is no exception; `nil`
-        is also accepted and treated the same way.
+        A list of module name patterns that carve exceptions out of `forbidden`. A reference
+        matching any `except` pattern is never reported, even when it also matches a
+        `forbidden` one. The pattern syntax is the one `forbidden` uses, without its
+        `{pattern, "message"}` form, since an exception reports nothing and so has no message
+        to carry. The default empty list means there is no exception; `nil` is also accepted
+        and treated the same way.
         """,
         hint: """
         A sentence appended to the message of every issue this check reports, so a project
