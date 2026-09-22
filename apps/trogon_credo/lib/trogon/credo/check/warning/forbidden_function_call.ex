@@ -13,21 +13,28 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       every other use of the same module stays fine elsewhere.
 
       Credo ships `Credo.Check.Warning.ForbiddenModule` to forbid a module altogether.
-      This check is the function level counterpart: it forbids a `{Module, :function}`
-      pair while every other function on that module stays allowed, so a project can
-      forbid `System.get_env/1` without forbidding `System`.
+      This check is the call site counterpart: it reports a call rather than a written
+      name, so a project can forbid `System.get_env/1` without forbidding `System`.
 
           {Trogon.Credo.Check.Warning.ForbiddenFunctionCall,
            [calls: [
               {System, :get_env},
-              {{Process, :sleep}, "Use a scheduled job instead of sleeping."}
+              {{Process, :sleep}, "Use a scheduled job instead of sleeping."},
+              {:rand, "Randomness must be supplied to this layer, not drawn inside it."}
             ]]}
 
-      The configuration above forbids `System.get_env/1` with the default message and
-      `Process.sleep/1` with a custom one. Scoping a rule to a single layer is done
-      through Credo's own per check `files:` param. Arity is deliberately not part of
-      an entry, so every arity of the named function is reported: a project that
-      forbids `Process.sleep` means all of it.
+      The configuration above forbids `System.get_env/1` with the default message,
+      `Process.sleep/1` with a custom one, and every function on `:rand`. An entry
+      naming a module on its own covers every call to that module, which is how a
+      project says that none of it belongs in a layer, and is the one way to say that
+      about an Erlang module, since `Credo.Check.Warning.ForbiddenModule` reads written
+      aliases. `Kernel` cannot be named on its own, since it is auto imported into every
+      module, which would make the entry report every call in the file; such an entry
+      raises, and the functions have to be named instead.
+
+      Scoping a rule to a single layer is done through Credo's own per check `files:`
+      param. Arity is deliberately not part of an entry, so every arity of the named
+      function is reported: a project that forbids `Process.sleep` means all of it.
 
       `Module` may be an Elixir module or an Erlang module given as a plain atom, `:os`
       or `:rand` for instance. Both a qualified call, `System.get_env("HOME")`, and a
@@ -55,12 +62,15 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       """,
       params: [
         calls: """
-        A list of `{Module, :function}` tuples, or `{{Module, :function},
-        "Custom message"}` tuples, naming the functions that must not be
-        called. `Module` may be an Elixir module or an Erlang module given as a
-        plain atom. Every arity of the named function is covered by a single
-        entry. The default empty list makes the check inert, since there is no
-        universal forbidden call.
+        A list of entries naming what must not be called. An entry is a
+        `{Module, :function}` tuple, a `Module` on its own to cover every
+        function on it, or either of those paired with a custom message, as
+        `{{Module, :function}, "Custom message"}` or `{Module, "Custom
+        message"}`. `Module` may be an Elixir module or an Erlang module given
+        as a plain atom, except that `Kernel` may not be named on its own.
+        Every arity of the named function is covered by a single entry. The
+        default empty list makes the check inert, since there is no universal
+        forbidden call.
         """,
         hint: """
         A sentence appended to the message of every issue this check reports, so a
@@ -81,14 +91,15 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    calls = prepare_calls(Params.get(params, :calls, __MODULE__))
+    {calls, modules} = prepare_calls(Params.get(params, :calls, __MODULE__))
 
-    if calls == %{} do
+    if calls == %{} and modules == %{} do
       []
     else
       context = %{
         issue_meta: IssueMeta.for(source_file, params),
         calls: calls,
+        modules: modules,
         hint: Params.get(params, :hint, __MODULE__),
         aliases: ModuleName.collect_aliases(source_file)
       }
@@ -158,12 +169,19 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp report(_context, nil, _function, _trigger, _call_meta, issues), do: issues
 
   defp report(context, module, function, trigger, call_meta, issues) do
-    case Map.fetch(context.calls, {module, function}) do
+    case forbidden_entry(context, module, function) do
       {:ok, {message, display}} ->
         [issue_for(context, call_meta, trigger, display, function, message) | issues]
 
       :error ->
         issues
+    end
+  end
+
+  defp forbidden_entry(context, module, function) do
+    case Map.fetch(context.calls, {module, function}) do
+      {:ok, entry} -> {:ok, entry}
+      :error -> Map.fetch(context.modules, module)
     end
   end
 
@@ -183,9 +201,12 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp append_hint(message, hint), do: "#{message} #{hint}"
 
   defp prepare_calls(calls) do
-    calls
-    |> Enum.map(&normalize_call/1)
-    |> Map.new()
+    {call_entries, module_entries} =
+      calls
+      |> Enum.map(&normalize_call/1)
+      |> Enum.split_with(fn {key, _entry} -> is_tuple(key) end)
+
+    {Map.new(call_entries), Map.new(module_entries)}
   end
 
   defp normalize_call({{module, function}, message}) when is_atom(module) and is_atom(function) do
@@ -196,9 +217,30 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     {{module_key(module), function}, {nil, module_display(module)}}
   end
 
+  defp normalize_call({module, message}) when is_atom(module) and is_binary(message) do
+    {whole_module_key(module), {message, module_display(module)}}
+  end
+
+  defp normalize_call(module) when is_atom(module) do
+    {whole_module_key(module), {nil, module_display(module)}}
+  end
+
   defp normalize_call(entry) do
     raise ArgumentError,
-          "invalid calls entry #{inspect(entry)}: expected {Module, :function} or {{Module, :function}, \"message\"}"
+          "invalid calls entry #{inspect(entry)}: expected Module, {Module, :function}, " <>
+            "or either of those paired with a message"
+  end
+
+  defp whole_module_key(module) do
+    case module_key(module) do
+      @kernel_module ->
+        raise ArgumentError,
+              "invalid calls entry #{inspect(module)}: `Kernel` cannot be forbidden as a whole " <>
+                "module, since it is auto imported into every module, so name its functions instead"
+
+      key ->
+        key
+    end
   end
 
   defp module_key(module), do: ModuleName.full(module)

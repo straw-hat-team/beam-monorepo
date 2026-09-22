@@ -369,7 +369,120 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> refute_issues()
   end
 
-  test "raises when a calls entry is not a {Module, :function} or {{Module, :function}, message} tuple" do
+  test "reports every call to a module named on its own" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        System.get_env("HOME")
+        System.cmd("ls", [])
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> assert_issues(fn issues ->
+      assert Enum.map(issues, & &1.trigger) == ["System.cmd", "System.get_env"]
+
+      assert Enum.map(issues, & &1.message) == [
+               "The `System.cmd` function must not be called.",
+               "The `System.get_env` function must not be called."
+             ]
+    end)
+  end
+
+  test "reports every call to an Erlang module named on its own" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        :rand.uniform(3)
+        :rand.bytes(4)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [:rand])
+    |> assert_issues(fn issues ->
+      assert Enum.map(issues, & &1.trigger) == [":rand.bytes", ":rand.uniform"]
+    end)
+  end
+
+  test "reports a captured call to a module named on its own" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: Enum.map(["HOME"], &System.get_env/1)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [:rand, System])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "System.get_env"
+    end)
+  end
+
+  test "resolves a call through an alias for a module named on its own" do
+    """
+    defmodule CredoSampleModule do
+      alias System, as: Env
+
+      def run, do: Env.get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Env.get_env"
+    end)
+  end
+
+  test "uses a custom message for a module named on its own" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :rand.uniform(3)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{:rand, "Randomness belongs outside this layer."}])
+    |> assert_issue(fn issue ->
+      assert issue.message == "Randomness belongs outside this layer."
+    end)
+  end
+
+  test "prefers a function entry's message over that of the module it belongs to" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        System.get_env("HOME")
+        System.cmd("ls", [])
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: [{System, "Read the environment at the config boundary."}, {{System, :get_env}, "Use a runtime config."}]
+    )
+    |> assert_issues(fn issues ->
+      assert Enum.map(issues, & &1.message) == [
+               "Read the environment at the config boundary.",
+               "Use a runtime config."
+             ]
+    end)
+  end
+
+  test "does not report a module named on its own outside a call position" do
+    """
+    defmodule CredoSampleModule do
+      alias System, as: Sys
+
+      @spec run :: System.t()
+      def run, do: Sys
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> refute_issues()
+  end
+
+  test "raises when Kernel is named on its own" do
     source_file =
       """
       defmodule CredoSampleModule do
@@ -378,12 +491,12 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
       """
       |> to_source_file()
 
-    assert_raise ArgumentError, ~r/invalid calls entry System/, fn ->
-      ForbiddenFunctionCall.run(source_file, calls: [System])
+    assert_raise ArgumentError, ~r/`Kernel` cannot be forbidden as a whole module/, fn ->
+      ForbiddenFunctionCall.run(source_file, calls: [Kernel])
     end
   end
 
-  test "raises when a calls entry's function is not an atom" do
+  test "raises when a calls entry is neither a module nor a {Module, :function} tuple" do
     source_file =
       """
       defmodule CredoSampleModule do
@@ -392,8 +505,22 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
       """
       |> to_source_file()
 
-    assert_raise ArgumentError, ~r/invalid calls entry {System, "get_env"}/, fn ->
-      ForbiddenFunctionCall.run(source_file, calls: [{System, "get_env"}])
+    assert_raise ArgumentError, ~r/invalid calls entry "System"/, fn ->
+      ForbiddenFunctionCall.run(source_file, calls: ["System"])
+    end
+  end
+
+  test "raises when a calls entry names an arity" do
+    source_file =
+      """
+      defmodule CredoSampleModule do
+        def run, do: :ok
+      end
+      """
+      |> to_source_file()
+
+    assert_raise ArgumentError, ~r/invalid calls entry {System, :get_env, 1}/, fn ->
+      ForbiddenFunctionCall.run(source_file, calls: [{System, :get_env, 1}])
     end
   end
 end
