@@ -9,54 +9,45 @@ defmodule Trogon.Credo.Check.Readability.RequiredUse do
     ],
     explanations: [
       check: """
-      A module that lives in a given directory is often expected to bring in a shared
-      piece of behaviour: a directory of request handlers expected to `use` the
-      project's handler behaviour, a directory of schemas expected to `use` the
-      project's schema wrapper, a directory of tests expected to `use` the case template
-      that sets up the sandbox. A file that forgets is not a compile error, it is a
-      module that quietly does not get the shared setup, and that is easy to miss in
-      review.
-
-      This check is the exact inverse of `Trogon.Credo.Check.Readability.ModuleLocation`.
-      That check reads "a module that uses this must live there"; this one reads "a
-      module that lives here must use one of these". The two are usually enabled as a
-      pair, one saying where a module must live and the other saying what a module in
-      that place must bring in.
+      A module in a given directory is often expected to bring in a shared piece of
+      behaviour: a directory of request handlers expected to `use` the project's
+      handler behaviour, a directory of tests expected to `use` the case template that
+      sets up the sandbox. A file that forgets is not a compile error, it is a module
+      that quietly does not get the shared setup, and that is easy to miss in review.
 
           {Trogon.Credo.Check.Readability.RequiredUse,
            [modules: [MyApp.Worker, MyApp.EventHandler],
             files: %{included: ["lib/my_app/*/processor/"]}]}
 
       With the configuration above, every module under a `processor/` directory is
-      expected to `use` either `MyApp.Worker` or `MyApp.EventHandler`. A project scopes
-      an instance of this check to a directory with Credo's own `files` param, the way
-      the example does, and enables the check again with a different `files` and a
-      different `modules` list for another directory.
+      expected to `use` either module. A project scopes an instance to a directory
+      with Credo's own `files:` param and enables the check again with a different
+      `files` and `modules` for another directory.
+
+      This check is the inverse of `Trogon.Credo.Check.Readability.ModuleLocation`.
+      That one reads "a module that uses this must live there"; this one reads "a
+      module that lives here must use one of these". The two are usually enabled as a
+      pair.
 
       The check reports once per file rather than once per module, since a file is
-      expected to hold a single module; a project that wants exactly one module per file
-      has a separate rule to write for that. A file that defines no module at all, one
-      holding only a `defimpl` block, for instance, has nothing that could carry a `use`
-      and is not reported. A `use` satisfies the check no matter how deeply it is nested
-      inside the file, so a file whose outer module is bare but whose nested submodule
-      carries the `use` is still compliant. A `defmodule` whose name is not written as an
-      alias, `defmodule Module.concat(Foo, Bar)` for instance, still counts as a module
-      that must carry the `use`, but the issue it raises carries no trigger, since the
-      check cannot read the module's name.
+      expected to hold a single module. A `use` satisfies it no matter how deeply
+      nested, so a file whose outer module is bare but whose nested submodule carries
+      the `use` is compliant. A file defining no module at all, one holding only a
+      `defimpl` for instance, has nothing that could carry a `use` and is skipped. A
+      `defmodule` whose name is not written as an alias, `defmodule Module.concat(Foo,
+      Bar)` for instance, still must carry the `use`, but its issue carries no trigger,
+      since the check cannot read the name.
 
-      A `use` written inside a `quote` block does not satisfy the check, since that `use`
-      is injected into whichever module expands the macro rather than into the module
-      the file itself defines. Aliases are resolved before matching, including the
-      `Elixir.`-prefixed form, but a name the file binds to more than one module
-      satisfies nothing, since the file as a whole does not say which one a reference
-      means. A `use` whose module cannot be read statically, `use @behaviour` or `use
-      unquote(mod)` for instance, also satisfies nothing, because the check cannot know
-      what it names; a file like that needs a `# credo:disable-for-this-file` comment.
+      A `use` inside a `quote` block does not satisfy the check, since it is injected
+      into whichever module expands the macro. Aliases are resolved before matching,
+      including the `Elixir.` prefixed form, but a name the file binds to two different
+      modules satisfies nothing. A `use` whose module cannot be read statically, `use
+      unquote(mod)` for instance, satisfies nothing either; a file like that needs a
+      `# credo:disable-for-this-file` comment.
 
       The issue is attributed to the file's outermost module, since that is what a
-      reader sees first, and its message speaks of "this directory" rather than naming
-      the directory itself, since the check knows only that the file's location matched
-      its `files` param, not what the project calls that place.
+      reader sees first, and its message says "this directory" rather than naming it,
+      since the check knows only that the file matched its `files:` param.
       """,
       params: [
         modules: """

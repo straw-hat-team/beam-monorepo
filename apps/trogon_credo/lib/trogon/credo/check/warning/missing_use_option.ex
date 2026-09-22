@@ -9,63 +9,48 @@ defmodule Trogon.Credo.Check.Warning.MissingUseOption do
     ],
     explanations: [
       check: """
-      A `__using__/1` macro usually accepts options, and usually gives them
-      defaults. That is convenient and occasionally dangerous: when the
-      default silently decides something that outlives the code, omitting the
-      option is a bug that nothing reports. An error template whose severity
-      defaults to the least useful value, a background worker whose retry
-      count defaults to whatever the library picked, a module whose identity
-      prefix ends up in persisted data all compile, run, and are wrong in a
-      way that only shows up in production data.
+      A `__using__/1` macro usually accepts options, and usually gives them defaults.
+      That is convenient and occasionally dangerous: when the default silently decides
+      something that outlives the code, omitting the option is a bug that nothing
+      reports. An error template whose severity defaults to the least useful value, or
+      a background worker whose retry count defaults to whatever the library picked,
+      compiles, runs, and is wrong in a way that only shows up in production data.
 
-      A project that has decided an option must always be stated wants that
-      decided in one place. This check is that place: it reports a `use` of a
-      named module that does not pass the options the project requires.
+      A project that has decided an option must always be stated wants that decided in
+      one place. This check is that place: it reports a `use` of a named module that
+      does not pass the options the project requires.
 
           {Trogon.Credo.Check.Warning.MissingUseOption,
            [for_use: MyApp.Worker, options: [:queue, :max_attempts]]}
 
-      With the configuration above, `use MyApp.Worker` reports both options
-      missing, and `use MyApp.Worker, queue: :default` reports only
-      `:max_attempts` missing.
+      With the configuration above, `use MyApp.Worker` reports both options missing,
+      and `use MyApp.Worker, queue: :default` reports only `:max_attempts` missing.
 
-      This check is presence only. Whether the value passed for an option is
-      the right one is deliberately out of scope: a value constraint would
-      need a nested keyword path to be useful, and that is a different check.
+      This check is presence only. Whether the value passed for an option is the right
+      one is deliberately out of scope: a value constraint would need a nested keyword
+      path to be useful, and that is a different check. Credo does not ship anything
+      that inspects the options passed to a `use`, so there is no core check this
+      narrows.
 
-      Credo does not ship anything that inspects the options passed to a
-      `use`, so there is no core check this narrows.
+      Options are inspected only when written as a keyword list literal in the source.
+      `use MyApp.Worker, @worker_opts`, `use MyApp.Worker, unquote(opts)`, and `use
+      MyApp.Worker, Keyword.merge(@base, queue: :x)` all stay silent, since the check
+      cannot read what they pass and reporting options that may well be there would be
+      worse than saying nothing. A partial keyword list with a non literal tail, `use
+      MyApp.Worker, [queue: :default | rest]`, is skipped the same way. This is the
+      main blind spot of this check: its value is on the ordinary literal form that
+      almost all `use` calls take.
 
-      The options passed to a `use` are only inspected when they are written
-      as a keyword list literal in the source. `use MyApp.Worker, @worker_opts`,
-      `use MyApp.Worker, unquote(opts)`, and
-      `use MyApp.Worker, Keyword.merge(@base, queue: :x)` all stay silent,
-      since the check cannot read what they pass and reporting options that
-      may well be there would be worse than saying nothing. A partial keyword
-      list with a non literal tail, `use MyApp.Worker, [queue: :default | rest]`,
-      is not a keyword list literal either, and is skipped the same way. This
-      is the main blind spot of this check: its value is on the ordinary
-      literal form that almost all `use` calls take.
+      A `use` written inside a `quote` block is inspected, since the macro injects that
+      `use` with those options into every module that expands it.
+      `Trogon.Credo.Check.Warning.ForbiddenUse` documents the same decision for its own
+      case.
 
-      A `use` written inside a `quote` block is inspected, since the macro
-      injects that `use` with those options into every module that expands
-      it. `Trogon.Credo.Check.Warning.ForbiddenUse` documents the same
-      decision for its own case.
-
-      Aliases are resolved before matching, so a `use` written through an
-      alias is reported under the name of the module it resolves to. Aliases
-      are collected for the whole file rather than per lexical scope, except
-      for an `alias` written inside a `quote` block, which takes effect
-      wherever the macro expands and is therefore not collected.
-
-      A name the file binds to more than one module, two sibling modules
-      aliasing a different `Client` for instance, matches neither module, and
-      does not fall back to matching the name as written either, since the
-      file as a whole does not say which one a given reference means.
-
-      A module written with an explicit `Elixir.` prefix, such as
-      `Elixir.MyApp.Worker`, names the same module as `MyApp.Worker` and is
-      matched the same way.
+      Aliases are resolved before matching, including the `Elixir.` prefixed form, so a
+      `use` written through an alias is reported under the module it resolves to. A
+      name the file binds to more than one module, two sibling modules aliasing a
+      different `Client` for instance, matches neither, and does not fall back to
+      matching the name as written.
       """,
       params: [
         for_use: """

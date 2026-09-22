@@ -8,21 +8,14 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     ],
     explanations: [
       check: """
-      Some function calls are dangerous or undesirable only in a specific part of
-      a codebase, wall clock time or randomness inside a layer that is required
-      to stay deterministic, for instance, while every other use of the module
-      they come from stays fine elsewhere.
+      Some calls are dangerous only in a specific part of a codebase: wall clock time
+      or randomness inside a layer required to stay deterministic, for instance, while
+      every other use of the same module stays fine elsewhere.
 
-      Credo already ships `Credo.Check.Warning.ForbiddenModule` to forbid usage
-      of a module altogether. This check is the function level counterpart: it
-      forbids a specific `{Module, :function}` pair while every other function
-      on that module stays allowed. A project can, for example, forbid
-      `System.get_env/1` without forbidding `System`, or forbid `Process.sleep/1`
-      without forbidding `Process`.
-
-      Arity is deliberately not part of an entry, so every arity of the named
-      function is reported. A project that forbids `Process.sleep` means all of
-      it, not one specific arity of it.
+      Credo ships `Credo.Check.Warning.ForbiddenModule` to forbid a module altogether.
+      This check is the function level counterpart: it forbids a `{Module, :function}`
+      pair while every other function on that module stays allowed, so a project can
+      forbid `System.get_env/1` without forbidding `System`.
 
           {Trogon.Credo.Check.Warning.ForbiddenFunctionCall,
            [calls: [
@@ -30,51 +23,33 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
               {{Process, :sleep}, "Use a scheduled job instead of sleeping."}
             ]]}
 
-      The configuration above forbids `System.get_env/1` with the default
-      message, and forbids `Process.sleep/1` with a custom one. Scoping either
-      rule to a single layer of a codebase, the part that is required to stay
-      deterministic for instance, is done through Credo's own per check
-      `files:` param, not through anything this check adds.
+      The configuration above forbids `System.get_env/1` with the default message and
+      `Process.sleep/1` with a custom one. Scoping a rule to a single layer is done
+      through Credo's own per check `files:` param. Arity is deliberately not part of
+      an entry, so every arity of the named function is reported: a project that
+      forbids `Process.sleep` means all of it.
 
-      `Module` may be an Elixir module, `System` or `MyApp.Repo` for instance, or
-      an Erlang module given as a plain atom, `:os`, `:erlang`, or `:rand` for
-      instance. Both a qualified call, `System.get_env("HOME")` or
-      `:os.system_time()`, and a captured call, `&System.get_env/1` or
-      `&:os.system_time/0`, are reported, since a capture is a call site for
-      this purpose just as much as an invocation is.
+      `Module` may be an Elixir module or an Erlang module given as a plain atom, `:os`
+      or `:rand` for instance. Both a qualified call, `System.get_env("HOME")`, and a
+      captured one, `&System.get_env/1`, are reported, since a capture is a call site
+      for this purpose just as much as an invocation is. A module written with an
+      explicit `Elixir.` prefix names the same module and is reported the same way.
+      Aliases are resolved before matching, and a name the file binds to two different
+      modules matches neither.
 
-      An unqualified call is reported only when `Module` is `Kernel`, since
-      `Kernel` is the one module auto imported into every module. An entry
-      `{Kernel, :dbg}` reports a bare `dbg(value)` as well as `Kernel.dbg(value)`.
-      For any other module the check cannot know, from a single file, whether a
-      bare `get_env(...)` came from an `import` or is simply a local function, so
-      an unqualified call to any module other than `Kernel` is never reported. An
-      unqualified capture, `&dbg/1` for instance, is not reported either, even
-      for a `Kernel` entry, since a bare capture carries no module for the check
-      to read and guessing one would be no better than assuming the import that
-      an unqualified call already declines to assume.
+      An unqualified call is reported only for a `Kernel` entry, since `Kernel` is the
+      one module auto imported into every module, so `{Kernel, :dbg}` reports a bare
+      `dbg(value)` as well as `Kernel.dbg(value)`. For any other module the check
+      cannot know, from a single file, whether a bare `get_env(...)` came from an
+      `import` or is simply a local function, so it is never reported. An unqualified
+      capture, `&dbg/1` for instance, is not reported either, even for a `Kernel`
+      entry, since a bare capture carries no module for the check to read.
 
-      Aliases are resolved before matching, so a call written through an alias
-      is reported under the module it resolves to. Aliases are collected for
-      the whole file rather than per lexical scope, except for an `alias`
-      written inside a `quote` block, which takes effect wherever the macro
-      expands and is therefore not collected. A name the file binds to more
-      than one module, two sibling modules aliasing a different `Client` for
-      instance, matches neither module, since the file as a whole does not say
-      which one a given reference means. A module written with an explicit
-      `Elixir.` prefix, `Elixir.System.get_env(...)` for instance, names the
-      same module as `System.get_env(...)` and is reported the same way.
-
-      Naming a module in a `@spec`, `@type`, `@typep`, `@opaque`, or `@callback`
-      is not a call to it, so a typespec is never reported. Naming a module in
-      an `alias`, `import`, `require`, or `use` directive is not a call to it
-      either, so directives are never reported, including the multi alias form
-      `System.{Foo}`, which shares its AST shape with a call. The check skips a
-      directive and everything written inside it, options included, so a call
-      written in a `use` option, `use MyApp.Worker, retries:
-      System.get_env("RETRIES")` for instance, is not reported either. A
-      function of the same name defined on a different, unconfigured module is
-      not the forbidden function and is never reported.
+      Not reported: a module named in a typespec, which is not a call to it; a module
+      named in an `alias`, `import`, `require`, or `use` directive, including the multi
+      alias form `System.{Foo}` that shares its AST shape with a call; anything written
+      inside such a directive, so a call in a `use` option stays silent as well; and a
+      function of the same name defined on a different, unconfigured module.
       """,
       params: [
         calls: """

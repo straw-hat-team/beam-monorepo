@@ -5,62 +5,37 @@ defmodule Trogon.Credo.Check.Warning.RaiseString do
     param_defaults: [hint: nil],
     explanations: [
       check: """
-      `raise "something went wrong"` raises a `RuntimeError` whose only structured
-      content is a prose string. Nothing downstream can match on it, a caller
-      cannot rescue one failure and let another propagate, and the message cannot
-      carry fields for a log line or an API response. A project that has defined
-      its own exception modules wants every `raise` to name one of them instead.
-
-      Credo already ships `Credo.Check.Warning.RaiseInsideRescue`, but that check
-      is about a `raise` written inside a `rescue` block discarding the original
-      stacktrace, regardless of what its argument is. This check is about the
-      argument given to `raise`, regardless of where it is written.
-
-          {Trogon.Credo.Check.Warning.RaiseString, []}
-
-      `reraise` is reported the same way, since its first argument is also the
-      message.
-
-      Reported:
-
-          raise "boom"
-          raise "no user \#{id}"
-          raise "no user " <> id
-          raise id <> " not found"
-          raise ~s(boom)
-          raise ~S(boom)
-
-      A `<>` node is reported regardless of which side holds the literal, and even
-      when neither side does, `raise a <> b`, since `<>` only accepts binaries on
-      both sides: whatever `a` and `b` are, the operator itself forces them to be
-      strings, so the result is decidable without knowing either operand.
-
-      Not reported, since these are the compliant forms the check is steering
-      toward:
+      `raise "something went wrong"` raises a `RuntimeError` whose only content is
+      prose. Nothing downstream can match on it, a caller cannot rescue one failure
+      and let another propagate, and the message cannot carry fields for a log line or
+      an API response. Name an exception module instead:
 
           raise MyApp.NotFoundError
           raise MyApp.NotFoundError, id: id
           raise %MyApp.Error{}
 
-      Also not reported: a `raise` given a variable, a function call, or a module
-      attribute as its argument, `raise exception` or `raise message` for
-      instance. The check cannot know what a variable holds, and guessing would
-      report compliant code just as often as not. This is the check's main blind
-      spot: a project that wants the rule airtight has to keep the raise site
-      itself readable rather than hiding the message behind a variable.
+      Reported: a string literal, an interpolation, a `~s` or `~S` sigil, or a `<>`
+      concatenation, given to `raise` or to `reraise`.
 
-      A `raise` written inside a `quote` block is reported, since the macro
-      injects that `raise` into every module that expands it, and it is authored
-      in this file.
+          raise "boom"
+          raise "no user \#{id}"
+          raise "no user " <> id
+          raise ~s(boom)
 
-      This check reads a single file's own source, so a `raise` injected by a
-      library's `__using__` macro belongs to that library's source and is
-      invisible here. That is a feature rather than a limitation: this check
-      never needs a per module exclusion list for a framework macro the way a
-      check over compiled modules would.
+      Not reported: a `raise` given a variable, a function call, or a module attribute,
+      `raise exception` for instance, since the check cannot know what a variable
+      holds. This is the check's main blind spot, and a project that wants the rule
+      airtight keeps the raise site readable rather than hiding the message behind a
+      variable.
 
-      This check states what is wrong with the raise. A `hint` lets a project add,
-      in its own words, what to do instead.
+      A `raise` inside a `quote` block is reported, since the macro injects it into
+      every module that expands it. A `raise` injected by a library's `__using__` macro
+      lives in that library's source and is invisible here, so this check needs no
+      exclusion list for framework macros.
+
+      Credo's `Credo.Check.Warning.RaiseInsideRescue` is a different rule: it is about
+      a `raise` inside a `rescue` discarding the stacktrace, regardless of the
+      argument, where this check is about the argument regardless of location.
       """,
       params: [
         hint: """
