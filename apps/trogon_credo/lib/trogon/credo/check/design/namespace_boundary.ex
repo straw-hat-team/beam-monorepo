@@ -24,14 +24,14 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
           # a domain layer may only reach for itself and the shared domain namespace
           {Trogon.Credo.Check.Design.NamespaceBoundary,
-           [forbidden: ["MyApp.**"],
-            except: ["MyApp.**.Domain", "MyApp.**.Domain.**"],
-            files: %{included: ["lib/my_app/*/domain/"]}]}
+           [forbidden: ["Acme.**"],
+            except: ["Acme.**.Domain", "Acme.**.Domain.**"],
+            files: %{included: ["lib/acme/*/domain/"]}]}
 
           # a domain error may only be built in the layers that own it
           {Trogon.Credo.Check.Design.NamespaceBoundary,
-           [forbidden: [{"MyApp.**.Domain.**Error", "A domain error may only be raised from its own context."}],
-            files: %{excluded: ["lib/my_app/*/domain/", "lib/my_app/*/command/"]}]}
+           [forbidden: [{"Acme.**.Domain.**Error", "A domain error may only be raised from its own context."}],
+            files: %{excluded: ["lib/acme/*/domain/", "lib/acme/*/command/"]}]}
 
       `forbidden` with `except` is a whitelist, as in the first example: forbid the
       whole application namespace, then except the part the domain layer may use.
@@ -45,15 +45,15 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
           # an error is private to the service namespace that defines it
           {Trogon.Credo.Check.Design.NamespaceBoundary,
-           [private_to: ["(MyApp.*Service).**Error"]]}
+           [private_to: ["(Acme.*Service).**Error"]]}
 
           # a processor may not reach into another processor
           {Trogon.Credo.Check.Design.NamespaceBoundary,
-           [private_to: ["(MyApp.Processor.*)"],
-            files: %{included: ["lib/my_app/processor/"]}]}
+           [private_to: ["(Acme.Processor.*)"],
+            files: %{included: ["lib/acme/processor/"]}]}
 
-      With the first configuration above, `MyApp.BillingService.NotFoundError` may only
-      be referenced from inside `MyApp.BillingService`. A pattern that is only the
+      With the first configuration above, `Acme.BillingService.NotFoundError` may only
+      be referenced from inside `Acme.BillingService`. A pattern that is only the
       parenthesized prefix, as in the second, makes a namespace private to itself, the
       module and everything under it. Ownership is read from the referencing file's own
       outermost module name, so `files:` narrows which files the rule applies to without
@@ -72,18 +72,18 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       | --- | --- |
       | `*` | any run of characters within a single segment, never crossing a `.` |
       | `**` | any run of characters including a `.`, so it crosses segments |
-      | `MyApp.Repo` | only that module |
-      | `MyApp.Repo.**` | `MyApp.Repo.Account`, but not `MyApp.Repo` itself |
-      | `MyApp.**.Domain.**` | `MyApp.Billing.Domain.Invoice`, and `MyApp.Domain.Invoice` too |
-      | `MyApp.**Error` | a module under `MyApp` whose name ends in `Error`, at any depth |
+      | `Acme.Repo` | only that module |
+      | `Acme.Repo.**` | `Acme.Repo.Account`, but not `Acme.Repo` itself |
+      | `Acme.**.Domain.**` | `Acme.Billing.Domain.Invoice`, and `Acme.Domain.Invoice` too |
+      | `Acme.**Error` | a module under `Acme` whose name ends in `Error`, at any depth |
 
       A `**` written as a whole segment is the one wildcard that can match nothing, so
-      `MyApp.**.Domain` names `MyApp.Domain` as well as `MyApp.Billing.Domain` and a
+      `Acme.**.Domain` names `Acme.Domain` as well as `Acme.Billing.Domain` and a
       pattern is not written twice to cover a level of nesting that is optional. A
       trailing `**` is the exception, reading as everything under the namespace, so a
       project that means the namespace root as well writes that as its own pattern.
       Anywhere else a wildcard matches at least one character, which is why
-      `MyApp.**Error`, glued to the literal it precedes, does not name `MyApp.Error`.
+      `Acme.**Error`, glued to the literal it precedes, does not name `Acme.Error`.
 
       Reported: a qualified call, a struct literal or pattern, an `import`, `require`,
       or `use` target, and a module named as a plain value such as a capture or a tuple
@@ -94,7 +94,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       Not reported: a `defmodule` head, at any depth, since a boundary is normally
       scoped to the namespace's own directory; a bare `alias`, in any of its forms,
       since an alias alone creates no dependency; the members of a multi form directive
-      such as `MyApp.{Foo, Bar}`, which a project writes out separately if it needs them
+      such as `Acme.{Foo, Bar}`, which a project writes out separately if it needs them
       checked; a module named in a typespec; anything inside a `quote` block, which
       belongs to wherever the macro expands; and an Erlang module written as a plain
       atom, `:os.system_time()` for instance, which no pattern has an atom form to
@@ -166,6 +166,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
   alias Credo.Code.Name
   alias Trogon.Credo.ModuleName
+  alias Trogon.Credo.ModulePattern
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
   @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp, :defdelegate]
@@ -420,10 +421,10 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   defp compile_private_pattern(pattern) when is_binary(pattern) do
     case Regex.run(~r/^\(([^()]+)\)(.*)$/, pattern) do
       [_full, owner, ""] ->
-        Regex.compile!("^(#{regex_source(owner)})(?:\\..+)?$")
+        Regex.compile!("^(#{ModulePattern.source(owner)})(?:\\..+)?$")
 
       [_full, owner, "." <> _ = private] ->
-        Regex.compile!("^(#{regex_source(owner)})#{regex_source(private)}$")
+        Regex.compile!("^(#{ModulePattern.source(owner)})#{ModulePattern.source(private)}$")
 
       _other ->
         raise ArgumentError, invalid_private_pattern(pattern)
@@ -443,48 +444,14 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     Enum.map(patterns, &compile_pattern/1)
   end
 
-  defp compile_pattern(pattern) when is_binary(pattern) do
-    to_regex(pattern)
-  end
-
-  defp compile_pattern(pattern) when is_atom(pattern) do
-    pattern |> ModuleName.full() |> to_regex()
-  end
-
   defp compile_pattern(pattern) do
-    raise ArgumentError,
-          "invalid namespace boundary pattern #{inspect(pattern)}: expected a module name pattern as a string, or a plain module name"
-  end
+    case ModulePattern.compile(pattern) do
+      {:ok, regex} ->
+        regex
 
-  defp to_regex(pattern) do
-    Regex.compile!("^#{regex_source(pattern)}$")
-  end
-
-  # A `**` standing as a whole segment is the one wildcard that can match no
-  # segment at all, so that a pattern naming an optional level of nesting covers
-  # the name without it. A trailing one still needs a segment, which is what
-  # keeps `MyApp.Repo.**` from naming `MyApp.Repo`.
-  defp regex_source(pattern) do
-    pattern |> String.split(".") |> segments_source()
-  end
-
-  defp segments_source(["**"]), do: ".+"
-  defp segments_source(["**" | rest]), do: "(?:[^.]+\\.)*" <> segments_source(rest)
-  defp segments_source([segment]), do: segment_source(segment)
-  defp segments_source([segment, "**"]), do: segment_source(segment) <> "(?:\\.[^.]+)+"
-
-  defp segments_source([segment, "**" | rest]) do
-    segment_source(segment) <> "(?:\\.[^.]+)*\\." <> segments_source(rest)
-  end
-
-  defp segments_source([segment | rest]) do
-    segment_source(segment) <> "\\." <> segments_source(rest)
-  end
-
-  defp segment_source(segment) do
-    segment
-    |> Regex.escape()
-    |> String.replace("\\*\\*", ".+")
-    |> String.replace("\\*", "[^.]+")
+      :error ->
+        raise ArgumentError,
+              "invalid namespace boundary pattern #{inspect(pattern)}: expected a module name pattern as a string, or a plain module name"
+    end
   end
 end

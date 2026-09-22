@@ -20,17 +20,30 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
            [calls: [
               {System, :get_env},
               {{Process, :sleep}, "Use a scheduled job instead of sleeping."},
-              {:rand, "Randomness must be supplied to this layer, not drawn inside it."}
+              {:rand, "Randomness must be supplied to this layer, not drawn inside it."},
+              {"Acme.**.Domain.**Error", :new}
             ]]}
 
       The configuration above forbids `System.get_env/1` with the default message,
-      `Process.sleep/1` with a custom one, and every function on `:rand`. An entry
+      `Process.sleep/1` with a custom one, every function on `:rand`, and `new` on every
+      module whose name matches `Acme.**.Domain.**Error`. An entry
       naming a module on its own covers every call to that module, which is how a
       project says that none of it belongs in a layer, and is the one way to say that
       about an Erlang module, since `Credo.Check.Warning.ForbiddenModule` reads written
       aliases. `Kernel` cannot be named on its own, since it is auto imported into every
       module, which would make the entry report every call in the file; such an entry
       raises, and the functions have to be named instead.
+
+      A module is named either by its name or by a pattern, given as a string, which
+      covers every module the pattern matches, so a rule over a namespace is written
+      once rather than once per module. `{"Acme.**.Domain.**Error", :new}` forbids
+      `new` on every domain error module, and `"Acme.Legacy.**"` on its own forbids
+      every call into that namespace. The pattern grammar is the one
+      `Trogon.Credo.Check.Design.NamespaceBoundary` documents: a fully qualified module
+      name, anchored at both ends, with `*` matching within a segment and `**` across
+      them. A pattern that matches `Kernel` cannot name a whole module either, and
+      raises the same way. An issue from a pattern entry names the module the call
+      resolved to, so an Erlang module reads as the atom it is written as.
 
       Scoping a rule to a single layer is done through Credo's own per check `files:`
       param. Arity is deliberately not part of an entry, so every arity of the named
@@ -95,8 +108,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
         `{Module, :function}` tuple, a `Module` on its own to cover every
         function on it, or either of those paired with a custom message, as
         `{{Module, :function}, "Custom message"}` or `{Module, "Custom
-        message"}`. `Module` may be an Elixir module or an Erlang module given
-        as a plain atom, except that `Kernel` may not be named on its own.
+        message"}`. `Module` may be an Elixir module, an Erlang module given as
+        a plain atom, or a module name pattern given as a string, which covers
+        every module it matches, except that `Kernel` may not be named on its
+        own, by name or by a pattern that matches it.
         Every arity of the named function is covered by a single entry. The
         default empty list makes the check inert, since there is no universal
         forbidden call.
@@ -111,6 +126,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   alias Credo.Code.Name
   alias Trogon.Credo.ModuleName
+  alias Trogon.Credo.ModulePattern
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
   @directives [:alias, :import, :require, :use]
@@ -122,24 +138,27 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    {calls, modules} = prepare_calls(Params.get(params, :calls, __MODULE__))
+    calls = prepare_calls(Params.get(params, :calls, __MODULE__))
 
-    if calls == %{} and modules == %{} do
-      []
-    else
+    if configured?(calls) do
       aliases = ModuleName.collect_aliases(source_file)
 
       context = %{
         issue_meta: IssueMeta.for(source_file, params),
         calls: calls,
-        modules: modules,
         hint: Params.get(params, :hint, __MODULE__),
         aliases: aliases,
         imports: collect_imports(source_file, aliases)
       }
 
       Credo.Code.prewalk(source_file, &traverse(&1, &2, context), [])
+    else
+      []
     end
+  end
+
+  defp configured?(calls) do
+    Enum.any?(calls, fn {_kind, entries} -> not Enum.empty?(entries) end)
   end
 
   defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _context)
@@ -220,7 +239,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       nil ->
         issues
 
-      {message, display, _module} ->
+      {message, display} ->
         [issue_for(context, call_meta, to_string(function), display, function, message) | issues]
     end
   end
@@ -238,9 +257,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   defp unqualified_entry(context, {module, :open}, function, arity) do
-    case Map.fetch(context.calls, {module, function}) do
-      {:ok, {_message, _display, target} = entry} ->
-        if imported_name?(target, function, arity), do: entry
+    case function_entry(context, module, function) do
+      {:ok, entry} ->
+        if imported_name?(module, function, arity), do: resolve_display(entry, module)
 
       :error ->
         nil
@@ -253,12 +272,20 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   # as bringing the name in, so a rule is not stepped around by a module that is
   # only there in another environment.
   defp imported_name?(module, function, arity) do
-    if Code.ensure_loaded?(module) do
-      exported?(module, function, arity)
+    target = module_atom(module)
+
+    if Code.ensure_loaded?(target) do
+      exported?(target, function, arity)
     else
       true
     end
   end
+
+  defp module_atom(<<first, _rest::binary>> = module) when first in ?a..?z do
+    String.to_atom(module)
+  end
+
+  defp module_atom(module), do: Module.concat([module])
 
   # Elixir's automatic import brings in `Kernel` and `Kernel.SpecialForms`, so a
   # special form is read against the entry that names `Kernel`. Arity plays no
@@ -471,7 +498,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp report(context, module, function, trigger, call_meta, issues) do
     case forbidden_entry(context, module, function) do
-      {:ok, {message, display, _module}} ->
+      {:ok, {message, display}} ->
         [issue_for(context, call_meta, trigger, display, function, message) | issues]
 
       :error ->
@@ -480,11 +507,47 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   defp forbidden_entry(context, module, function) do
-    case Map.fetch(context.calls, {module, function}) do
-      {:ok, entry} -> {:ok, entry}
-      :error -> Map.fetch(context.modules, module)
+    case entry_for(context, module, function) do
+      {:ok, entry} -> {:ok, resolve_display(entry, module)}
+      :error -> :error
     end
   end
+
+  defp entry_for(context, module, function) do
+    with :error <- function_entry(context, module, function),
+         :error <- Map.fetch(context.calls.modules, module) do
+      matching_entry(context.calls.module_patterns, module)
+    end
+  end
+
+  # An entry naming a function is looked up on its own, since a bare call under
+  # an unrestricted `import` is only ever read against one of those.
+  defp function_entry(context, module, function) do
+    with :error <- Map.fetch(context.calls.functions, {module, function}) do
+      matching_entry(context.calls.function_patterns, module, function)
+    end
+  end
+
+  defp matching_entry(patterns, module) do
+    patterns
+    |> Enum.find(fn {regex, _entry} -> Regex.match?(regex, module) end)
+    |> found_entry()
+  end
+
+  defp matching_entry(patterns, module, function) do
+    patterns
+    |> Enum.find(fn {regex, name, _entry} -> name == function and Regex.match?(regex, module) end)
+    |> found_entry()
+  end
+
+  defp found_entry(nil), do: :error
+  defp found_entry({_regex, entry}), do: {:ok, entry}
+  defp found_entry({_regex, _function, entry}), do: {:ok, entry}
+
+  # A pattern entry says nothing about which module a call names, so the module
+  # the call resolved to is what the message names.
+  defp resolve_display({message, :matched}, module), do: {message, ModulePattern.display(module)}
+  defp resolve_display(entry, _module), do: entry
 
   defp issue_for(context, meta, trigger, display, function, message) do
     default_message = "The `#{display}.#{function}` function must not be called."
@@ -502,51 +565,75 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp append_hint(message, hint), do: "#{message} #{hint}"
 
   defp prepare_calls(calls) do
-    {call_entries, module_entries} =
-      calls
-      |> Enum.map(&normalize_call/1)
-      |> Enum.split_with(fn {key, _entry} -> is_tuple(key) end)
+    entries = Enum.map(calls, &normalize_call/1)
 
-    {Map.new(call_entries), Map.new(module_entries)}
+    %{
+      functions: Map.new(for {{:function, module, function}, entry} <- entries, do: {{module, function}, entry}),
+      modules: Map.new(for {{:module, module}, entry} <- entries, do: {module, entry}),
+      function_patterns: for({{:function_pattern, regex, function}, entry} <- entries, do: {regex, function, entry}),
+      module_patterns: for({{:module_pattern, regex}, entry} <- entries, do: {regex, entry})
+    }
   end
 
-  defp normalize_call({{module, function}, message}) when is_atom(module) and is_atom(function) do
-    {{module_key(module), function}, entry(module, message)}
+  defp normalize_call({{module, function}, message})
+       when (is_atom(module) or is_binary(module)) and is_atom(function) and is_binary(message) do
+    {function_key(module, function), entry(module, message)}
   end
 
-  defp normalize_call({module, function}) when is_atom(module) and is_atom(function) do
-    {{module_key(module), function}, entry(module, nil)}
+  defp normalize_call({module, function})
+       when (is_atom(module) or is_binary(module)) and is_atom(function) do
+    {function_key(module, function), entry(module, nil)}
   end
 
-  defp normalize_call({module, message}) when is_atom(module) and is_binary(message) do
-    {whole_module_key(module), entry(module, message)}
+  defp normalize_call({module, message})
+       when (is_atom(module) or is_binary(module)) and is_binary(message) do
+    {module_key(module), entry(module, message)}
   end
 
-  defp normalize_call(module) when is_atom(module) do
-    {whole_module_key(module), entry(module, nil)}
+  defp normalize_call(module) when is_atom(module) or is_binary(module) do
+    {module_key(module), entry(module, nil)}
   end
 
   defp normalize_call(entry) do
     raise ArgumentError,
-          "invalid calls entry #{inspect(entry)}: expected Module, {Module, :function}, " <>
-            "or either of those paired with a message"
+          "invalid calls entry #{inspect(entry)}: expected Module, a module name pattern, " <>
+            "{Module, :function}, or either of those paired with a message"
   end
 
-  defp whole_module_key(module) do
-    case module_key(module) do
-      @kernel_module ->
-        raise ArgumentError,
-              "invalid calls entry #{inspect(module)}: `Kernel` cannot be forbidden as a whole " <>
-                "module, since it is auto imported into every module, so name its functions instead"
-
-      key ->
-        key
-    end
+  defp function_key(module, function) when is_atom(module) do
+    {:function, module_name(module), function}
   end
 
-  defp entry(module, message), do: {message, module_display(module), module}
+  defp function_key(pattern, function) do
+    {:function_pattern, ModulePattern.compile!(pattern), function}
+  end
 
-  defp module_key(module), do: ModuleName.full(module)
+  defp module_key(module) when is_atom(module) do
+    forbid_kernel!(module_name(module) == @kernel_module, module)
+
+    {:module, module_name(module)}
+  end
+
+  defp module_key(pattern) do
+    regex = ModulePattern.compile!(pattern)
+
+    forbid_kernel!(Regex.match?(regex, @kernel_module), pattern)
+
+    {:module_pattern, regex}
+  end
+
+  defp forbid_kernel!(false, _named), do: :ok
+
+  defp forbid_kernel!(true, named) do
+    raise ArgumentError,
+          "invalid calls entry #{inspect(named)}: `Kernel` cannot be forbidden as a whole " <>
+            "module, since it is auto imported into every module, so name its functions instead"
+  end
+
+  defp entry(module, message) when is_atom(module), do: {message, module_display(module)}
+  defp entry(_pattern, message), do: {message, :matched}
+
+  defp module_name(module), do: ModuleName.full(module)
 
   defp module_display(module) do
     case Atom.to_string(module) do
