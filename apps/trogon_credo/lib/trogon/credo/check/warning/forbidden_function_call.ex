@@ -61,7 +61,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       after the anonymous function that wrote it, is not read against it.
 
       A directive selects by name and arity, so a call at an arity it leaves out is not
-      the imported function, and two directives naming one module are read the way
+      the imported function. A piped call counts the argument the pipe supplies, since
+      that is the call Elixir makes. Two directives naming one module are read the way
       Elixir reads them: a later `only:` replaces what an earlier one brought in, while
       `except:` filters what is already there. Arity still plays no part in an entry of
       `calls:`, which names a function at every arity it has.
@@ -163,6 +164,18 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     trigger = "#{Name.full(parts)}.#{function}"
 
     {ast, report(context, module, function, trigger, alias_meta, issues)}
+  end
+
+  # A piped call is written without its first argument, so the node carries one
+  # argument fewer than the call has, and reading its arity as written would miss
+  # what the file imports. The call is reported here and left out of the walk, so
+  # the clause that reads a bare call never sees it.
+  defp traverse({:|>, _meta, [left, {function, call_meta, args}]}, issues, context)
+       when is_atom(function) and function != :|> and (is_list(args) or is_nil(args)) do
+    piped_args = List.wrap(args)
+    issues = report_unqualified(context, function, length(piped_args) + 1, call_meta, issues)
+
+    {[left | piped_args], issues}
   end
 
   defp traverse({{:., dot_meta, [module, function]}, _call_meta, args} = ast, issues, context)

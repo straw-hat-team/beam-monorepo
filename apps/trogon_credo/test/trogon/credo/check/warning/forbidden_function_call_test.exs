@@ -532,6 +532,58 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
   end
 
+  test "reports a piped call at the arity the pipe gives it" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run(name), do: name |> get_env()
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "reports a piped call written without parentheses" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run(name), do: name |> get_env
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a piped call at an arity the file takes back from Kernel" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, except: [inspect: 1]
+
+      def inspect(value), do: value
+
+      def run(value), do: value |> inspect()
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :inspect}])
+    |> refute_issues()
+  end
+
+  test "reports a forbidden call written inside a pipeline" do
+    """
+    defmodule CredoSampleModule do
+      def run(name), do: name |> String.upcase() |> System.get_env()
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "System.get_env" end)
+  end
+
   test "does not report a bare call whose name the file takes back from Kernel" do
     """
     defmodule CredoSampleModule do
