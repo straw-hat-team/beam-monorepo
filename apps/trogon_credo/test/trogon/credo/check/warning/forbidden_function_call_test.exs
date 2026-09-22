@@ -462,6 +462,76 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> assert_issue(fn issue -> assert issue.line_no == 11 end)
   end
 
+  test "reports a bare call at an arity a Kernel except does not take back" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, except: [inspect: 2]
+
+      def run(value), do: inspect(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :inspect}])
+    |> assert_issue(fn issue -> assert issue.trigger == "inspect" end)
+  end
+
+  test "does not report a bare call at an arity an import leaves out" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 2]
+
+      def get_env(name), do: name
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> refute_issues()
+  end
+
+  test "does not report a bare call a later import of the same module leaves out" do
+    """
+    defmodule CredoSampleModule do
+      import System
+      import System, only: [cmd: 2]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "does not report a bare call a later except filters out of an earlier only" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1, cmd: 2]
+      import System, except: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> refute_issues()
+  end
+
+  test "reports a bare call a later except leaves in an earlier only" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1, cmd: 2]
+      import System, except: [cmd: 2]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
   test "does not report a bare call whose name the file takes back from Kernel" do
     """
     defmodule CredoSampleModule do

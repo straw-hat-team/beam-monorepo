@@ -60,6 +60,12 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       call in a sibling module, in a clause beside the one that wrote the directive, or
       after the anonymous function that wrote it, is not read against it.
 
+      A directive selects by name and arity, so a call at an arity it leaves out is not
+      the imported function, and two directives naming one module are read the way
+      Elixir reads them: a later `only:` replaces what an earlier one brought in, while
+      `except:` filters what is already there. Arity still plays no part in an entry of
+      `calls:`, which names a function at every arity it has.
+
       An entry naming a module on its own reaches a bare call only where an `import`
       lists the function in `only:`. An unrestricted `import` does not say which names
       it brings in, and reporting every bare call in the file on that basis would name
@@ -170,7 +176,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp traverse({function, call_meta, args} = ast, issues, context)
        when is_atom(function) and is_list(args) do
-    {ast, report_unqualified(context, function, call_meta, issues)}
+    {ast, report_unqualified(context, function, length(args), call_meta, issues)}
   end
 
   defp traverse(ast, issues, _context), do: {ast, issues}
@@ -185,9 +191,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     Keyword.update(dot_meta, :column, nil, fn column -> column - String.length(written_module) end)
   end
 
-  defp report_unqualified(context, function, call_meta, issues) do
-    imports = imports_in_scope(context.imports, call_meta[:line])
-    candidates = import_candidates(imports, function) ++ kernel_candidate(imports, function)
+  defp report_unqualified(context, function, arity, call_meta, issues) do
+    states = imports_in_scope(context.imports, call_meta[:line])
+    candidates = import_candidates(states, function, arity) ++ kernel_candidate(states)
 
     case Enum.find_value(candidates, &unqualified_entry(context, &1, function)) do
       nil ->
@@ -217,20 +223,23 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     end
   end
 
-  defp import_candidates(imports, function) do
-    Enum.flat_map(imports, &import_candidate(&1, function))
+  # An `import` selects by name and arity, so a call at an arity the directive
+  # leaves out is not the imported function, whichever way the selection is
+  # written.
+  defp import_candidates(states, function, arity) do
+    Enum.flat_map(states, &import_candidate(&1, function, arity))
   end
 
-  defp import_candidate({module, {:only, names}}, function) do
-    if function in names do
+  defp import_candidate({module, {:only, pairs}}, function, arity) do
+    if {function, arity} in pairs do
       [{module, :only}]
     else
       []
     end
   end
 
-  defp import_candidate({module, {:open, excluded}}, function) do
-    if function in excluded do
+  defp import_candidate({module, {:open, excluded}}, function, arity) do
+    if {function, arity} in excluded do
       []
     else
       [{module, :open}]
@@ -238,37 +247,47 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   # `Kernel` is auto imported, so a bare call is attributed to it unless the file
-  # gives that very name back with `except:`, or replaces the auto import with
-  # `only:`, which leaves every name outside that list no longer `Kernel`.
-  defp kernel_candidate(imports, function) do
-    if Enum.any?(imports, &kernel_withholds?(&1, function)) do
+  # writes an `import Kernel` of its own, which then says on its own which names
+  # come from there.
+  defp kernel_candidate(states) do
+    if Map.has_key?(states, @kernel_module) do
       []
     else
       [{@kernel_module, :open}]
     end
   end
 
-  defp kernel_withholds?({@kernel_module, {:only, _names}}, _function), do: true
-  defp kernel_withholds?({@kernel_module, {:open, excluded}}, function), do: function in excluded
-  defp kernel_withholds?(_import, _function), do: false
-
   # An `import` is lexically scoped, so it is read only for a call written inside
   # the block that declares it, which is what keeps a module from being read
   # against what a sibling module in the same file imports, and what lets a
   # nested module be read against what encloses it.
-  defp imports_in_scope(imports, line) when is_integer(line) do
-    Enum.flat_map(imports, &import_in_scope(&1, line))
+  defp imports_in_scope(imports, line) do
+    imports
+    |> Enum.filter(&in_scope?(&1, line))
+    |> Enum.sort_by(&scope_start/1)
+    |> Enum.reduce(%{}, &put_effective/2)
   end
 
-  defp imports_in_scope(imports, _line), do: Enum.map(imports, &drop_scope_lines/1)
-
-  defp import_in_scope({module, scope, {from, to}}, line) when line >= from and line <= to do
-    [{module, scope}]
+  defp in_scope?({_module, _selector, {from, to}}, line) when is_integer(line) do
+    line >= from and line <= to
   end
 
-  defp import_in_scope(_import, _line), do: []
+  defp in_scope?(_import, _line), do: true
 
-  defp drop_scope_lines({module, scope, _lines}), do: {module, scope}
+  defp scope_start({_module, _selector, {from, _to}}), do: from
+
+  defp put_effective({module, selector, _lines}, states) do
+    Map.put(states, module, effective(Map.get(states, module), selector))
+  end
+
+  # A second `import` of the same module replaces what the first one brought in,
+  # while `except:` filters what is already there rather than replacing it, which
+  # is how Elixir reads a pair of directives naming one module.
+  defp effective(_previous, :all), do: {:open, []}
+  defp effective(_previous, {:only, pairs}), do: {:only, pairs}
+  defp effective(nil, {:except, pairs}), do: {:open, pairs}
+  defp effective({:only, pairs}, {:except, excluded}), do: {:only, pairs -- excluded}
+  defp effective({:open, excluded}, {:except, pairs}), do: {:open, excluded ++ pairs}
 
   defp collect_imports(source_file, aliases) do
     ast = SourceFile.ast(source_file)
@@ -302,8 +321,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp scoped_imports(_ast, _aliases, _scope_end), do: []
 
-  defp scope_lines({module, scope}, line, scope_end) do
-    {module, scope, {line || 0, scope_end}}
+  defp scope_lines({module, selector}, line, scope_end) do
+    {module, selector, {line || 0, scope_end}}
   end
 
   # Each block of a form is its own scope, so an `import` written in one of them
@@ -346,11 +365,11 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp highest_line(node, line), do: {node, line}
 
   defp import_entries(target, opts, aliases) do
-    scope = import_scope(opts)
+    selector = import_selector(opts)
 
     target
     |> import_modules(aliases)
-    |> Enum.map(&{&1, scope})
+    |> Enum.map(&{&1, selector})
   end
 
   defp import_modules({{:., _, [{:__aliases__, _, base_parts}, :{}]}, _, member_nodes}, aliases) do
@@ -370,29 +389,29 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp member_module(_member, _base_parts, _aliases), do: []
 
-  defp import_scope([opts]) when is_list(opts) do
+  defp import_selector([opts]) when is_list(opts) do
     case Keyword.fetch(opts, :only) do
-      {:ok, only} when is_list(only) -> {:only, function_names(only)}
-      {:ok, _functions_or_macros} -> {:open, []}
-      :error -> {:open, excluded_names(opts)}
+      {:ok, only} when is_list(only) -> {:only, function_pairs(only)}
+      {:ok, _functions_or_macros} -> :all
+      :error -> except_selector(opts)
     end
   end
 
-  defp import_scope(_opts), do: {:open, []}
+  defp import_selector(_opts), do: :all
 
-  defp function_names(entries) do
-    Enum.flat_map(entries, &function_name/1)
-  end
-
-  defp function_name({name, arity}) when is_atom(name) and is_integer(arity), do: [name]
-  defp function_name(_entry), do: []
-
-  defp excluded_names(opts) do
+  defp except_selector(opts) do
     case Keyword.fetch(opts, :except) do
-      {:ok, except} when is_list(except) -> function_names(except)
-      _other -> []
+      {:ok, except} when is_list(except) -> {:except, function_pairs(except)}
+      _other -> :all
     end
   end
+
+  defp function_pairs(entries) do
+    Enum.flat_map(entries, &function_pair/1)
+  end
+
+  defp function_pair({name, arity}) when is_atom(name) and is_integer(arity), do: [{name, arity}]
+  defp function_pair(_entry), do: []
 
   defp report(_context, nil, _function, _trigger, _call_meta, issues), do: issues
 
