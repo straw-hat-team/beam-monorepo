@@ -44,13 +44,20 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       Aliases are resolved before matching, and a name the file binds to two different
       modules matches neither.
 
-      An unqualified call is reported only for a `Kernel` entry, since `Kernel` is the
-      one module auto imported into every module, so `{Kernel, :dbg}` reports a bare
-      `dbg(value)` as well as `Kernel.dbg(value)`. For any other module the check
-      cannot know, from a single file, whether a bare `get_env(...)` came from an
-      `import` or is simply a local function, so it is never reported. An unqualified
-      capture, `&dbg/1` for instance, is not reported either, even for a `Kernel`
-      entry, since a bare capture carries no module for the check to read.
+      An unqualified call is read against what the file imports, plus `Kernel`, which
+      every module imports on its own. `{Kernel, :dbg}` reports a bare `dbg(value)` as
+      well as `Kernel.dbg(value)`, and `{System, :get_env}` reports a bare
+      `get_env("HOME")` in a file that writes `import System`, since Elixir refuses to
+      compile a local function that conflicts with an import, so the name cannot be
+      anything else. A file that takes a name back from `Kernel` with an `except:`
+      option is read the same way, and its own `dbg(value)` is left alone.
+
+      An entry naming a module on its own reaches a bare call only where an `import`
+      lists the function in `only:`. An unrestricted `import` does not say which names
+      it brings in, and reporting every bare call in the file on that basis would name
+      calls the module has nothing to do with. An unqualified capture, `&dbg/1` for
+      instance, is not reported, since a bare capture carries no module for the check
+      to read.
 
       Not reported: a module named in a typespec, which is not a call to it; a module
       named in an `alias`, `import`, `require`, or `use` directive, including the multi
@@ -96,12 +103,15 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     if calls == %{} and modules == %{} do
       []
     else
+      aliases = ModuleName.collect_aliases(source_file)
+
       context = %{
         issue_meta: IssueMeta.for(source_file, params),
         calls: calls,
         modules: modules,
         hint: Params.get(params, :hint, __MODULE__),
-        aliases: ModuleName.collect_aliases(source_file)
+        aliases: aliases,
+        imports: collect_imports(source_file, aliases)
       }
 
       Credo.Code.prewalk(source_file, &traverse(&1, &2, context), [])
@@ -151,7 +161,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   defp traverse({function, call_meta, args} = ast, issues, context)
        when is_atom(function) and is_list(args) do
-    {ast, report(context, @kernel_module, function, to_string(function), call_meta, issues)}
+    {ast, report_unqualified(context, function, call_meta, issues)}
   end
 
   defp traverse(ast, issues, _context), do: {ast, issues}
@@ -164,6 +174,114 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   # immediately follows the module name in valid syntax.
   defp erlang_call_meta(dot_meta, written_module) do
     Keyword.update(dot_meta, :column, nil, fn column -> column - String.length(written_module) end)
+  end
+
+  defp report_unqualified(context, function, call_meta, issues) do
+    candidates =
+      import_candidates(context.imports, function) ++ kernel_candidate(context.imports, function)
+
+    case Enum.find_value(candidates, &unqualified_entry(context, &1, function)) do
+      nil ->
+        issues
+
+      {message, display} ->
+        [issue_for(context, call_meta, to_string(function), display, function, message) | issues]
+    end
+  end
+
+  # A name an `import` lists in `only:` is known to come from that module, so an
+  # entry naming the module as a whole covers it too. An unrestricted `import`
+  # says nothing about which names it brings in, so only an entry naming the
+  # function applies, which a local function of that name cannot be, since
+  # Elixir refuses to compile a local definition that conflicts with an import.
+  defp unqualified_entry(context, {module, :only}, function) do
+    case forbidden_entry(context, module, function) do
+      {:ok, entry} -> entry
+      :error -> nil
+    end
+  end
+
+  defp unqualified_entry(context, {module, :open}, function) do
+    case Map.fetch(context.calls, {module, function}) do
+      {:ok, entry} -> entry
+      :error -> nil
+    end
+  end
+
+  defp import_candidates(imports, function) do
+    Enum.flat_map(imports, &import_candidate(&1, function))
+  end
+
+  defp import_candidate({module, {:only, names}}, function) do
+    if function in names do
+      [{module, :only}]
+    else
+      []
+    end
+  end
+
+  defp import_candidate({module, {:open, excluded}}, function) do
+    if function in excluded do
+      []
+    else
+      [{module, :open}]
+    end
+  end
+
+  # `Kernel` is auto imported, so a bare call is attributed to it unless the file
+  # gives that very name back with `except:`.
+  defp kernel_candidate(imports, function) do
+    if Enum.any?(imports, &kernel_excludes?(&1, function)) do
+      []
+    else
+      [{@kernel_module, :open}]
+    end
+  end
+
+  defp kernel_excludes?({@kernel_module, {:open, excluded}}, function), do: function in excluded
+  defp kernel_excludes?(_import, _function), do: false
+
+  defp collect_imports(source_file, aliases) do
+    Credo.Code.prewalk(source_file, &traverse_import(&1, &2, aliases), [])
+  end
+
+  defp traverse_import({:quote, _meta, _args}, imports, _aliases), do: {[], imports}
+
+  defp traverse_import({:import, _meta, [target | opts]}, imports, aliases) do
+    case import_module(target, aliases) do
+      nil -> {[], imports}
+      module -> {[], [{module, import_scope(opts)} | imports]}
+    end
+  end
+
+  defp traverse_import(ast, imports, _aliases), do: {ast, imports}
+
+  defp import_module({:__aliases__, _meta, parts}, aliases), do: ModuleName.resolve(parts, aliases)
+  defp import_module(module, _aliases) when is_atom(module), do: ModuleName.full(module)
+  defp import_module(_target, _aliases), do: nil
+
+  defp import_scope([opts]) when is_list(opts) do
+    case Keyword.fetch(opts, :only) do
+      {:ok, only} when is_list(only) -> {:only, function_names(only)}
+      {:ok, _functions_or_macros} -> {:open, []}
+      :error -> {:open, excluded_names(opts)}
+    end
+  end
+
+  defp import_scope(_opts), do: {:open, []}
+
+  defp function_names(entries) do
+    Enum.flat_map(entries, &function_name/1)
+  end
+
+  defp function_name({name, arity}) when is_atom(name) and is_integer(arity), do: [name]
+  defp function_name(_entry), do: []
+
+  defp excluded_names(opts) do
+    case Keyword.fetch(opts, :except) do
+      {:ok, except} when is_list(except) -> function_names(except)
+      _other -> []
+    end
   end
 
   defp report(_context, nil, _function, _trigger, _call_meta, issues), do: issues

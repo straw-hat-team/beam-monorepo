@@ -22,6 +22,12 @@ defmodule Trogon.Credo.ModuleName do
   `alias __MODULE__.{Child}` records `Child` under the name `__MODULE__.Child`,
   which no configured module matches.
 
+  An Erlang module is collected under the name its `:as` option gives it, so
+  `alias :rand, as: Random` records `Random` under `rand`, which is how such a
+  module is named in a check parameter. Elixir requires the option there, since
+  it cannot infer a name for an Erlang module, so an alias written without one
+  binds nothing.
+
   A name that the file binds to more than one module, two sibling modules
   aliasing a different `Client` for instance, is mapped to `:ambiguous` rather
   than to whichever binding came last, since the file as a whole does not say
@@ -65,6 +71,17 @@ defmodule Trogon.Credo.ModuleName do
 
       _ ->
         {[], put_default(aliases, parts)}
+    end
+  end
+
+  defp traverse({:alias, _meta, [module, opts]}, aliases)
+       when is_atom(module) and is_list(opts) do
+    case Keyword.fetch(opts, :as) do
+      {:ok, {:__aliases__, _, as_parts}} ->
+        {[], put_alias(aliases, full(as_parts), full(module))}
+
+      _ ->
+        {[], aliases}
     end
   end
 

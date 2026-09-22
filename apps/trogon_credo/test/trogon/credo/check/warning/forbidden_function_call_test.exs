@@ -153,6 +153,103 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> refute_issues()
   end
 
+  test "reports a bare call to a function the file imports by name" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "get_env"
+      assert issue.message == "The `System.get_env` function must not be called."
+    end)
+  end
+
+  test "reports a bare call to a function the file imports without restriction" do
+    """
+    defmodule CredoSampleModule do
+      import System
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "reports a bare call to a module named on its own when the import names the function" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a bare call to a module named on its own imported without restriction" do
+    """
+    defmodule CredoSampleModule do
+      import System
+
+      def run, do: build_something()
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> refute_issues()
+  end
+
+  test "resolves the module an import names through an alias" do
+    """
+    defmodule CredoSampleModule do
+      alias System, as: Env
+      import Env, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a bare call to a function imported from an unconfigured module" do
+    """
+    defmodule CredoSampleModule do
+      import Vendor.System, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "does not report a bare call whose name the file takes back from Kernel" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, except: [dbg: 1]
+
+      def dbg(value), do: value
+
+      def run(value), do: dbg(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> refute_issues()
+  end
+
   test "does not report a local function definition whose name matches a Kernel entry" do
     """
     defmodule CredoSampleModule do
@@ -431,6 +528,37 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> run_check(ForbiddenFunctionCall, calls: [System])
     |> assert_issue(fn issue ->
       assert issue.trigger == "Env.get_env"
+    end)
+  end
+
+  test "resolves a call written through an alias for an Erlang module" do
+    """
+    defmodule CredoSampleModule do
+      alias :rand, as: Random
+
+      def run, do: Random.uniform(3)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{:rand, :uniform}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Random.uniform"
+      assert issue.message == "The `:rand.uniform` function must not be called."
+    end)
+  end
+
+  test "resolves a call through an alias for an Erlang module named on its own" do
+    """
+    defmodule CredoSampleModule do
+      alias :rand, as: Random
+
+      def run, do: Random.bytes(3)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [:rand])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Random.bytes"
     end)
   end
 
