@@ -197,10 +197,10 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
 
   defp prepare_deps(deps) do
     deps
-    |> Enum.map(fn
-      {dep, message} -> {dep, message}
-      dep -> {dep, nil}
-    end)
+    |> Enum.map(&prepare_dep/1)
     |> Map.new()
   end
+
+  defp prepare_dep({dep, message}), do: {dep, message}
+  defp prepare_dep(dep), do: {dep, nil}
 end

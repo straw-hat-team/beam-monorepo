@@ -764,17 +764,16 @@ defmodule Trogon.Proto.Env do
   end
 
   defp validate_constraint_types!(field_name, field_type, steps) do
-    constrains_bytes? =
-      Enum.any?(steps, fn
-        {:require, {:byte_size, _}} -> true
-        {:decode, _candidates, {:byte_size, _}} -> true
-        _ -> false
-      end)
+    constrains_bytes? = Enum.any?(steps, &constrains_byte_size?/1)
 
     if constrains_bytes? and not decodable_type?(field_type) do
       raise_field_error!(field_name, "constrains byte_size but type #{inspect(field_type)} is not bytes or string")
     end
   end
+
+  defp constrains_byte_size?({:require, {:byte_size, _}}), do: true
+  defp constrains_byte_size?({:decode, _candidates, {:byte_size, _}}), do: true
+  defp constrains_byte_size?(_step), do: false
 
   defp decodable_type?(field_type) do
     normalize_type(field_type) in [:bytes, :string]
