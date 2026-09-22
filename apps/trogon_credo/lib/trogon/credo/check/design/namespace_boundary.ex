@@ -25,7 +25,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
           # a domain layer may only reach for itself and the shared domain namespace
           {Trogon.Credo.Check.Design.NamespaceBoundary,
            [forbidden: ["MyApp.**"],
-            except: ["MyApp.**.Domain.**", "MyApp.Domain", "MyApp.Domain.**"],
+            except: ["MyApp.**.Domain", "MyApp.**.Domain.**"],
             files: %{included: ["lib/my_app/*/domain/"]}]}
 
           # a domain error may only be built in the layers that own it
@@ -74,11 +74,16 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       | `**` | any run of characters including a `.`, so it crosses segments |
       | `MyApp.Repo` | only that module |
       | `MyApp.Repo.**` | `MyApp.Repo.Account`, but not `MyApp.Repo` itself |
-      | `MyApp.**.Domain.**` | `MyApp.Billing.Domain.Invoice`, but not `MyApp.Domain.Invoice` |
-      | `MyApp.**Error` | any module under `MyApp` whose name ends in `Error`, at any depth |
+      | `MyApp.**.Domain.**` | `MyApp.Billing.Domain.Invoice`, and `MyApp.Domain.Invoice` too |
+      | `MyApp.**Error` | a module under `MyApp` whose name ends in `Error`, at any depth |
 
-      A project that means both a namespace and its root writes both patterns, since
-      `**` must still match at least one character.
+      A `**` written as a whole segment is the one wildcard that can match nothing, so
+      `MyApp.**.Domain` names `MyApp.Domain` as well as `MyApp.Billing.Domain` and a
+      pattern is not written twice to cover a level of nesting that is optional. A
+      trailing `**` is the exception, reading as everything under the namespace, so a
+      project that means the namespace root as well writes that as its own pattern.
+      Anywhere else a wildcard matches at least one character, which is why
+      `MyApp.**Error`, glued to the literal it precedes, does not name `MyApp.Error`.
 
       Reported: a qualified call, a struct literal or pattern, an `import`, `require`,
       or `use` target, and a module named as a plain value such as a capture or a tuple
@@ -93,7 +98,9 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       checked; a module named in a typespec; anything inside a `quote` block, which
       belongs to wherever the macro expands; and an Erlang module written as a plain
       atom, `:os.system_time()` for instance, which no pattern has an atom form to
-      match and which `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` covers. Under
+      match and which `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` covers, though
+      the same module reached through `alias :os, as: OS` resolves to `os` and a pattern
+      naming it matches. Under
       `private_to`, a reference in a file with no `defmodule`, or whose outermost
       `defmodule` name is not written as an alias, is not reported either, since the
       check cannot tell which namespace the reference is coming from.
@@ -450,8 +457,29 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     Regex.compile!("^#{regex_source(pattern)}$")
   end
 
+  # A `**` standing as a whole segment is the one wildcard that can match no
+  # segment at all, so that a pattern naming an optional level of nesting covers
+  # the name without it. A trailing one still needs a segment, which is what
+  # keeps `MyApp.Repo.**` from naming `MyApp.Repo`.
   defp regex_source(pattern) do
-    pattern
+    pattern |> String.split(".") |> segments_source()
+  end
+
+  defp segments_source(["**"]), do: ".+"
+  defp segments_source(["**" | rest]), do: "(?:[^.]+\\.)*" <> segments_source(rest)
+  defp segments_source([segment]), do: segment_source(segment)
+  defp segments_source([segment, "**"]), do: segment_source(segment) <> "(?:\\.[^.]+)+"
+
+  defp segments_source([segment, "**" | rest]) do
+    segment_source(segment) <> "(?:\\.[^.]+)*\\." <> segments_source(rest)
+  end
+
+  defp segments_source([segment | rest]) do
+    segment_source(segment) <> "\\." <> segments_source(rest)
+  end
+
+  defp segment_source(segment) do
+    segment
     |> Regex.escape()
     |> String.replace("\\*\\*", ".+")
     |> String.replace("\\*", "[^.]+")
