@@ -63,7 +63,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       A directive selects by name and arity, so a call at an arity it leaves out is not
       the imported function. An unrestricted directive names no arity of its own, so a
       bare call is read against what the module exports, and a call at an arity the
-      module does not have is a local function of the same name. A module the check
+      module does not have is a local function of the same name, except for a special
+      form, which is read by the name alone, since a form such as `for` takes as many
+      arguments as it is written with. A module the check
       cannot load, one that only exists in another environment for instance, is read as
       bringing the name in, so a rule is not stepped around by a module the check cannot
       see. A piped call counts the argument the pipe supplies, since that is the call
@@ -114,6 +116,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   @directives [:alias, :import, :require, :use]
   @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp, :defdelegate]
   @kernel_module "Kernel"
+  @special_forms Enum.uniq(Keyword.keys(Kernel.SpecialForms.__info__(:macros)))
   @block_keys [:do, :else, :rescue, :after, :catch]
 
   @doc false
@@ -258,10 +261,13 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   # Elixir's automatic import brings in `Kernel` and `Kernel.SpecialForms`, so a
-  # special form is read against the entry that names `Kernel`, since a module
-  # cannot define one of those for itself either way.
+  # special form is read against the entry that names `Kernel`. Arity plays no
+  # part there: a form takes as many arguments as it is written with, `for` with
+  # two generators for instance, and the call site is the form even in a module
+  # that defines a function of the same name, which is what makes reading the
+  # name alone right here.
   defp exported?(Kernel, function, arity) do
-    exports?(Kernel, function, arity) or exports?(Kernel.SpecialForms, function, arity)
+    exports?(Kernel, function, arity) or function in @special_forms
   end
 
   defp exported?(module, function, arity), do: exports?(module, function, arity)

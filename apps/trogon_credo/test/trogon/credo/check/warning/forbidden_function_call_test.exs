@@ -546,6 +546,19 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> assert_issue(fn issue -> assert issue.trigger == "receive" end)
   end
 
+  test "reports a special form at the arity it is written with" do
+    """
+    defmodule CredoSampleModule do
+      def run(list, other) do
+        for value <- list, match <- other, do: {value, match}
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :for}])
+    |> assert_issue(fn issue -> assert issue.trigger == "for" end)
+  end
+
   test "reports a bare call to a module the check cannot load" do
     """
     defmodule CredoSampleModule do
