@@ -86,10 +86,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenUse do
 
   defp prepare_modules(modules) do
     modules
-    |> Enum.map(fn
-      {module, message} -> {ModuleName.full(module), message}
-      module -> {ModuleName.full(module), nil}
-    end)
+    |> Enum.map(&prepare_module/1)
     |> Map.new()
   end
+
+  defp prepare_module({module, message}), do: {ModuleName.full(module), message}
+  defp prepare_module(module), do: {ModuleName.full(module), nil}
 end

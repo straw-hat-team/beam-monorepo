@@ -297,11 +297,14 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   # left of a `->`, where every other construct writes a pattern, so both sides
   # of those clauses are exposed as expressions.
   defp expose_clauses(blocks, key) do
-    Enum.map(blocks, fn
-      {^key, clauses} when is_list(clauses) -> {key, Enum.map(clauses, &expose_clause/1)}
-      block -> block
-    end)
+    Enum.map(blocks, &expose_block(&1, key))
   end
+
+  defp expose_block({key, clauses}, key) when is_list(clauses) do
+    {key, Enum.map(clauses, &expose_clause/1)}
+  end
+
+  defp expose_block(block, _key), do: block
 
   defp expose_clause({:->, meta, args}), do: {:__block__, meta, args}
   defp expose_clause(clause), do: clause

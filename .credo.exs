@@ -161,7 +161,13 @@
           {Credo.Check.Warning.UnusedRegexOperation, []},
           {Credo.Check.Warning.UnusedStringOperation, []},
           {Credo.Check.Warning.UnusedTupleOperation, []},
-          {Credo.Check.Warning.WrongTestFileExtension, []}
+          {Credo.Check.Warning.WrongTestFileExtension, []},
+
+          #
+          ## Trogon Checks
+          #
+          {Trogon.Credo.Check.Refactor.AnonymousFunction,
+           [max_clauses: 1, max_expressions: :infinity, priority: :normal]}
         ],
         disabled: [
           #

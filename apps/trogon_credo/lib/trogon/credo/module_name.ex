@@ -88,11 +88,7 @@ defmodule Trogon.Credo.ModuleName do
   defp traverse({:alias, _meta, [{{:., _, [base, :{}]}, _, alias_nodes} | _opts]}, aliases) do
     base_parts = base_parts(base)
 
-    new_aliases =
-      Enum.reduce(alias_nodes, aliases, fn
-        {:__aliases__, _, member_parts}, acc -> put_default(acc, base_parts ++ member_parts)
-        _member, acc -> acc
-      end)
+    new_aliases = Enum.reduce(alias_nodes, aliases, &put_member(&1, &2, base_parts))
 
     {[], new_aliases}
   end
@@ -108,14 +104,20 @@ defmodule Trogon.Credo.ModuleName do
   defp base_parts({:__aliases__, _meta, parts}), do: parts
   defp base_parts(base), do: [base]
 
+  defp put_member({:__aliases__, _meta, member_parts}, aliases, base_parts) do
+    put_default(aliases, base_parts ++ member_parts)
+  end
+
+  defp put_member(_member, aliases, _base_parts), do: aliases
+
   defp put_default(aliases, parts) do
     put_alias(aliases, Name.last(parts), full(parts))
   end
 
   defp put_alias(aliases, name, target) do
-    Map.update(aliases, name, target, fn
-      ^target -> target
-      _other -> :ambiguous
-    end)
+    Map.update(aliases, name, target, &merge_target(&1, target))
   end
+
+  defp merge_target(target, target), do: target
+  defp merge_target(_existing, _target), do: :ambiguous
 end
