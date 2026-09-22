@@ -102,8 +102,8 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       calling one, so a project that means "this may be matched anywhere but only built
       where it belongs" sets `in_patterns` to `false`. A clause head, a function head, a
       `with` or `for` generator, the left of a match, and a `rescue` clause are then all
-      skipped, while a `cond` condition, an expression despite being written to the left
-      of a `->`, is not. A struct built as a default argument value sits inside a
+      skipped, while a `cond` condition and a `receive` timeout, expressions despite
+      being written to the left of a `->`, are not. A struct built as a default argument value sits inside a
       function head, so it is skipped along with the rest of the head.
 
       This check reads what a file writes, so it catches the realistic mistake and
@@ -251,9 +251,12 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     {{:defmodule, meta, [nil | rest]}, issues}
   end
 
-  defp traverse({:cond, _meta, [[{:do, clauses}]]}, issues, %{in_patterns: false})
-       when is_list(clauses) do
-    {Enum.map(clauses, &expose_cond_clause/1), issues}
+  defp traverse({:cond, meta, [blocks]}, issues, %{in_patterns: false}) when is_list(blocks) do
+    {{:cond, meta, [expose_clauses(blocks, :do)]}, issues}
+  end
+
+  defp traverse({:receive, meta, [blocks]}, issues, %{in_patterns: false}) when is_list(blocks) do
+    {{:receive, meta, [expose_clauses(blocks, :after)]}, issues}
   end
 
   defp traverse({:->, _meta, [_pattern, body]}, issues, %{in_patterns: false}) do
@@ -283,10 +286,18 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
   defp traverse(ast, issues, _context), do: {ast, issues}
 
-  # A `cond` writes its conditions on the left of a `->`, where every other
-  # construct writes a pattern, so both sides are exposed as expressions.
-  defp expose_cond_clause({:->, meta, args}), do: {:__block__, meta, args}
-  defp expose_cond_clause(clause), do: clause
+  # A `cond` writes its conditions, and a `receive` its `after` timeout, on the
+  # left of a `->`, where every other construct writes a pattern, so both sides
+  # of those clauses are exposed as expressions.
+  defp expose_clauses(blocks, key) do
+    Enum.map(blocks, fn
+      {^key, clauses} when is_list(clauses) -> {key, Enum.map(clauses, &expose_clause/1)}
+      block -> block
+    end)
+  end
+
+  defp expose_clause({:->, meta, args}), do: {:__block__, meta, args}
+  defp expose_clause(clause), do: clause
 
   defp maybe_report(nil, _meta, _trigger, issues, _context), do: issues
 

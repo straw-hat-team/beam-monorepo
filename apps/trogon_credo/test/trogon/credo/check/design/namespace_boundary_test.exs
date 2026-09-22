@@ -956,6 +956,42 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
     end)
   end
 
+  test "reports a receive timeout when in_patterns is false" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        receive do
+          :done -> :ok
+        after
+          MyApp.Domain.Timeouts.default() -> :timeout
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["MyApp.Domain.**"], in_patterns: false)
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "MyApp.Domain.Timeouts"
+    end)
+  end
+
+  test "does not report a receive clause pattern when in_patterns is false" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        receive do
+          %MyApp.Domain.NotFoundError{} -> :missing
+        after
+          1_000 -> :timeout
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["MyApp.Domain.**"], in_patterns: false)
+    |> refute_issues()
+  end
+
   test "does not report a struct built as a default argument value when in_patterns is false" do
     """
     defmodule CredoSampleModule do
