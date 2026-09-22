@@ -438,6 +438,30 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> assert_issue(fn issue -> assert issue.line_no == 9 end)
   end
 
+  test "does not report a bare call after a block written beside an option" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run(names) do
+        for name <- names,
+            into: %{},
+            do:
+              (
+                import System, only: [get_env: 1]
+
+                {name, get_env(name)}
+              )
+
+        get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 11 end)
+  end
+
   test "does not report a bare call whose name the file takes back from Kernel" do
     """
     defmodule CredoSampleModule do

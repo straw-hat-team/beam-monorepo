@@ -316,10 +316,9 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   defp split_block_args(args, blocks) do
-    if Enum.all?(blocks, &block_entry?/1) do
-      {blocks, Enum.drop(args, -1)}
-    else
-      {[], args}
+    case Enum.split_with(blocks, &block_entry?/1) do
+      {[], _options} -> {[], args}
+      {block_entries, options} -> {block_entries, Enum.drop(args, -1) ++ [options]}
     end
   end
 
