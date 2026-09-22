@@ -131,20 +131,20 @@ defmodule Trogon.Credo.Check.Warning.MissingUseOption do
   defp passed_keys(_rest), do: :error
 
   defp keyword_literal?(list) when is_list(list) do
-    Enum.all?(list, fn
-      {key, _value} when is_atom(key) -> true
-      _entry -> false
-    end) and not partial_tail?(list)
+    Enum.all?(list, &keyword_entry?/1) and not partial_tail?(list)
   end
 
   defp keyword_literal?(_other), do: false
 
+  defp keyword_entry?({key, _value}) when is_atom(key), do: true
+  defp keyword_entry?(_entry), do: false
+
   defp partial_tail?(list) do
-    Enum.any?(list, fn
-      {_key, {:|, _meta, [_left, _right]}} -> true
-      _entry -> false
-    end)
+    Enum.any?(list, &partial_tail_entry?/1)
   end
+
+  defp partial_tail_entry?({_key, {:|, _meta, [_left, _right]}}), do: true
+  defp partial_tail_entry?(_entry), do: false
 
   defp issue_for(issue_meta, meta, trigger, module, option, hint) do
     format_issue(

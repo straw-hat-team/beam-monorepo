@@ -153,6 +153,330 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> refute_issues()
   end
 
+  test "reports a bare call to a function the file imports by name" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "get_env"
+      assert issue.message == "The `System.get_env` function must not be called."
+    end)
+  end
+
+  test "reports a bare call to a function the file imports without restriction" do
+    """
+    defmodule CredoSampleModule do
+      import System
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "reports a bare call to a module named on its own when the import names the function" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a bare call to a module named on its own imported without restriction" do
+    """
+    defmodule CredoSampleModule do
+      import System
+
+      def run, do: build_something()
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [System])
+    |> refute_issues()
+  end
+
+  test "resolves the module an import names through an alias" do
+    """
+    defmodule CredoSampleModule do
+      alias System, as: Env
+      import Env, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a bare call to a function imported from an unconfigured module" do
+    """
+    defmodule CredoSampleModule do
+      import Vendor.System, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "reports a bare call to a function a multi form import brings in" do
+    """
+    defmodule CredoSampleModule do
+      import Vendor.{System}
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Vendor.System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "resolves the base of a multi form import through an alias" do
+    """
+    defmodule CredoSampleModule do
+      alias Vendor, as: Dep
+      import Dep.{System}
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Vendor.System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a bare call to a function an unconfigured multi form import brings in" do
+    """
+    defmodule CredoSampleModule do
+      import Vendor.{System}
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "does not report a bare call a Kernel import restricted with only leaves out" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, only: [def: 2]
+
+      def run(value), do: dbg(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> refute_issues()
+  end
+
+  test "reports a bare call a Kernel import names in only" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, only: [def: 2, dbg: 1]
+
+      def run(value), do: dbg(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> assert_issue(fn issue -> assert issue.trigger == "dbg" end)
+  end
+
+  test "does not report a bare call in a module that a sibling module imports for" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run, do: get_env("HOME")
+    end
+
+    defmodule CredoSampleModule.Other do
+      def get_env(name), do: name
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 4 end)
+  end
+
+  test "reports a bare call an enclosing module imports for" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      defmodule Inner do
+        def run, do: get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 5 end)
+  end
+
+  test "reports a bare call a sibling module takes back from Kernel" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, except: [dbg: 1]
+
+      def dbg(value), do: value
+
+      def run(value), do: dbg(value)
+    end
+
+    defmodule CredoSampleModule.Other do
+      def run(value), do: dbg(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> assert_issue(fn issue -> assert issue.line_no == 10 end)
+  end
+
+  test "does not report a bare call outside the function body that imports for it" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        import System, only: [get_env: 1]
+
+        get_env("HOME")
+      end
+
+      def get_env(name), do: name
+
+      def other, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 5 end)
+  end
+
+  test "does not report a bare call after the anonymous function that imports for it" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run do
+        fn ->
+          import System, only: [get_env: 1]
+
+          get_env("HOME")
+        end
+
+        get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 8 end)
+  end
+
+  test "does not report a bare call in a block beside the one that imports for it" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run do
+        try do
+          import System, only: [get_env: 1]
+
+          get_env("HOME")
+        after
+          get_env("HOME")
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 8 end)
+  end
+
+  test "does not report a bare call in a clause beside the one that imports for it" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run(value) do
+        case value do
+          :env ->
+            import System, only: [get_env: 1]
+
+            get_env("HOME")
+
+          _other ->
+            get_env("HOME")
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 9 end)
+  end
+
+  test "does not report a bare call after a block written beside an option" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run(names) do
+        for name <- names,
+            into: %{},
+            do:
+              (
+                import System, only: [get_env: 1]
+
+                {name, get_env(name)}
+              )
+
+        get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 11 end)
+  end
+
+  test "does not report a bare call whose name the file takes back from Kernel" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, except: [dbg: 1]
+
+      def dbg(value), do: value
+
+      def run(value), do: dbg(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> refute_issues()
+  end
+
   test "does not report a local function definition whose name matches a Kernel entry" do
     """
     defmodule CredoSampleModule do
@@ -431,6 +755,37 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> run_check(ForbiddenFunctionCall, calls: [System])
     |> assert_issue(fn issue ->
       assert issue.trigger == "Env.get_env"
+    end)
+  end
+
+  test "resolves a call written through an alias for an Erlang module" do
+    """
+    defmodule CredoSampleModule do
+      alias :rand, as: Random
+
+      def run, do: Random.uniform(3)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{:rand, :uniform}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Random.uniform"
+      assert issue.message == "The `:rand.uniform` function must not be called."
+    end)
+  end
+
+  test "resolves a call through an alias for an Erlang module named on its own" do
+    """
+    defmodule CredoSampleModule do
+      alias :rand, as: Random
+
+      def run, do: Random.bytes(3)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [:rand])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Random.bytes"
     end)
   end
 
