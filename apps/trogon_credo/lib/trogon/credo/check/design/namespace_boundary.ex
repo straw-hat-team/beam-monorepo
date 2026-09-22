@@ -101,16 +101,18 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       `Acme.**Error`, glued to the literal it precedes, does not name `Acme.Error`.
 
       Reported: a qualified call, a struct literal or pattern, an `import`, `require`,
-      or `use` target, and a module named as a plain value such as a capture or a tuple
-      element, since each of those is how a file depends on a module. Aliases are
+      or `use` target, each member of a multi form directive such as
+      `Acme.Http.{Client, Server}`, and a module named as a plain value such as a
+      capture or a tuple element, since each of those is how a file depends on a module. Aliases are
       resolved first, so a reference written through an alias is reported under what it
       resolves to, and a name the file binds to two modules resolves to neither.
 
       Not reported: a `defmodule` head, at any depth, since a boundary is normally
       scoped to the namespace's own directory; a bare `alias`, in any of its forms,
-      since an alias alone creates no dependency; the members of a multi form directive
-      such as `Acme.{Foo, Bar}`, which a project writes out separately if it needs them
-      checked; a module named in a typespec; anything inside a `quote` block, which
+      since an alias alone creates no dependency, the multi form included; the members
+      of a multi form directive whose base is not written as an alias,
+      `__MODULE__.{Foo}` for instance, since what the base stands for is only known at
+      compile time; a module named in a typespec; anything inside a `quote` block, which
       belongs to wherever the macro expands; and an Erlang module written as a plain
       atom, `:os.system_time()` for instance, which no pattern has an atom form to
       match and which `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` covers, though
@@ -287,6 +289,13 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
   defp traverse({:alias, _meta, _args}, issues, _context), do: {[], issues}
 
+  # A multi form directive names each of its members, so each one is read as a
+  # reference and the form is left out of the walk, which keeps a member from
+  # being read a second time as the bare name it is written with.
+  defp traverse({{:., _meta, [{:__aliases__, _base_meta, base_parts}, :{}]}, _call_meta, members}, issues, context) do
+    {[], Enum.reduce(members, issues, &report_member(&1, &2, base_parts, context))}
+  end
+
   defp traverse({{:., _meta, [_base, :{}]}, _call_meta, _members}, issues, _context) do
     {[], issues}
   end
@@ -329,6 +338,17 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   end
 
   defp traverse(ast, issues, _context), do: {ast, issues}
+
+  # A member is reported under the name it is written with, rather than under the
+  # whole form, so that the trigger reads as the source does at the column the
+  # issue points at. The message still names the module the member resolves to.
+  defp report_member({:__aliases__, meta, member_parts}, issues, base_parts, context) do
+    module = ModuleName.resolve(base_parts ++ member_parts, context.aliases)
+
+    maybe_report(module, meta, Name.full(member_parts), issues, context)
+  end
+
+  defp report_member(_member, issues, _base_parts, _context), do: issues
 
   # A `cond` writes its conditions, and a `receive` its `after` timeout, on the
   # left of a `->`, where every other construct writes a pattern, so both sides

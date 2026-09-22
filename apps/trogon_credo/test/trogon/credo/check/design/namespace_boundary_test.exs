@@ -342,10 +342,88 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
     |> assert_issue(fn issue -> assert issue.trigger == "DataStore" end)
   end
 
-  test "a multi form directive is not resolved into its individual members" do
+  test "each member of a multi form directive is reported" do
     """
     defmodule CredoSampleModule do
       import Acme.Repo.{Account, Billing}
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["Acme.Repo.**"])
+    |> assert_issues(fn issues ->
+      assert issues |> Enum.map(& &1.trigger) |> Enum.sort() == ["Account", "Billing"]
+
+      assert issues |> Enum.map(& &1.message) |> Enum.sort() == [
+               "A module in this namespace must not reference `Acme.Repo.Account`.",
+               "A module in this namespace must not reference `Acme.Repo.Billing`."
+             ]
+    end)
+  end
+
+  test "a member of a multi form use directive is reported" do
+    """
+    defmodule CredoSampleModule do
+      use Acme.Repo.{Account}
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["Acme.Repo.**"])
+    |> assert_issue(fn issue -> assert issue.trigger == "Account" end)
+  end
+
+  test "a member of a multi form require directive is reported" do
+    """
+    defmodule CredoSampleModule do
+      require Acme.Repo.{Account}
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["Acme.Repo.**"])
+    |> assert_issue(fn issue -> assert issue.trigger == "Account" end)
+  end
+
+  test "a member of a multi form directive is resolved through an alias on its base" do
+    """
+    defmodule CredoSampleModule do
+      alias Acme.Repo, as: DataStore
+
+      def run, do: import(DataStore.{Account})
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["Acme.Repo.**"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Account"
+      assert issue.message == "A module in this namespace must not reference `Acme.Repo.Account`."
+    end)
+  end
+
+  test "a member of a multi form directive is not reported when no pattern names it" do
+    """
+    defmodule CredoSampleModule do
+      import Acme.Web.{Account}
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["Acme.Repo.**"])
+    |> refute_issues()
+  end
+
+  test "a member of a multi form directive whose base is not written as an alias is not reported" do
+    """
+    defmodule CredoSampleModule do
+      import __MODULE__.{Account}
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["Acme.Repo.**", "**.Account"])
+    |> refute_issues()
+  end
+
+  test "a member of a multi form alias is not reported" do
+    """
+    defmodule CredoSampleModule do
+      alias Acme.Repo.{Account, Billing}
     end
     """
     |> to_source_file()
