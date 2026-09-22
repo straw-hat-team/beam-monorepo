@@ -9,53 +9,43 @@ defmodule Trogon.Credo.Check.Readability.ModuleNameMatchesPath do
     explanations: [
       check: """
       Elixir does not require a module to live at the path its name implies, but every
-      Elixir project is read as though it does. Once a file and its module disagree,
-      the name stops being a way to find the code: a reader searching for
-      `MyApp.Billing.Invoice` opens `lib/my_app/billing/invoice.ex` and finds something
-      else, or nothing. The drift also accumulates silently, because renaming a module
-      is a refactor everyone does and moving the file is the step people forget.
+      Elixir project is read as though it does. Once a file and its module disagree, the
+      name stops being a way to find the code, and the drift accumulates silently:
+      renaming a module is a refactor everyone does and moving the file is the step
+      people forget.
 
           {Trogon.Credo.Check.Readability.ModuleNameMatchesPath, [root: "lib"]},
           {Trogon.Credo.Check.Readability.ModuleNameMatchesPath, [root: "test"]}
 
       With the configuration above, `lib/my_app/billing/invoice.ex` is expected to
       define `MyApp.Billing.Invoice`, and `test/my_app/billing/invoice_test.exs` to
-      define `MyApp.Billing.InvoiceTest`. Configuring the check once per `root` is how
-      a project covers both trees.
+      define `MyApp.Billing.InvoiceTest`. Configuring the check once per `root` is how a
+      project covers both trees.
 
-      The comparison runs the outermost `defmodule` name through `Macro.underscore/1`
-      and compares the result with the file's path below a path segment equal to
-      `root`, with the extension dropped. A path whose own namespace repeats the root,
-      `lib/my_app/lib/foo.ex` for instance, is read from whichever `lib` makes the name
-      agree, so a module is never reported for sitting in a directory that happens to
-      share a name with the root. Deriving the path a name implies, rather than
-      the name a path implies, is deliberate: `Macro.underscore/1` is the same function
-      Elixir and Mix use for this, so it already gets the cases a hand rolled camelize
-      would need an acronym list for. `MyApp.ErrorJSON` underscores to
-      `my_app/error_json` and `MyApp.APIClient` to `my_app/api_client`, both of which
-      are the file names a developer actually writes, so the check needs no `acronyms`
-      param.
+      The outermost `defmodule` name goes through `Macro.underscore/1` and is compared
+      with the file's path below a segment equal to `root`, extension dropped. Deriving
+      the path from the name is what lets the check skip an `acronyms` param, since
+      `Macro.underscore/1` is the function Elixir and Mix already use for this:
+      `MyApp.ErrorJSON` gives `my_app/error_json` and `MyApp.APIClient` gives
+      `my_app/api_client`, which are the file names a developer actually writes. A path
+      whose own namespace repeats the root, `lib/my_app/lib/foo.ex` for instance, is
+      read from whichever `lib` makes the name agree.
 
-      Credo already ships `Credo.Check.Readability.ModuleNames`, which checks that a
-      module name is CamelCase and says nothing about where the file sits. This check
-      is the complement: it does not care how a module is spelled, only whether its
-      file agrees with it.
+      Only the file's first `defmodule` is checked, since a nested module shares its
+      parent's file, and a file holding several top-level modules can only have one of
+      them agree with the path. A `defmodule` inside a `quote` block is not the file's
+      first module either, since it belongs to wherever the macro expands. A file with
+      no `defmodule`, or whose path has no segment equal to `root`, is skipped, which is
+      what keeps the check quiet on a config file or a mix task.
 
-      Only the file's first `defmodule` is checked, since a nested module is expected
-      to share its parent's file, and a file that holds several top-level modules, a
-      module and its own error for instance, can only have one of them agree with the
-      path. A `defmodule` written inside a `quote` block is not treated as the file's
-      first module either, since it belongs to wherever the macro expands. A file with no
-      `defmodule` at all, or whose path has no segment equal to `root`, is skipped,
-      which is what keeps the check quiet on a config file or a mix task when a project
-      enables it broadly.
-
-      The check compares names, so it cannot know that two modules are the same thing
-      under different spellings. A file deliberately holding a differently named
+      The check compares names, so a file deliberately holding a differently named
       module, a compatibility shim for instance, silences it with
-      `# credo:disable-for-this-file`. A module written as `defmodule Elixir.MyApp.Foo`
-      is compared as `MyApp.Foo`, since that is the same module, though the issue is
-      still reported at the name as written.
+      `# credo:disable-for-this-file`. `defmodule Elixir.MyApp.Foo` is compared as
+      `MyApp.Foo`, since that is the same module, though the issue is reported at the
+      name as written.
+
+      Credo's `Credo.Check.Readability.ModuleNames` checks that a name is CamelCase and
+      says nothing about where its file sits. This check is the complement.
       """,
       params: [
         root: """

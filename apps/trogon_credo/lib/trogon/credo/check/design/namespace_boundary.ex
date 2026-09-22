@@ -9,18 +9,16 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     ],
     explanations: [
       check: """
-      An architectural boundary is usually written down in a document and enforced by
+      An architectural boundary is usually written in a document and enforced by
       review: a domain layer that must not reach for the repository, an error module
       that only its own namespace may construct. This check expresses that boundary as
-      configuration and enforces it over source, in the same lint pass that already
-      reads every other file, rather than as a separate architecture test that needs a
-      compiled build, runs in the slow part of CI, and cannot see test files at all.
+      configuration, enforced in the lint pass that already reads every file rather
+      than in an architecture test that needs a compiled build.
 
-      A project scopes an instance of this check to the side of the boundary it is
-      constraining, using Credo's own `files:` param, and lists the namespaces that
-      side may not reach for in `forbidden`. The same check module can be enabled
-      several times with different params, which is how one project expresses several
-      boundaries.
+      A project scopes an instance to the side of the boundary it constrains with
+      Credo's own `files:` param, and lists what that side may not reach for in
+      `forbidden`. Enabling the check again with different params expresses a second
+      boundary.
 
           # a domain layer may only reach for itself and the shared domain namespace
           {Trogon.Credo.Check.Design.NamespaceBoundary,
@@ -33,17 +31,14 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
            [forbidden: [{"MyApp.**.Domain.**Error", "A domain error may only be raised from its own context."}],
             files: %{excluded: ["lib/my_app/*/domain/", "lib/my_app/*/command/"]}]}
 
-      `forbidden` with `except` is how a whitelist is expressed, as in the first
-      example: forbid the whole application namespace, then except the part a domain
-      layer may use, which reads as "must not depend on anything outside the domain
-      namespace" without listing every allowed module. `forbidden` on its own
-      expresses the opposite direction, "must not depend on this one thing", scoped by
-      `files:` to every file that is not itself part of the namespace the rule
-      protects.
+      `forbidden` with `except` is a whitelist, as in the first example: forbid the
+      whole application namespace, then except the part the domain layer may use.
+      `forbidden` on its own says "must not depend on this one thing", scoped by
+      `files:` to every file that is not itself part of the namespace being protected.
 
-      A pattern matches a fully qualified module name as a string, anchored at both
-      ends. Everything other than a wildcard is literal, including a character that
-      would otherwise be regex syntax.
+      A pattern matches a fully qualified module name, anchored at both ends. Everything
+      other than a wildcard is literal, including a character that would otherwise be
+      regex syntax.
 
       | pattern | matches |
       | --- | --- |
@@ -59,39 +54,28 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
       Reported: a qualified call, a struct literal or pattern, an `import`, `require`,
       or `use` target, and a module named as a plain value such as a capture or a tuple
-      element, since all of these are how a file depends on a module. The form does not
-      matter, because a boundary is about the dependency, not the syntax that creates
-      it. Aliases are resolved before matching, so a reference written through an alias
-      is reported under the module it resolves to; a name the file binds to two
-      different modules resolves to neither.
+      element, since each of those is how a file depends on a module. Aliases are
+      resolved first, so a reference written through an alias is reported under what it
+      resolves to, and a name the file binds to two modules resolves to neither.
 
-      Not reported: the name in a `defmodule` head, at any nesting depth, since a
-      boundary that forbids a namespace is normally scoped to that namespace's own
-      directory and a module's own name would otherwise be the first thing reported; a
-      bare `alias`, in any of its forms including a renamed or a multi alias, since an
-      alias on its own creates no dependency, so an unused alias to a forbidden module
-      is silently allowed; the individual members of a multi form directive such as
-      `MyApp.{Foo, Bar}`, which a project writes out as separate directives if it
-      needs them checked; a module named inside a typespec, since naming a module in a
-      spec is not depending on it at runtime; anything inside a `quote` block, since a
-      reference written there belongs to wherever the macro expands; and a reference to
-      an Erlang module written as a plain atom, such as `:os.system_time()`, since a
-      pattern has no atom form to match against, for which
-      `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` is the right check.
+      Not reported: a `defmodule` head, at any depth, since a boundary is normally
+      scoped to the namespace's own directory; a bare `alias`, in any of its forms,
+      since an alias alone creates no dependency; the members of a multi form directive
+      such as `MyApp.{Foo, Bar}`, which a project writes out separately if it needs them
+      checked; a module named in a typespec; anything inside a `quote` block, which
+      belongs to wherever the macro expands; and an Erlang module written as a plain
+      atom, `:os.system_time()` for instance, which no pattern has an atom form to
+      match and which `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` covers.
 
-      This check sees the references a file writes, so it catches the realistic
-      mistake, which is a developer writing the forbidden alias or call directly in the
-      file. It does not see a reference reached transitively through a module that is
-      itself allowed, one built at runtime with `apply/3`, one read back out of a
-      module attribute or application config, or one injected by a macro that expands
-      elsewhere. A project that needs the transitive closure of a boundary wants a
-      whole project architecture test that runs against a compiled build; this check is
-      the fast, per file part of the same rule.
+      This check reads what a file writes, so it catches the realistic mistake and
+      misses what it cannot see: a reference reached transitively, built with `apply/3`,
+      read out of config, or injected by a macro. A boundary needing the transitive
+      closure wants an architecture test over a compiled build; this is the fast, per
+      file part of the same rule.
 
-      Credo ships `Credo.Check.Warning.ForbiddenModule` to forbid a fixed list of
-      modules outright. This check adds what a boundary needs: namespace patterns
-      rather than one module at a time, `except` to carve a whitelist, alias resolution
-      before matching, and exclusion of a module's own `defmodule` head.
+      It narrows Credo's `Credo.Check.Warning.ForbiddenModule` by matching namespace
+      patterns rather than one module at a time, by carving exceptions with `except`,
+      and by resolving aliases before matching.
       """,
       params: [
         forbidden: """

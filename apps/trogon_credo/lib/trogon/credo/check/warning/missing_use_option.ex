@@ -28,9 +28,7 @@ defmodule Trogon.Credo.Check.Warning.MissingUseOption do
 
       This check is presence only. Whether the value passed for an option is the right
       one is deliberately out of scope: a value constraint would need a nested keyword
-      path to be useful, and that is a different check. Credo does not ship anything
-      that inspects the options passed to a `use`, so there is no core check this
-      narrows.
+      path to be useful, and that is a different check.
 
       Options are inspected only when written as a keyword list literal in the source.
       `use MyApp.Worker, @worker_opts`, `use MyApp.Worker, unquote(opts)`, and `use
