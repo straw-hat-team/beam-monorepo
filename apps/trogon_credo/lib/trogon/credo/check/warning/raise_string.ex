@@ -37,9 +37,9 @@ defmodule Trogon.Credo.Check.Warning.RaiseString do
       lives in that library's source and is invisible here, so this check needs no
       exclusion list for framework macros.
 
-      Credo's `Credo.Check.Warning.RaiseInsideRescue` is a different rule: it is about
-      a `raise` inside a `rescue` discarding the stacktrace, regardless of the
-      argument, where this check is about the argument regardless of location.
+      Credo's `Credo.Check.Warning.RaiseInsideRescue` is a different rule, about a
+      `raise` inside a `rescue` discarding the stacktrace regardless of its argument,
+      where this check is about the argument regardless of location.
       """,
       params: [
         hint: """

@@ -10,60 +10,40 @@ defmodule Trogon.Credo.Check.Readability.ModuleLocation do
     ],
     explanations: [
       check: """
-      Modules that `use` a given module often belong to an architectural
-      layer that is expected to live in one place. This check enforces that
-      such modules sit under an expected directory and inside an expected
-      namespace segment.
+      Modules that `use` a given module often belong to an architectural layer that is
+      expected to live in one place. This check enforces that such modules sit under an
+      expected directory and inside an expected namespace segment.
 
           {Trogon.Credo.Check.Readability.ModuleLocation,
            [for_use: [Oban.Worker], path_segment: "jobs", namespace_segment: :Jobs]}
 
-      With the configuration above, a module that uses `Oban.Worker` is
-      expected to live under a `jobs/` directory and inside a namespace
-      containing the `Jobs` segment.
+      With the configuration above, a module that uses `Oban.Worker` is expected to live
+      under a `jobs/` directory and inside a namespace containing the `Jobs` segment.
 
-      `path_segment` and `namespace_segment` each accept a single value or a
-      list of values, a list meaning a module satisfies the check as long as
-      it matches any one of them. `namespace_segment` also accepts a
-      `{segment, position}` tuple that pins the segment to a specific place
-      in the namespace, counting from the root when `position` is positive
-      and from the end when negative.
+      `path_segment` and `namespace_segment` each accept a single value or a list, a
+      list meaning a module satisfies the check by matching any one of them.
+      `namespace_segment` also accepts a `{segment, position}` tuple that pins the
+      segment to a place in the namespace, counting from the root when `position` is
+      positive and from the end when negative.
 
           {Trogon.Credo.Check.Readability.ModuleLocation,
            [for_use: [Oban.Worker],
             path_segment: ["jobs", "workers"],
             namespace_segment: [:Jobs, {:Processor, 3}]]}
 
-      With the configuration above, a module that uses `Oban.Worker` is
-      expected to live under a `jobs/` or `workers/` directory, and inside a
-      namespace that either contains the `Jobs` segment or carries
-      `Processor` as its third segment.
+      A position counts over every segment of the module name, the last one included,
+      which names the module itself rather than a namespace it sits in.
+      `MyApp.Jobs.SendEmail` has three segments, so `{:Jobs, 2}` and `{:Jobs, -2}` both
+      match it while `{:Jobs, -1}` does not. A position that falls outside the namespace
+      never matches, so `{:Jobs, 4}` never matches a three segment name.
 
-      A position that falls outside the namespace never matches, so
-      `{:Jobs, 4}` never matches a three segment namespace.
-
-      A position counts over every segment of the module name, including the
-      last one, which names the module itself rather than a namespace it sits
-      in. `MyApp.Jobs.SendEmail` has three segments, so `{:Jobs, 2}` and
-      `{:Jobs, -2}` both match it while `{:Jobs, -1}` does not, since the last
-      segment is `SendEmail`.
-
-      Moving or renaming a module that is referenced by persisted data, a
-      background job row naming its worker module, for instance, may need a
-      data migration or an alias, so the rename is not always free.
-
-      Code inside a `quote` block is not analyzed, since a module defined
-      there, or a `use` written there, belongs to wherever the macro expands
-      rather than to the module that defines the macro.
-
-      A module whose namespace carries a segment that is only known at compile
-      time, `defmodule __MODULE__.Child` for instance, is still checked against
-      `path_segment`, but not against `namespace_segment`, since the namespace
-      it ends up in cannot be read statically.
-
-      A `defmodule` whose name is not written as an alias, `defmodule :worker`
-      or `defmodule Module.concat(Foo, Bar)` for instance, does not nest inside
-      the namespace of the module it is written in, and is treated accordingly.
+      Code inside a `quote` block is not analyzed, since a module defined there, or a
+      `use` written there, belongs to wherever the macro expands. A namespace segment
+      known only at compile time, `defmodule __MODULE__.Child` for instance, is still
+      checked against `path_segment` but not against `namespace_segment`. A `defmodule`
+      whose name is not written as an alias, `defmodule :worker` or `defmodule
+      Module.concat(Foo, Bar)` for instance, does not nest inside the namespace of the
+      module it is written in, and is treated accordingly.
       """,
       params: [
         for_use: """
