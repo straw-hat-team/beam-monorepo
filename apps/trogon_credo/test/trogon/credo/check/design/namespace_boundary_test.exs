@@ -212,7 +212,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
     |> assert_issue(fn issue -> assert issue.trigger == "MyApp.Billing.Extra.Domain" end)
   end
 
-  test "a double wildcard on each side of a segment requires at least one segment on each side" do
+  test "a middle double wildcard matches a name with nothing in its place" do
     """
     defmodule CredoSampleModule do
       def run, do: MyApp.Domain.Invoice.new()
@@ -220,7 +220,29 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
     """
     |> to_source_file()
     |> run_check(NamespaceBoundary, forbidden: ["MyApp.**.Domain.**"])
-    |> refute_issues()
+    |> assert_issue(fn issue -> assert issue.trigger == "MyApp.Domain.Invoice" end)
+  end
+
+  test "a leading double wildcard matches a name with nothing in its place" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: Domain.Invoice.new()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["**.Domain.**"])
+    |> assert_issue(fn issue -> assert issue.trigger == "Domain.Invoice" end)
+  end
+
+  test "a middle double wildcard matches a name with nothing in its place before a literal segment" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: MyApp.Domain.new()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["MyApp.**.Domain"])
+    |> assert_issue(fn issue -> assert issue.trigger == "MyApp.Domain" end)
   end
 
   test "a double wildcard on each side of a segment matches once both sides are present" do

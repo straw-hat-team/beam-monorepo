@@ -109,12 +109,14 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
   end
 
   defp prepare_pairs(modules) do
-    Enum.map(modules, fn
-      {discouraged, preferred, message} ->
-        {ModuleName.full(discouraged), ModuleName.full(preferred), message}
+    Enum.map(modules, &prepare_pair/1)
+  end
 
-      {discouraged, preferred} ->
-        {ModuleName.full(discouraged), ModuleName.full(preferred), nil}
-    end)
+  defp prepare_pair({discouraged, preferred, message}) do
+    {ModuleName.full(discouraged), ModuleName.full(preferred), message}
+  end
+
+  defp prepare_pair({discouraged, preferred}) do
+    {ModuleName.full(discouraged), ModuleName.full(preferred), nil}
   end
 end

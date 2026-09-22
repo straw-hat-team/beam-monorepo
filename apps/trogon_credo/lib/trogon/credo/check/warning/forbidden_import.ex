@@ -75,25 +75,25 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
          modules,
          aliases
        ) do
-    new_issues =
-      Enum.reduce(alias_nodes, [], fn
-        {:__aliases__, meta, member_parts}, acc ->
-          module = ModuleName.resolve(base_parts ++ member_parts, aliases)
-          trigger = Name.full(member_parts)
-
-          case Map.fetch(modules, module) do
-            {:ok, message} -> [issue_for(issue_meta, meta, trigger, module, message) | acc]
-            :error -> acc
-          end
-
-        _member, acc ->
-          acc
-      end)
+    context = %{issue_meta: issue_meta, modules: modules, aliases: aliases, base_parts: base_parts}
+    new_issues = Enum.reduce(alias_nodes, [], &member_issue(&1, &2, context))
 
     {ast, new_issues ++ issues}
   end
 
   defp traverse(ast, issues, _issue_meta, _modules, _aliases), do: {ast, issues}
+
+  defp member_issue({:__aliases__, meta, member_parts}, issues, context) do
+    module = ModuleName.resolve(context.base_parts ++ member_parts, context.aliases)
+    trigger = Name.full(member_parts)
+
+    case Map.fetch(context.modules, module) do
+      {:ok, message} -> [issue_for(context.issue_meta, meta, trigger, module, message) | issues]
+      :error -> issues
+    end
+  end
+
+  defp member_issue(_member, issues, _context), do: issues
 
   defp issue_for(issue_meta, meta, trigger, module, message) do
     format_issue(
@@ -107,10 +107,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenImport do
 
   defp prepare_modules(modules) do
     modules
-    |> Enum.map(fn
-      {module, message} -> {ModuleName.full(module), message}
-      module -> {ModuleName.full(module), nil}
-    end)
+    |> Enum.map(&prepare_module/1)
     |> Map.new()
   end
+
+  defp prepare_module({module, message}), do: {ModuleName.full(module), message}
+  defp prepare_module(module), do: {ModuleName.full(module), nil}
 end
