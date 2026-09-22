@@ -135,7 +135,9 @@ defmodule Trogon.Credo.Check.Readability.ModuleNameMatchesPath do
   end
 
   defp last_index(parts, root) do
-    Enum.reduce(Enum.with_index(parts), nil, fn
+    parts
+    |> Enum.with_index()
+    |> Enum.reduce(nil, fn
       {^root, index}, _acc -> index
       _pair, acc -> acc
     end)
