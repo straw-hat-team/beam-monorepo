@@ -75,7 +75,7 @@ defmodule Trogon.Credo.Check.Readability.ModuleNameMatchesPathTest do
     |> refute_issues()
   end
 
-  test "uses the last segment equal to root when it appears twice" do
+  test "accepts a module matching the path below either segment equal to root" do
     """
     defmodule MyApp.Foo do
     end
@@ -85,12 +85,60 @@ defmodule Trogon.Credo.Check.Readability.ModuleNameMatchesPathTest do
     |> refute_issues()
   end
 
-  test "reports against the last segment equal to root when it appears twice" do
+  test "reports a module matching the path below no segment equal to root" do
     """
     defmodule MyApp.Foo do
     end
     """
     |> to_source_file("lib/legacy/lib/my_app/bar.ex")
+    |> run_check(ModuleNameMatchesPath, root: "lib")
+    |> assert_issue(fn issue ->
+      assert issue.message == "The module `MyApp.Foo` is expected in `lib/my_app/foo.ex`."
+    end)
+  end
+
+  test "does not report a module whose own namespace repeats the root" do
+    """
+    defmodule MyApp.Lib.Foo do
+    end
+    """
+    |> to_source_file("lib/my_app/lib/foo.ex")
+    |> run_check(ModuleNameMatchesPath, root: "lib")
+    |> refute_issues()
+  end
+
+  test "does not report a test module whose own namespace repeats the root" do
+    """
+    defmodule MyApp.Test.FooTest do
+    end
+    """
+    |> to_source_file("test/my_app/test/foo_test.exs")
+    |> run_check(ModuleNameMatchesPath, root: "test")
+    |> refute_issues()
+  end
+
+  test "does not report the second of two top-level modules" do
+    """
+    defmodule MyApp.Foo do
+    end
+
+    defmodule MyApp.Foo.Error do
+    end
+    """
+    |> to_source_file("lib/my_app/foo.ex")
+    |> run_check(ModuleNameMatchesPath, root: "lib")
+    |> refute_issues()
+  end
+
+  test "reports only the first of two top-level modules" do
+    """
+    defmodule MyApp.Foo do
+    end
+
+    defmodule MyApp.Bar do
+    end
+    """
+    |> to_source_file("lib/my_app/wrong_name.ex")
     |> run_check(ModuleNameMatchesPath, root: "lib")
     |> assert_issue(fn issue ->
       assert issue.message == "The module `MyApp.Foo` is expected in `lib/my_app/foo.ex`."
