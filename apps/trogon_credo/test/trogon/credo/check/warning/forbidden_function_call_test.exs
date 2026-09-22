@@ -164,6 +164,33 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> refute_issues()
   end
 
+  test "does not report a defdelegate head whose name matches a Kernel entry" do
+    """
+    defmodule CredoSampleModule do
+      defdelegate dbg(value), to: MyApp.Other
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> refute_issues()
+  end
+
+  test "reports a forbidden call written in the body of a definition whose head matches a Kernel entry" do
+    """
+    defmodule CredoSampleModule do
+      def dbg(value) do
+        System.get_env("HOME")
+        value
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}, {System, :get_env}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "System.get_env"
+    end)
+  end
+
   test "uses a custom message when configured" do
     """
     defmodule CredoSampleModule do

@@ -48,8 +48,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       Not reported: a module named in a typespec, which is not a call to it; a module
       named in an `alias`, `import`, `require`, or `use` directive, including the multi
       alias form `System.{Foo}` that shares its AST shape with a call; anything written
-      inside such a directive, so a call in a `use` option stays silent as well; and a
-      function of the same name defined on a different, unconfigured module.
+      inside such a directive, so a call in a `use` option stays silent as well; the
+      name in a function head, a `defdelegate` head included, since defining a function
+      is not calling one; and a function of the same name defined on a different,
+      unconfigured module.
       """,
       params: [
         calls: """
@@ -73,7 +75,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
   @directives [:alias, :import, :require, :use]
-  @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp]
+  @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp, :defdelegate]
   @kernel_module "Kernel"
 
   @doc false
