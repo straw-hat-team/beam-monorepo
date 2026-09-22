@@ -37,6 +37,7 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
     ]
 
   alias Credo.SourceFile
+  alias Trogon.Credo.MixDeps
 
   @full_sha ~r/^[0-9a-f]{40}$/
   @exact_version ~r/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/
@@ -183,16 +184,7 @@ defmodule Trogon.Credo.Check.Warning.UnpinnedDependency do
   end
 
   defp line_for_dep(issue_meta, dep) do
-    source_file = IssueMeta.source_file(issue_meta)
-    pattern = ~r/\{\s*:#{Regex.escape(to_string(dep))}\s*,/
-
-    source_file
-    |> SourceFile.lines()
-    |> Enum.find_value(fn {line_no, text} -> Regex.match?(pattern, text) && line_no end)
-    |> case do
-      nil -> 1
-      line_no -> line_no
-    end
+    issue_meta |> IssueMeta.source_file() |> MixDeps.line(dep)
   end
 
   defp prepare_deps(deps) do
