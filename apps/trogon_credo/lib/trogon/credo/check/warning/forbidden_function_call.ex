@@ -50,7 +50,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       `get_env("HOME")` in a file that writes `import System`, since Elixir refuses to
       compile a local function that conflicts with an import, so the name cannot be
       anything else. A file that takes a name back from `Kernel` with an `except:`
-      option is read the same way, and its own `dbg(value)` is left alone.
+      option is read the same way, and its own `dbg(value)` is left alone, as is a
+      file whose `import Kernel, only:` leaves that name out, since such an import
+      replaces the automatic one. A multi form directive, `import System.{Env}`, is
+      read as an import of each module it lists.
 
       An entry naming a module on its own reaches a bare call only where an `import`
       lists the function in `only:`. An unrestricted `import` does not say which names
@@ -229,17 +232,19 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   # `Kernel` is auto imported, so a bare call is attributed to it unless the file
-  # gives that very name back with `except:`.
+  # gives that very name back with `except:`, or replaces the auto import with
+  # `only:`, which leaves every name outside that list no longer `Kernel`.
   defp kernel_candidate(imports, function) do
-    if Enum.any?(imports, &kernel_excludes?(&1, function)) do
+    if Enum.any?(imports, &kernel_withholds?(&1, function)) do
       []
     else
       [{@kernel_module, :open}]
     end
   end
 
-  defp kernel_excludes?({@kernel_module, {:open, excluded}}, function), do: function in excluded
-  defp kernel_excludes?(_import, _function), do: false
+  defp kernel_withholds?({@kernel_module, {:only, _names}}, _function), do: true
+  defp kernel_withholds?({@kernel_module, {:open, excluded}}, function), do: function in excluded
+  defp kernel_withholds?(_import, _function), do: false
 
   defp collect_imports(source_file, aliases) do
     Credo.Code.prewalk(source_file, &traverse_import(&1, &2, aliases), [])
@@ -248,17 +253,35 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp traverse_import({:quote, _meta, _args}, imports, _aliases), do: {[], imports}
 
   defp traverse_import({:import, _meta, [target | opts]}, imports, aliases) do
-    case import_module(target, aliases) do
-      nil -> {[], imports}
-      module -> {[], [{module, import_scope(opts)} | imports]}
-    end
+    {[], import_entries(target, opts, aliases) ++ imports}
   end
 
   defp traverse_import(ast, imports, _aliases), do: {ast, imports}
 
-  defp import_module({:__aliases__, _meta, parts}, aliases), do: ModuleName.resolve(parts, aliases)
-  defp import_module(module, _aliases) when is_atom(module), do: ModuleName.full(module)
-  defp import_module(_target, _aliases), do: nil
+  defp import_entries(target, opts, aliases) do
+    scope = import_scope(opts)
+
+    target
+    |> import_modules(aliases)
+    |> Enum.map(&{&1, scope})
+  end
+
+  defp import_modules({{:., _, [{:__aliases__, _, base_parts}, :{}]}, _, member_nodes}, aliases) do
+    Enum.flat_map(member_nodes, &member_module(&1, base_parts, aliases))
+  end
+
+  defp import_modules({:__aliases__, _meta, parts}, aliases) do
+    List.wrap(ModuleName.resolve(parts, aliases))
+  end
+
+  defp import_modules(module, _aliases) when is_atom(module), do: [ModuleName.full(module)]
+  defp import_modules(_target, _aliases), do: []
+
+  defp member_module({:__aliases__, _meta, member_parts}, base_parts, aliases) do
+    List.wrap(ModuleName.resolve(base_parts ++ member_parts, aliases))
+  end
+
+  defp member_module(_member, _base_parts, _aliases), do: []
 
   defp import_scope([opts]) when is_list(opts) do
     case Keyword.fetch(opts, :only) do

@@ -235,6 +235,72 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> refute_issues()
   end
 
+  test "reports a bare call to a function a multi form import brings in" do
+    """
+    defmodule CredoSampleModule do
+      import Vendor.{System}
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Vendor.System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "resolves the base of a multi form import through an alias" do
+    """
+    defmodule CredoSampleModule do
+      alias Vendor, as: Dep
+      import Dep.{System}
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Vendor.System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a bare call to a function an unconfigured multi form import brings in" do
+    """
+    defmodule CredoSampleModule do
+      import Vendor.{System}
+
+      def run, do: get_env("HOME")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "does not report a bare call a Kernel import restricted with only leaves out" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, only: [def: 2]
+
+      def run(value), do: dbg(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> refute_issues()
+  end
+
+  test "reports a bare call a Kernel import names in only" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, only: [def: 2, dbg: 1]
+
+      def run(value), do: dbg(value)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> assert_issue(fn issue -> assert issue.trigger == "dbg" end)
+  end
+
   test "does not report a bare call whose name the file takes back from Kernel" do
     """
     defmodule CredoSampleModule do
