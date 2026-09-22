@@ -695,7 +695,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
   test "does not report a defdelegate head whose name matches a Kernel entry" do
     """
     defmodule CredoSampleModule do
-      defdelegate dbg(value), to: MyApp.Other
+      defdelegate dbg(value), to: Acme.Other
     end
     """
     |> to_source_file()
@@ -761,10 +761,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> to_source_file()
     |> run_check(ForbiddenFunctionCall,
       calls: [{{System, :get_env}, "Use the runtime config instead."}],
-      hint: "See MyApp.Config."
+      hint: "See Acme.Config."
     )
     |> assert_issue(fn issue ->
-      assert issue.message == "Use the runtime config instead. See MyApp.Config."
+      assert issue.message == "Use the runtime config instead. See Acme.Config."
     end)
   end
 
@@ -795,7 +795,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     end
 
     defmodule B do
-      alias MyApp.System
+      alias Acme.System
 
       def run, do: System.get_env("HOME")
     end
@@ -838,7 +838,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     """
     defmodule CredoSampleModule do
       def run do
-        MyApp.Env.get_env("HOME")
+        Acme.Env.get_env("HOME")
       end
     end
     """
@@ -876,7 +876,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
   test "does not report a call written inside a use directive's options" do
     """
     defmodule CredoSampleModule do
-      use MyApp.Worker, retries: System.get_env("RETRIES")
+      use Acme.Worker, retries: System.get_env("RETRIES")
     end
     """
     |> to_source_file()
@@ -1055,7 +1055,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     end
   end
 
-  test "raises when a calls entry is neither a module nor a {Module, :function} tuple" do
+  test "raises when a calls entry is neither a module, a pattern, nor a {Module, :function} tuple" do
     source_file =
       """
       defmodule CredoSampleModule do
@@ -1064,8 +1064,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
       """
       |> to_source_file()
 
-    assert_raise ArgumentError, ~r/invalid calls entry "System"/, fn ->
-      ForbiddenFunctionCall.run(source_file, calls: ["System"])
+    assert_raise ArgumentError, ~r/invalid calls entry 123/, fn ->
+      ForbiddenFunctionCall.run(source_file, calls: [123])
     end
   end
 
@@ -1080,6 +1080,162 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
 
     assert_raise ArgumentError, ~r/invalid calls entry {System, :get_env, 1}/, fn ->
       ForbiddenFunctionCall.run(source_file, calls: [{System, :get_env, 1}])
+    end
+  end
+
+  test "reports a call to a function on a module a pattern names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Billing.Domain.NotFoundError.new(%{})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{"Acme.**.Domain.**Error", :new}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Acme.Billing.Domain.NotFoundError.new"
+
+      assert issue.message ==
+               "The `Acme.Billing.Domain.NotFoundError.new` function must not be called."
+    end)
+  end
+
+  test "does not report a call to a function on a module no pattern names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Billing.Command.NotFoundError.new(%{})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{"Acme.**.Domain.**Error", :new}])
+    |> refute_issues()
+  end
+
+  test "does not report a call to another function on a module a pattern names" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Billing.Domain.NotFoundError.message(%{})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{"Acme.**.Domain.**Error", :new}])
+    |> refute_issues()
+  end
+
+  test "reports every call to a module a pattern names on its own" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: ["Acme.Legacy.**"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Acme.Legacy.Client.fetch"
+      assert issue.message == "The `Acme.Legacy.Client.fetch` function must not be called."
+    end)
+  end
+
+  test "reports a pattern entry with its own message" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        Acme.Legacy.Client.fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall,
+      calls: [{"Acme.Legacy.**", "The legacy namespace is being removed."}]
+    )
+    |> assert_issue(fn issue ->
+      assert issue.message == "The legacy namespace is being removed."
+    end)
+  end
+
+  test "names an Erlang module matched by a pattern as the atom it is written as" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        :os.system_time()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: ["o*"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ":os.system_time"
+      assert issue.message == "The `:os.system_time` function must not be called."
+    end)
+  end
+
+  test "resolves an alias before matching a pattern" do
+    """
+    defmodule CredoSampleModule do
+      alias Acme.Legacy.Client
+
+      def run do
+        Client.fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: ["Acme.Legacy.**"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Client.fetch"
+    end)
+  end
+
+  test "reports a bare call under an import of a module a pattern names" do
+    """
+    defmodule CredoSampleModule do
+      import Acme.Legacy.Client
+
+      def run do
+        fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{"Acme.Legacy.**", :fetch}])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "fetch"
+    end)
+  end
+
+  test "does not report a bare call under an import of a module no pattern names" do
+    """
+    defmodule CredoSampleModule do
+      import Acme.Billing.Client
+
+      def run do
+        fetch()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{"Acme.Legacy.**", :fetch}])
+    |> refute_issues()
+  end
+
+  test "raises when a pattern matches Kernel as a whole module" do
+    source_file =
+      """
+      defmodule CredoSampleModule do
+        def run, do: :ok
+      end
+      """
+      |> to_source_file()
+
+    assert_raise ArgumentError, ~r/`Kernel` cannot be forbidden as a whole module/, fn ->
+      ForbiddenFunctionCall.run(source_file, calls: ["Kern*"])
     end
   end
 end
