@@ -1057,4 +1057,117 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
       NamespaceBoundary.run(source_file, forbidden: ["Acme.Repo"], in_patterns: :nope)
     end
   end
+
+  test "does not report a reference from a module an except_in pattern names" do
+    """
+    defmodule Acme.Billing.Adapter do
+      def run, do: Acme.Http.Client.get("/")
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary,
+      forbidden: ["Acme.Http.**"],
+      except_in: ["Acme.*.Adapter"]
+    )
+    |> refute_issues()
+  end
+
+  test "reports a reference from a module no except_in pattern names" do
+    """
+    defmodule Acme.Billing.Domain do
+      def run, do: Acme.Http.Client.get("/")
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary,
+      forbidden: ["Acme.Http.**"],
+      except_in: ["Acme.*.Adapter"]
+    )
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Acme.Http.Client"
+    end)
+  end
+
+  test "does not report a reference from a module under a namespace an except_in pattern names" do
+    """
+    defmodule Acme.Billing.Adapter.Http do
+      def run, do: Acme.Http.Client.get("/")
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary,
+      forbidden: ["Acme.Http.**"],
+      except_in: ["Acme.*.Adapter.**"]
+    )
+    |> refute_issues()
+  end
+
+  test "reads the outermost module of a file with nested definitions for except_in" do
+    """
+    defmodule Acme.Billing.Adapter do
+      defmodule Inner do
+        def run, do: Acme.Http.Client.get("/")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary,
+      forbidden: ["Acme.Http.**"],
+      except_in: ["Acme.*.Adapter"]
+    )
+    |> refute_issues()
+  end
+
+  test "reports a reference in a file with no defmodule when except_in is set" do
+    """
+    Acme.Http.Client.get("/")
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary,
+      forbidden: ["Acme.Http.**"],
+      except_in: ["Acme.*.Adapter"]
+    )
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "Acme.Http.Client"
+    end)
+  end
+
+  test "does not report a private reference from a module an except_in pattern names" do
+    """
+    defmodule Acme.Support.Fixtures do
+      def run, do: Acme.BillingService.NotFoundError
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary,
+      private_to: ["(Acme.*Service).**Error"],
+      except_in: ["Acme.Support.**"]
+    )
+    |> refute_issues()
+  end
+
+  test "is silent when except_in is explicitly set to nil" do
+    """
+    defmodule Acme.Billing.Domain do
+      def run, do: Acme.Other.Client.get("/")
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["Acme.Http.**"], except_in: nil)
+    |> refute_issues()
+  end
+
+  test "raises when an except_in pattern is neither a string nor a module name" do
+    source_file =
+      """
+      defmodule Acme.Billing.Domain do
+        def run, do: :ok
+      end
+      """
+      |> to_source_file()
+
+    assert_raise ArgumentError, ~r/invalid namespace boundary pattern 123/, fn ->
+      NamespaceBoundary.run(source_file, forbidden: ["Acme.Http.**"], except_in: [123])
+    end
+  end
 end
