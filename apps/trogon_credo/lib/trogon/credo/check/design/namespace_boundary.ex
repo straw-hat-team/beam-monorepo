@@ -6,6 +6,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       forbidden: [],
       private_to: [],
       except: [],
+      except_in: [],
       in_patterns: true,
       hint: nil
     ],
@@ -60,6 +61,20 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
       changing who owns what. Where a pattern could bind the owning namespace in more
       than one place, the longest match wins, so the innermost namespace that satisfies
       the pattern is the owner.
+
+      A boundary that has an exception on the referencing side, a namespace that is
+      allowed to reach for what the rest may not, names that namespace in `except_in`.
+
+          # only the adapter layer may reach for the HTTP client
+          {Trogon.Credo.Check.Design.NamespaceBoundary,
+           [forbidden: ["Acme.Http.**"],
+            except_in: ["Acme.*.Adapter", "Acme.*.Adapter.**"]]}
+
+      `except` names what may be referenced and `except_in` names who may reference it,
+      so a rule with an exception that follows the module tree rather than the directory
+      tree is written without a `files:` path. Ownership is read from the referencing
+      file's own outermost module name, so a file with no `defmodule`, or whose
+      outermost one is not written as an alias, is reported rather than excepted.
 
       `forbidden` and `private_to` express different rules, so one instance of the check
       sets one or the other.
@@ -150,6 +165,13 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
         to carry. The default empty list means there is no exception; `nil` is also accepted
         and treated the same way.
         """,
+        except_in: """
+        A list of module name patterns matched against the referencing file's own
+        outermost module name. A reference written in a module any of them names is never
+        reported, which is how a boundary states its exception by namespace rather than by
+        file path. The pattern syntax is the one `forbidden` uses. The default empty list
+        means there is no exception; `nil` is also accepted and treated the same way.
+        """,
         in_patterns: """
         Whether a reference written in a pattern is reported. A pattern matches on a value
         rather than building or calling one, so setting this to `false` reports only a
@@ -193,22 +215,36 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
   defp rule(_forbidden, _private_to), do: :configured
 
   defp analyze(source_file, params, forbidden, private_to) do
-    context = %{
-      issue_meta: IssueMeta.for(source_file, params),
-      forbidden: prepare_forbidden(forbidden),
-      private_to: prepare_private_to(private_to),
-      own_module: owning_module(source_file, private_to),
-      except: prepare_except(Params.get(params, :except, __MODULE__) || []),
-      in_patterns: in_patterns(Params.get(params, :in_patterns, __MODULE__)),
-      hint: Params.get(params, :hint, __MODULE__),
-      aliases: ModuleName.collect_aliases(source_file)
-    }
+    except_in = prepare_except(Params.get(params, :except_in, __MODULE__) || [])
+    own_module = owning_module(source_file, private_to, except_in)
 
-    Credo.Code.prewalk(source_file, &traverse(&1, &2, context))
+    if excepted_in?(own_module, except_in) do
+      []
+    else
+      context = %{
+        issue_meta: IssueMeta.for(source_file, params),
+        forbidden: prepare_forbidden(forbidden),
+        private_to: prepare_private_to(private_to),
+        own_module: own_module,
+        except: prepare_except(Params.get(params, :except, __MODULE__) || []),
+        in_patterns: in_patterns(Params.get(params, :in_patterns, __MODULE__)),
+        hint: Params.get(params, :hint, __MODULE__),
+        aliases: ModuleName.collect_aliases(source_file)
+      }
+
+      Credo.Code.prewalk(source_file, &traverse(&1, &2, context))
+    end
   end
 
-  defp owning_module(_source_file, []), do: nil
-  defp owning_module(source_file, _private_to), do: own_module(source_file)
+  defp owning_module(_source_file, [], []), do: nil
+  defp owning_module(source_file, _private_to, _except_in), do: own_module(source_file)
+
+  # A file whose own module the check cannot read cannot be told to be inside an
+  # excepted namespace, and reporting it is the reading that keeps a rule from
+  # being stepped around by a file that names itself in a way the check cannot
+  # see.
+  defp excepted_in?(nil, _except_in), do: false
+  defp excepted_in?(own_module, except_in), do: Enum.any?(except_in, &Regex.match?(&1, own_module))
 
   defp in_patterns(in_patterns) when is_boolean(in_patterns), do: in_patterns
 
