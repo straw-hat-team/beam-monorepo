@@ -55,6 +55,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       replaces the automatic one. A multi form directive, `import System.{Env}`, is
       read as an import of each module it lists.
 
+      An `import` is read where Elixir scopes it, so a call in a module is read against
+      what that module and whatever encloses it import, and not against what a sibling
+      module in the same file imports.
+
       An entry naming a module on its own reaches a bare call only where an `import`
       lists the function in `only:`. An unrestricted `import` does not say which names
       it brings in, and reporting every bare call in the file on that basis would name
@@ -180,8 +184,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   end
 
   defp report_unqualified(context, function, call_meta, issues) do
-    candidates =
-      import_candidates(context.imports, function) ++ kernel_candidate(context.imports, function)
+    imports = imports_in_scope(context.imports, call_meta[:line])
+    candidates = import_candidates(imports, function) ++ kernel_candidate(imports, function)
 
     case Enum.find_value(candidates, &unqualified_entry(context, &1, function)) do
       nil ->
@@ -246,17 +250,86 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp kernel_withholds?({@kernel_module, {:open, excluded}}, function), do: function in excluded
   defp kernel_withholds?(_import, _function), do: false
 
+  # An `import` is lexically scoped, so it is read only for a call written inside
+  # the block that declares it, which is what keeps a module from being read
+  # against what a sibling module in the same file imports, and what lets a
+  # nested module be read against what encloses it.
+  defp imports_in_scope(imports, line) when is_integer(line) do
+    Enum.flat_map(imports, &import_in_scope(&1, line))
+  end
+
+  defp imports_in_scope(imports, _line), do: Enum.map(imports, &drop_scope_lines/1)
+
+  defp import_in_scope({module, scope, {from, to}}, line) when line >= from and line <= to do
+    [{module, scope}]
+  end
+
+  defp import_in_scope(_import, _line), do: []
+
+  defp drop_scope_lines({module, scope, _lines}), do: {module, scope}
+
   defp collect_imports(source_file, aliases) do
-    Credo.Code.prewalk(source_file, &traverse_import(&1, &2, aliases), [])
+    ast = SourceFile.ast(source_file)
+
+    scoped_imports(ast, aliases, max_line(ast))
   end
 
-  defp traverse_import({:quote, _meta, _args}, imports, _aliases), do: {[], imports}
+  defp scoped_imports({:quote, _meta, _args}, _aliases, _scope_end), do: []
 
-  defp traverse_import({:import, _meta, [target | opts]}, imports, aliases) do
-    {[], import_entries(target, opts, aliases) ++ imports}
+  defp scoped_imports({:import, meta, [target | opts]}, aliases, scope_end) do
+    Enum.map(import_entries(target, opts, aliases), &scope_lines(&1, meta[:line], scope_end))
   end
 
-  defp traverse_import(ast, imports, _aliases), do: {ast, imports}
+  defp scoped_imports({form, _meta, args} = node, aliases, scope_end) when is_list(args) do
+    scoped_imports([form | args], aliases, block_end(node, scope_end))
+  end
+
+  defp scoped_imports({left, right}, aliases, scope_end) do
+    scoped_imports([left, right], aliases, scope_end)
+  end
+
+  defp scoped_imports(nodes, aliases, scope_end) when is_list(nodes) do
+    Enum.flat_map(nodes, &scoped_imports(&1, aliases, scope_end))
+  end
+
+  defp scoped_imports(_ast, _aliases, _scope_end), do: []
+
+  defp scope_lines({module, scope}, line, scope_end) do
+    {module, scope, {line || 0, scope_end}}
+  end
+
+  defp block_end({_form, meta, args}, scope_end) do
+    case block_body(args) do
+      {:ok, body} -> body_end(meta, body)
+      :error -> scope_end
+    end
+  end
+
+  defp block_body(args) do
+    case List.last(args) do
+      blocks when is_list(blocks) -> Keyword.fetch(blocks, :do)
+      _other -> :error
+    end
+  end
+
+  defp body_end(meta, body) do
+    case meta[:end] do
+      end_meta when is_list(end_meta) -> end_meta[:line] || max_line(body)
+      _other -> max_line(body)
+    end
+  end
+
+  defp max_line(ast) do
+    {_ast, line} = Macro.prewalk(ast, 0, &highest_line/2)
+
+    line
+  end
+
+  defp highest_line({_form, meta, _args} = node, line) when is_list(meta) do
+    {node, max(line, meta[:line] || 0)}
+  end
+
+  defp highest_line(node, line), do: {node, line}
 
   defp import_entries(target, opts, aliases) do
     scope = import_scope(opts)
