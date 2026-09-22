@@ -55,9 +55,10 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       replaces the automatic one. A multi form directive, `import System.{Env}`, is
       read as an import of each module it lists.
 
-      An `import` is read where Elixir scopes it, so a call in a module is read against
-      what that module and whatever encloses it import, and not against what a sibling
-      module in the same file imports.
+      An `import` is read where Elixir scopes it, so a call is read against what the
+      block it is written in imports, together with whatever encloses that block. A
+      call in a sibling module, in a clause beside the one that wrote the directive, or
+      after the anonymous function that wrote it, is not read against it.
 
       An entry naming a module on its own reaches a bare call only where an `import`
       lists the function in `only:`. An unrestricted `import` does not say which names
@@ -101,6 +102,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   @directives [:alias, :import, :require, :use]
   @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp, :defdelegate]
   @kernel_module "Kernel"
+  @block_keys [:do, :else, :rescue, :after, :catch]
 
   @doc false
   @impl true
@@ -280,8 +282,14 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     Enum.map(import_entries(target, opts, aliases), &scope_lines(&1, meta[:line], scope_end))
   end
 
-  defp scoped_imports({form, _meta, args} = node, aliases, scope_end) when is_list(args) do
-    scoped_imports([form | args], aliases, block_end(node, scope_end))
+  defp scoped_imports({:->, _meta, [head, body]}, aliases, _scope_end) do
+    scoped_imports(head, aliases, max_line(head)) ++ scoped_imports(body, aliases, max_line(body))
+  end
+
+  defp scoped_imports({form, _meta, args}, aliases, scope_end) when is_list(args) do
+    {blocks, rest} = split_blocks(args)
+
+    scoped_imports([form | rest], aliases, scope_end) ++ scoped_blocks(blocks, aliases)
   end
 
   defp scoped_imports({left, right}, aliases, scope_end) do
@@ -298,25 +306,32 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     {module, scope, {line || 0, scope_end}}
   end
 
-  defp block_end({_form, meta, args}, scope_end) do
-    case block_body(args) do
-      {:ok, body} -> body_end(meta, body)
-      :error -> scope_end
-    end
-  end
-
-  defp block_body(args) do
+  # Each block of a form is its own scope, so an `import` written in one of them
+  # reaches neither a sibling block nor whatever follows the form.
+  defp split_blocks(args) do
     case List.last(args) do
-      blocks when is_list(blocks) -> Keyword.fetch(blocks, :do)
-      _other -> :error
+      [_entry | _rest] = blocks -> split_block_args(args, blocks)
+      _other -> {[], args}
     end
   end
 
-  defp body_end(meta, body) do
-    case meta[:end] do
-      end_meta when is_list(end_meta) -> end_meta[:line] || max_line(body)
-      _other -> max_line(body)
+  defp split_block_args(args, blocks) do
+    if Enum.all?(blocks, &block_entry?/1) do
+      {blocks, Enum.drop(args, -1)}
+    else
+      {[], args}
     end
+  end
+
+  defp block_entry?({key, _body}) when key in @block_keys, do: true
+  defp block_entry?(_entry), do: false
+
+  defp scoped_blocks(blocks, aliases) do
+    Enum.flat_map(blocks, &scoped_block(&1, aliases))
+  end
+
+  defp scoped_block({_key, body}, aliases) do
+    scoped_imports(body, aliases, max_line(body))
   end
 
   defp max_line(ast) do

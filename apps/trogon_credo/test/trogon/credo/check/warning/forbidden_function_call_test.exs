@@ -373,6 +373,71 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     |> assert_issue(fn issue -> assert issue.line_no == 5 end)
   end
 
+  test "does not report a bare call after the anonymous function that imports for it" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run do
+        fn ->
+          import System, only: [get_env: 1]
+
+          get_env("HOME")
+        end
+
+        get_env("HOME")
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 8 end)
+  end
+
+  test "does not report a bare call in a block beside the one that imports for it" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run do
+        try do
+          import System, only: [get_env: 1]
+
+          get_env("HOME")
+        after
+          get_env("HOME")
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 8 end)
+  end
+
+  test "does not report a bare call in a clause beside the one that imports for it" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(name), do: name
+
+      def run(value) do
+        case value do
+          :env ->
+            import System, only: [get_env: 1]
+
+            get_env("HOME")
+
+          _other ->
+            get_env("HOME")
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.line_no == 9 end)
+  end
+
   test "does not report a bare call whose name the file takes back from Kernel" do
     """
     defmodule CredoSampleModule do
