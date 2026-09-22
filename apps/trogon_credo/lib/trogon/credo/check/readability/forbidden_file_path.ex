@@ -9,15 +9,11 @@ defmodule Trogon.Credo.Check.Readability.ForbiddenFilePath do
     ],
     explanations: [
       check: """
-      Where a file lives is part of a project's structure, and some directories are
-      decided rather than discovered: a compile time test helper belongs in
-      `test/support` because that is the path a project wires into `elixirc_paths`,
-      a generated directory is not hand edited, a directory being retired takes no
-      new files. None of that is visible in a module's contents, so no check that
-      reads code can enforce it.
-
-      This check matches a file's path and reports the file itself, which is how a
-      project says "nothing may live here".
+      Some directories are decided rather than discovered: a compile time test helper
+      belongs in `test/support` because that is the path a project wires into
+      `elixirc_paths`. None of that is visible in a module's contents, so no check that
+      reads code can enforce it. This check matches a file's path and reports the file
+      itself, which is how a project says "nothing may live here".
 
           {Trogon.Credo.Check.Readability.ForbiddenFilePath,
            [forbidden: [
@@ -25,32 +21,20 @@ defmodule Trogon.Credo.Check.Readability.ForbiddenFilePath do
             ],
             except: ["test/support/**"]]}
 
-      `forbidden` with `except` is how a single allowed location is expressed:
-      forbid the whole tree, then except the one directory that is wired into
-      `elixirc_paths`. `forbidden` on its own closes a directory entirely.
+      Forbid the whole tree, then except the directory that is allowed. `forbidden` on
+      its own closes a directory entirely.
 
-      A pattern matches a path as Credo reports it, relative to the directory
-      `mix credo` runs in, so a project configuring this at the root of a monorepo
-      writes `apps/*/test/**/*.ex` where one configuring it inside a single app
-      writes `test/**/*.ex`. The path is matched whole, anchored at both ends, and
-      everything other than a wildcard is literal.
+      A pattern is matched whole against the path as Credo reports it, relative to the
+      directory `mix credo` runs in. `*` stays within one path segment, `**` matches
+      zero or more whole segments, so `test/**/*.ex` covers `test/foo.ex` and
+      `test/a/b/foo.ex` alike. Everything else is literal.
 
-      | pattern | matches |
-      | --- | --- |
-      | `*` | any run of characters within one path segment, never crossing a `/` |
-      | `**` | zero or more whole path segments, so it crosses `/` |
-      | `test/**/*.ex` | `test/foo.ex` and `test/a/b/foo.ex` |
-      | `test/support/**` | anything under `test/support`, at any depth |
-
-      The issue is reported at the first line of the file, since the file existing
-      at that path is the problem rather than anything written in it. Nothing in the
-      file is parsed, which makes this the one check here that says nothing about
-      the code, and the only one that still reports a file Credo cannot compile.
-
-      Credo's own per check `files:` param can narrow which files this check sees,
-      but the patterns live in `forbidden` rather than in `files:` so that an
-      unconfigured instance stays silent. A check whose rule was carried entirely by
-      `files:` would report every file in the project by default.
+      The issue is reported at the file's first line, since the file existing at that
+      path is the problem rather than anything written in it. Nothing is parsed, so
+      this is the one check here that says nothing about the code and the only one that
+      still reports a file Credo cannot compile. The patterns live in `forbidden`
+      rather than in Credo's `files:` param so that an unconfigured instance stays
+      silent.
       """,
       params: [
         forbidden: """
