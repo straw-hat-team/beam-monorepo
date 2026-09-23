@@ -3,54 +3,48 @@ defmodule Trogon.Credo.ModuleName do
 
   alias Credo.Code.Name
 
-  @doc """
-  The fully qualified name of a module reference, with the leading `Elixir`
-  segment of an explicitly rooted name such as `Elixir.Foo` removed so that it
-  compares equal to the same module given as an atom in a check parameter.
-  """
+  # The fully qualified name of a module reference, with the leading `Elixir`
+  # segment of an explicitly rooted name such as `Elixir.Foo` removed so that it
+  # compares equal to the same module given as an atom in a check parameter.
   def full([Elixir | rest]) when rest != [], do: Name.full(rest)
   def full(module_or_parts), do: Name.full(module_or_parts)
 
-  @doc """
-  The aliases declared anywhere in a source file, as a map of the name a module
-  is written under to the fully qualified name it resolves to.
-
-  An `alias` written inside a `quote` block is not collected, since it takes
-  effect wherever the macro expands rather than in the file that defines it.
-
-  A multi alias keeps whatever base it is written with, so
-  `alias __MODULE__.{Child}` records `Child` under the name `__MODULE__.Child`,
-  which no configured module matches.
-
-  An Erlang module is collected under the name its `:as` option gives it, so
-  `alias :rand, as: Random` records `Random` under `rand`, which is how such a
-  module is named in a check parameter. Elixir requires the option there, since
-  it cannot infer a name for an Erlang module, so an alias written without one
-  binds nothing.
-
-  A name that the file binds to more than one module, two sibling modules
-  aliasing a different `Client` for instance, is mapped to `:ambiguous` rather
-  than to whichever binding came last, since the file as a whole does not say
-  which one a given reference means.
-  """
+  # The aliases declared anywhere in a source file, as a map of the name a module
+  # is written under to the fully qualified name it resolves to.
+  #
+  # An `alias` written inside a `quote` block is not collected, since it takes
+  # effect wherever the macro expands rather than in the file that defines it.
+  #
+  # A multi alias keeps whatever base it is written with, so
+  # `alias __MODULE__.{Child}` records `Child` under the name `__MODULE__.Child`,
+  # which no configured module matches.
+  #
+  # An Erlang module is collected under the name its `:as` option gives it, so
+  # `alias :rand, as: Random` records `Random` under `rand`, which is how such a
+  # module is named in a check parameter. Elixir requires the option there, since
+  # it cannot infer a name for an Erlang module, so an alias written without one
+  # binds nothing.
+  #
+  # A name that the file binds to more than one module, two sibling modules
+  # aliasing a different `Client` for instance, is mapped to `:ambiguous` rather
+  # than to whichever binding came last, since the file as a whole does not say
+  # which one a given reference means.
   def collect_aliases(source_file) do
     Credo.Code.prewalk(source_file, &traverse/2, %{})
   end
 
-  @doc """
-  The fully qualified name that module reference parts resolve to under the
-  given aliases. Only the first segment participates, mirroring how Elixir
-  itself expands an alias, and a name rooted at `Elixir` bypasses aliases
-  altogether.
-
-  A reference whose first segment is not a plain name, `__MODULE__.Child` for
-  instance, is rendered as written, since what it stands for is only known at
-  compile time.
-
-  A reference through a name the file binds to more than one module resolves to
-  `nil`, which no configured module matches, since reading it as written would
-  report a module that the reference does not name.
-  """
+  # The fully qualified name that module reference parts resolve to under the
+  # given aliases. Only the first segment participates, mirroring how Elixir
+  # itself expands an alias, and a name rooted at `Elixir` bypasses aliases
+  # altogether.
+  #
+  # A reference whose first segment is not a plain name, `__MODULE__.Child` for
+  # instance, is rendered as written, since what it stands for is only known at
+  # compile time.
+  #
+  # A reference through a name the file binds to more than one module resolves to
+  # `nil`, which no configured module matches, since reading it as written would
+  # report a module that the reference does not name.
   def resolve([Elixir | rest], _aliases) when rest != [], do: Name.full(rest)
 
   def resolve([first | rest], aliases) when is_atom(first) do
