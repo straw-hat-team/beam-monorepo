@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.14.0...trogon_proto@v0.15.0) (2026-09-23)
+
+
+### Features
+
+* **trogon_credo:** Let a rule forbid every call to a module, Erlang ones included ([#474](https://github.com/straw-hat-team/beam-monorepo/issues/474)) ([5d7d34e](https://github.com/straw-hat-team/beam-monorepo/commit/5d7d34ec75b47358ddc6e59ed358e0fbe997ac77))
+
 ## [0.14.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_proto@v0.13.1...trogon_proto@v0.14.0) (2026-09-12)
 
 
