@@ -498,7 +498,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
     |> refute_issues()
   end
 
-  test "does not report a reference to an Erlang module written as a plain atom" do
+  test "does not report an Erlang module no pattern names" do
     """
     defmodule CredoSampleModule do
       def run, do: :os.system_time()
@@ -506,6 +506,201 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundaryTest do
     """
     |> to_source_file()
     |> run_check(NamespaceBoundary, forbidden: ["Acme.**"])
+    |> refute_issues()
+  end
+
+  test "reports a qualified call on an Erlang module a pattern names" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :os.system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ":os"
+      assert issue.line_no == 2
+      assert issue.column == 16
+      assert issue.message == "A module in this namespace must not reference `:os`."
+    end)
+  end
+
+  test "reports a qualified call on an Erlang module written as a quoted atom" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :"os".system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ~s(:"os")
+      assert issue.line_no == 2
+      assert issue.column == 16
+    end)
+  end
+
+  test "reports an Erlang module written as a quoted atom in a directive" do
+    """
+    defmodule CredoSampleModule do
+      import :"os"
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ~s(:"os")
+      assert issue.line_no == 2
+      assert issue.column == 10
+    end)
+  end
+
+  test "reports a qualified call on an Erlang module written as a single quoted atom" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :'os'.system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ~S(:'os')
+      assert issue.column == 16
+    end)
+  end
+
+  test "reports an Erlang module written as a single quoted atom in a directive" do
+    """
+    defmodule CredoSampleModule do
+      import :'os'
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ~S(:'os')
+      assert issue.column == 10
+    end)
+  end
+
+  test "reports a qualified call on an Erlang module whose written name carries a quote" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :"o\\"s".system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["*"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ~S(:"o\"s")
+      assert issue.column == 16
+    end)
+  end
+
+  test "reports a qualified call on an Erlang module written with a letter outside ASCII" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :osé.system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["*"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == ":osé"
+      assert issue.column == 16
+    end)
+  end
+
+  test "reports a qualified call on an Erlang module named as an atom in the pattern list" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :os.system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: [:os])
+    |> assert_issue(fn issue -> assert issue.trigger == ":os" end)
+  end
+
+  test "reports a captured call on an Erlang module a pattern names" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: Enum.map([1], &:os.system_time/0)
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue -> assert issue.trigger == ":os" end)
+  end
+
+  test "reports an Erlang module named as an import target" do
+    """
+    defmodule CredoSampleModule do
+      import :os
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue -> assert issue.trigger == ":os" end)
+  end
+
+  test "reports an Erlang module named as a require target" do
+    """
+    defmodule CredoSampleModule do
+      require :os
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue -> assert issue.trigger == ":os" end)
+  end
+
+  test "does not report an Erlang module named as a plain value" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: spawn(:os, :timestamp, [])
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> refute_issues()
+  end
+
+  test "reports an Erlang module reached through an alias as the atom it is written as" do
+    """
+    defmodule CredoSampleModule do
+      alias :os, as: OS
+
+      def run, do: OS.system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["os"])
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "OS"
+      assert issue.message == "A module in this namespace must not reference `:os`."
+    end)
+  end
+
+  test "does not report an Erlang module an except pattern names" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: :os.system_time()
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["o*"], except: ["os"])
+    |> refute_issues()
+  end
+
+  test "does not report a wildcard pattern against an atom that is not a module" do
+    """
+    defmodule CredoSampleModule do
+      def run, do: {:ok, 1}
+    end
+    """
+    |> to_source_file()
+    |> run_check(NamespaceBoundary, forbidden: ["o*"])
     |> refute_issues()
   end
 
