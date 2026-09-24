@@ -62,7 +62,8 @@ defmodule Trogon.Ecto.MixProject do
 
   defp aliases do
     [
-      test: ["test --trace"]
+      test: ["test --trace"],
+      "test.integration": ["test --trace --only integration"]
     ]
   end
 
@@ -75,7 +76,8 @@ defmodule Trogon.Ecto.MixProject do
       "coveralls.html": :test,
       "coveralls.json": :test,
       "coveralls.github": :test,
-      coveralls: :test
+      coveralls: :test,
+      "test.integration": :test
     ]
   end
 
