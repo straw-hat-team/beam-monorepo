@@ -17,8 +17,28 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       Use this check to flag calls to the discouraged module when a preferred
       module is configured to replace it.
 
-      The default `modules` value targets `OpentelemetryProcessPropagator`, so
-      projects that do not use OpenTelemetry should override `modules`.
+      Every call to the discouraged module is reported, whatever the function,
+      so the preferred module is expected to be a complete drop-in that covers
+      the whole public API of the module it replaces. A call such as
+      `Task.await/1` is reported even though awaiting a task does not spawn a
+      process, and the fix is to call it through the preferred module too, not
+      to disable the check.
+
+      The default `modules` value targets `OpentelemetryProcessPropagator`,
+      the same pair `Trogon.Credo.Check.Warning.OpentelemetryTaskPropagation`
+      reports on its own, with a message that explains why losing OpenTelemetry
+      context matters and how to point a project at its own wrapper module.
+      A project that enables that check should override this check's `modules`
+      to drop the OTel pair, so a `Task` call is not reported twice. Projects
+      that do not use OpenTelemetry should override `modules` too.
+
+      A project can prefer a module of its own, such as a `MyApp.Task` that
+      picks its implementation at compile time and delegates to it. Overriding
+      `modules` replaces the default, so list `OpentelemetryProcessPropagator.Task`
+      as a discouraged module as well if calls to it should also go through
+      `MyApp.Task`. A `defdelegate` whose `to:` names the discouraged module is
+      not a call to it, so the preferred module itself is not reported for
+      delegating.
 
       Aliases are collected for the whole file rather than per lexical scope,
       so a module that aliases the preferred module suppresses findings
@@ -50,55 +70,18 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       ]
     ]
 
-  alias Credo.Code.Name
+  alias Trogon.Credo.ModuleCallMatcher
   alias Trogon.Credo.ModuleName
-
-  @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
-  @directives [:alias, :import, :require]
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     pairs = prepare_pairs(Params.get(params, :modules, __MODULE__))
     issue_meta = IssueMeta.for(source_file, params)
-    aliases = ModuleName.collect_aliases(source_file)
-
-    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, pairs, aliases))
+    ModuleCallMatcher.run(source_file, pairs, &issue_for(issue_meta, &1, &2, &3))
   end
 
-  defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _issue_meta, _pairs, _aliases)
-       when attribute in @typespec_attributes do
-    {[], issues}
-  end
-
-  defp traverse({directive, _meta, args}, issues, _issue_meta, _pairs, _aliases)
-       when directive in @directives and is_list(args) do
-    {[], issues}
-  end
-
-  defp traverse(
-         {:., _meta, [{:__aliases__, alias_meta, parts}, _function]} = ast,
-         issues,
-         issue_meta,
-         pairs,
-         aliases
-       ) do
-    written_name = Name.full(parts)
-    resolved_name = ModuleName.resolve(parts, aliases)
-
-    new_issues =
-      pairs
-      |> Enum.filter(fn {discouraged, _preferred, _message} -> discouraged == resolved_name end)
-      |> Enum.map(fn {discouraged, preferred, message} ->
-        issue_for(issue_meta, alias_meta, written_name, discouraged, preferred, message)
-      end)
-
-    {ast, new_issues ++ issues}
-  end
-
-  defp traverse(ast, issues, _issue_meta, _pairs, _aliases), do: {ast, issues}
-
-  defp issue_for(issue_meta, meta, trigger, discouraged, preferred, message) do
+  defp issue_for(issue_meta, {discouraged, preferred, message}, trigger, meta) do
     format_issue(
       issue_meta,
       message: message || "Use `#{preferred}` instead of `#{discouraged}`.",
