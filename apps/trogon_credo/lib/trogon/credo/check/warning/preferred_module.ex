@@ -25,10 +25,12 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       to disable the check.
 
       The default `modules` value targets `OpentelemetryProcessPropagator`,
-      which meets that expectation: it wraps the functions that spawn a
-      process and delegates the rest, such as `await/2`, `yield/2`, and
-      `shutdown/2`, to `Task` and `Task.Supervisor`. Projects that do not use
-      OpenTelemetry should override `modules`.
+      the same pair `Trogon.Credo.Check.Warning.OpentelemetryTaskPropagation`
+      reports on its own, with a message that explains why losing OpenTelemetry
+      context matters and how to point a project at its own wrapper module.
+      A project that enables that check should override this check's `modules`
+      to drop the OTel pair, so a `Task` call is not reported twice. Projects
+      that do not use OpenTelemetry should override `modules` too.
 
       A project can prefer a module of its own, such as a `MyApp.Task` that
       picks its implementation at compile time and delegates to it. Overriding
@@ -68,55 +70,20 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       ]
     ]
 
-  alias Credo.Code.Name
+  alias Trogon.Credo.ModuleCallMatcher
   alias Trogon.Credo.ModuleName
-
-  @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
-  @directives [:alias, :import, :require]
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     pairs = prepare_pairs(Params.get(params, :modules, __MODULE__))
     issue_meta = IssueMeta.for(source_file, params)
-    aliases = ModuleName.collect_aliases(source_file)
+    build_issue = fn pair, trigger, _function, meta -> issue_for(issue_meta, pair, trigger, meta) end
 
-    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, pairs, aliases))
+    ModuleCallMatcher.run(source_file, pairs, build_issue)
   end
 
-  defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _issue_meta, _pairs, _aliases)
-       when attribute in @typespec_attributes do
-    {[], issues}
-  end
-
-  defp traverse({directive, _meta, args}, issues, _issue_meta, _pairs, _aliases)
-       when directive in @directives and is_list(args) do
-    {[], issues}
-  end
-
-  defp traverse(
-         {:., _meta, [{:__aliases__, alias_meta, parts}, _function]} = ast,
-         issues,
-         issue_meta,
-         pairs,
-         aliases
-       ) do
-    written_name = Name.full(parts)
-    resolved_name = ModuleName.resolve(parts, aliases)
-
-    new_issues =
-      pairs
-      |> Enum.filter(fn {discouraged, _preferred, _message} -> discouraged == resolved_name end)
-      |> Enum.map(fn {discouraged, preferred, message} ->
-        issue_for(issue_meta, alias_meta, written_name, discouraged, preferred, message)
-      end)
-
-    {ast, new_issues ++ issues}
-  end
-
-  defp traverse(ast, issues, _issue_meta, _pairs, _aliases), do: {ast, issues}
-
-  defp issue_for(issue_meta, meta, trigger, discouraged, preferred, message) do
+  defp issue_for(issue_meta, {discouraged, preferred, message}, trigger, meta) do
     format_issue(
       issue_meta,
       message: message || "Use `#{preferred}` instead of `#{discouraged}`.",
