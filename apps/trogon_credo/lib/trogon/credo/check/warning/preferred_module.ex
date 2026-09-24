@@ -17,8 +17,26 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
       Use this check to flag calls to the discouraged module when a preferred
       module is configured to replace it.
 
-      The default `modules` value targets `OpentelemetryProcessPropagator`, so
-      projects that do not use OpenTelemetry should override `modules`.
+      Every call to the discouraged module is reported, whatever the function,
+      so the preferred module is expected to be a complete drop-in that covers
+      the whole public API of the module it replaces. A call such as
+      `Task.await/1` is reported even though awaiting a task does not spawn a
+      process, and the fix is to call it through the preferred module too, not
+      to disable the check.
+
+      The default `modules` value targets `OpentelemetryProcessPropagator`,
+      which meets that expectation: it wraps the functions that spawn a
+      process and delegates the rest, such as `await/2`, `yield/2`, and
+      `shutdown/2`, to `Task` and `Task.Supervisor`. Projects that do not use
+      OpenTelemetry should override `modules`.
+
+      A project can prefer a module of its own, such as a `MyApp.Task` that
+      picks its implementation at compile time and delegates to it. Overriding
+      `modules` replaces the default, so list `OpentelemetryProcessPropagator.Task`
+      as a discouraged module as well if calls to it should also go through
+      `MyApp.Task`. A `defdelegate` whose `to:` names the discouraged module is
+      not a call to it, so the preferred module itself is not reported for
+      delegating.
 
       Aliases are collected for the whole file rather than per lexical scope,
       so a module that aliases the preferred module suppresses findings

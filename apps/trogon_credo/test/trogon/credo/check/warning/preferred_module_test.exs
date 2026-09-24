@@ -200,6 +200,54 @@ defmodule Trogon.Credo.Check.Warning.PreferredModuleTest do
     end)
   end
 
+  test "reports a call to the discouraged module that does not spawn a process" do
+    """
+    defmodule CredoSampleModule do
+      def run(task) do
+        Task.await(task)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule)
+    |> assert_issue(fn issue ->
+      assert issue.message == "Use `OpentelemetryProcessPropagator.Task` instead of `Task`."
+    end)
+  end
+
+  test "does not report a defdelegate to the discouraged module" do
+    """
+    defmodule MyApp.Task do
+      @implementation Application.compile_env(:my_app, :task, OpentelemetryProcessPropagator.Task)
+
+      defdelegate async(fun), to: @implementation
+      defdelegate await(task), to: Task
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule,
+      modules: [{Task, MyApp.Task}, {OpentelemetryProcessPropagator.Task, MyApp.Task}]
+    )
+    |> refute_issues()
+  end
+
+  test "reports the default preferred module when a project prefers its own module" do
+    """
+    defmodule CredoSampleModule do
+      def run do
+        OpentelemetryProcessPropagator.Task.async(fn -> :ok end)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(PreferredModule,
+      modules: [{Task, MyApp.Task}, {OpentelemetryProcessPropagator.Task, MyApp.Task}]
+    )
+    |> assert_issue(fn issue ->
+      assert issue.message == "Use `MyApp.Task` instead of `OpentelemetryProcessPropagator.Task`."
+    end)
+  end
+
   test "does not report the discouraged module named in a typespec" do
     """
     defmodule CredoSampleModule do
