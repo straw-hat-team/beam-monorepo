@@ -84,9 +84,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagation do
     task_supervisor = Params.get(params, :task_supervisor, __MODULE__)
     pairs = pairs_for(task, task_supervisor)
     issue_meta = IssueMeta.for(source_file, params)
-    build_issue = fn pair, trigger, function, meta -> issue_for(issue_meta, pair, trigger, function, meta) end
-
-    ModuleCallMatcher.run(source_file, pairs, build_issue)
+    ModuleCallMatcher.run(source_file, pairs, &issue_for(issue_meta, &1, &2, &3, &4))
   end
 
   defp pairs_for(task, task_supervisor) do

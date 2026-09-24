@@ -78,12 +78,10 @@ defmodule Trogon.Credo.Check.Warning.PreferredModule do
   def run(%SourceFile{} = source_file, params) do
     pairs = prepare_pairs(Params.get(params, :modules, __MODULE__))
     issue_meta = IssueMeta.for(source_file, params)
-    build_issue = fn pair, trigger, _function, meta -> issue_for(issue_meta, pair, trigger, meta) end
-
-    ModuleCallMatcher.run(source_file, pairs, build_issue)
+    ModuleCallMatcher.run(source_file, pairs, &issue_for(issue_meta, &1, &2, &3, &4))
   end
 
-  defp issue_for(issue_meta, {discouraged, preferred, message}, trigger, meta) do
+  defp issue_for(issue_meta, {discouraged, preferred, message}, trigger, _function, meta) do
     format_issue(
       issue_meta,
       message: message || "Use `#{preferred}` instead of `#{discouraged}`.",

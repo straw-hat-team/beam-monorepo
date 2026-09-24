@@ -49,11 +49,13 @@ defmodule Trogon.Credo.ModuleCallMatcher do
 
     new_issues =
       pairs
-      |> Enum.filter(fn pair -> elem(pair, 0) == resolved_name end)
+      |> Enum.filter(&discourages?(&1, resolved_name))
       |> Enum.map(&build_issue.(&1, written_name, function, alias_meta))
 
     {ast, new_issues ++ issues}
   end
 
   defp traverse(ast, issues, _pairs, _aliases, _build_issue), do: {ast, issues}
+
+  defp discourages?(pair, module_name), do: elem(pair, 0) == module_name
 end
