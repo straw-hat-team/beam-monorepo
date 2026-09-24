@@ -84,7 +84,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagation do
     task_supervisor = Params.get(params, :task_supervisor, __MODULE__)
     pairs = pairs_for(task, task_supervisor)
     issue_meta = IssueMeta.for(source_file, params)
-    ModuleCallMatcher.run(source_file, pairs, &issue_for(issue_meta, &1, &2, &3, &4))
+    ModuleCallMatcher.run(source_file, pairs, &issue_for(issue_meta, &1, &2, &3))
   end
 
   defp pairs_for(task, task_supervisor) do
@@ -102,12 +102,12 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagation do
   defp add_propagator_pair(pairs, default, default), do: pairs
   defp add_propagator_pair(pairs, default, preferred), do: [{default, preferred} | pairs]
 
-  defp issue_for(issue_meta, {_discouraged, preferred}, trigger, function, meta) do
+  defp issue_for(issue_meta, {_discouraged, preferred}, trigger, meta) do
     format_issue(
       issue_meta,
       message:
-        "`#{trigger}.#{function}` loses the OpenTelemetry context of the caller; " <>
-          "use `#{preferred}` instead.",
+        "Call `#{preferred}` instead of `#{trigger}`, " <>
+          "so the OpenTelemetry context of the caller reaches the process it starts.",
       trigger: trigger,
       line_no: meta[:line],
       column: meta[:column]

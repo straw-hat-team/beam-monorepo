@@ -14,9 +14,8 @@ defmodule Trogon.Credo.ModuleCallMatcher do
   # Each entry in `pairs` is a tuple whose first element is the fully
   # qualified discouraged module name. The rest of the tuple is not
   # interpreted here; it is handed back to `build_issue` as-is, together with
-  # the name the reference is written under, the function being called, and
-  # the position of the reference, so that the caller decides what an issue
-  # looks like.
+  # the name the reference is written under and the position of the
+  # reference, so that the caller decides what an issue looks like.
   #
   # A directive naming the discouraged module, an `alias`, `import`, or
   # `require`, is not a call to it and is never reported, and neither is a
@@ -38,7 +37,7 @@ defmodule Trogon.Credo.ModuleCallMatcher do
   end
 
   defp traverse(
-         {:., _meta, [{:__aliases__, alias_meta, parts}, function]} = ast,
+         {:., _meta, [{:__aliases__, alias_meta, parts}, _function]} = ast,
          issues,
          pairs,
          aliases,
@@ -50,7 +49,7 @@ defmodule Trogon.Credo.ModuleCallMatcher do
     new_issues =
       pairs
       |> Enum.filter(&discourages?(&1, resolved_name))
-      |> Enum.map(&build_issue.(&1, written_name, function, alias_meta))
+      |> Enum.map(&build_issue.(&1, written_name, alias_meta))
 
     {ast, new_issues ++ issues}
   end

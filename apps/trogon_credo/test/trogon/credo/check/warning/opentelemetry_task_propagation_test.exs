@@ -30,8 +30,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagationTest do
       assert issue.trigger == "Task"
 
       assert issue.message ==
-               "`Task.async` loses the OpenTelemetry context of the caller; " <>
-                 "use `OpentelemetryProcessPropagator.Task` instead."
+               "Call `OpentelemetryProcessPropagator.Task` instead of `Task`, so the OpenTelemetry context of the caller reaches the process it starts."
     end)
   end
 
@@ -47,8 +46,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagationTest do
     |> run_check(OpentelemetryTaskPropagation)
     |> assert_issue(fn issue ->
       assert issue.message ==
-               "`Task.await` loses the OpenTelemetry context of the caller; " <>
-                 "use `OpentelemetryProcessPropagator.Task` instead."
+               "Call `OpentelemetryProcessPropagator.Task` instead of `Task`, so the OpenTelemetry context of the caller reaches the process it starts."
     end)
   end
 
@@ -66,8 +64,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagationTest do
       assert issue.trigger == "Task.Supervisor"
 
       assert issue.message ==
-               "`Task.Supervisor.async_nolink` loses the OpenTelemetry context of the caller; " <>
-                 "use `OpentelemetryProcessPropagator.Task.Supervisor` instead."
+               "Call `OpentelemetryProcessPropagator.Task.Supervisor` instead of `Task.Supervisor`, so the OpenTelemetry context of the caller reaches the process it starts."
     end)
   end
 
@@ -98,7 +95,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagationTest do
       assert issue.trigger == "Task"
 
       assert issue.message ==
-               "`Task.async` loses the OpenTelemetry context of the caller; use `MyApp.Task` instead."
+               "Call `MyApp.Task` instead of `Task`, so the OpenTelemetry context of the caller reaches the process it starts."
     end)
   end
 
@@ -116,8 +113,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagationTest do
       assert issue.trigger == "OpentelemetryProcessPropagator.Task"
 
       assert issue.message ==
-               "`OpentelemetryProcessPropagator.Task.async` loses the OpenTelemetry context of " <>
-                 "the caller; use `MyApp.Task` instead."
+               "Call `MyApp.Task` instead of `OpentelemetryProcessPropagator.Task`, so the OpenTelemetry context of the caller reaches the process it starts."
     end)
   end
 
@@ -133,8 +129,7 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagationTest do
     |> run_check(OpentelemetryTaskPropagation, task_supervisor: MyApp.TaskSupervisor)
     |> assert_issue(fn issue ->
       assert issue.message ==
-               "`Task.Supervisor.async_nolink` loses the OpenTelemetry context of the caller; " <>
-                 "use `MyApp.TaskSupervisor` instead."
+               "Call `MyApp.TaskSupervisor` instead of `Task.Supervisor`, so the OpenTelemetry context of the caller reaches the process it starts."
     end)
   end
 
@@ -237,8 +232,25 @@ defmodule Trogon.Credo.Check.Warning.OpentelemetryTaskPropagationTest do
       assert issue.trigger == "Elixir.Task"
 
       assert issue.message ==
-               "`Elixir.Task.async` loses the OpenTelemetry context of the caller; " <>
-                 "use `OpentelemetryProcessPropagator.Task` instead."
+               "Call `OpentelemetryProcessPropagator.Task` instead of `Elixir.Task`, so the OpenTelemetry context of the caller reaches the process it starts."
+    end)
+  end
+
+  test "reports a call whose function name is unquoted inside a quote block without naming the function" do
+    """
+    defmodule CredoSampleModule do
+      defmacro spawn_with(name, fun) do
+        quote do
+          Task.unquote(name)(unquote(fun))
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(OpentelemetryTaskPropagation)
+    |> assert_issue(fn issue ->
+      assert issue.message ==
+               "Call `OpentelemetryProcessPropagator.Task` instead of `Task`, so the OpenTelemetry context of the caller reaches the process it starts."
     end)
   end
 end
