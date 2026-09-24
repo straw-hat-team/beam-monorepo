@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.3.0...trogon_credo@v0.4.0) (2026-09-24)
+
+
+### Features
+
+* **trogon_credo:** Make losing OpenTelemetry context across a task its own rule ([#488](https://github.com/straw-hat-team/beam-monorepo/issues/488)) ([1ada5e7](https://github.com/straw-hat-team/beam-monorepo/commit/1ada5e7feed68a9ac075bdfa66030fad0f07a94f))
+
 ## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.2.0...trogon_credo@v0.3.0) (2026-09-23)
 
 
