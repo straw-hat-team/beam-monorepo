@@ -1,4 +1,4 @@
-defmodule Trogon.Credo.Check.Warning.AggregateApplyCall do
+defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
   use Credo.Check,
     base_priority: :high,
     category: :warning,
@@ -24,7 +24,7 @@ defmodule Trogon.Credo.Check.Warning.AggregateApplyCall do
       callback's dispatch harder to follow than a plain `case`. Both are calls to
       `apply/2` outside the framework's own dispatch, so this check reports both.
 
-          {Trogon.Credo.Check.Warning.AggregateApplyCall, []}
+          {Trogon.Credo.Check.Commanded.AggregateApplyCall, []}
 
       Whether a module is an aggregate is not visible from a single file: the file
       that calls `apply/2` on it, a test in particular, rarely also brings in the

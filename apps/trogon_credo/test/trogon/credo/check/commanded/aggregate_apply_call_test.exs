@@ -1,7 +1,7 @@
-defmodule Trogon.Credo.Check.Warning.AggregateApplyCallTest do
+defmodule Trogon.Credo.Check.Commanded.AggregateApplyCallTest do
   use Credo.Test.Case
 
-  alias Trogon.Credo.Check.Warning.AggregateApplyCall
+  alias Trogon.Credo.Check.Commanded.AggregateApplyCall
 
   describe "calls from outside the aggregate" do
     test "does not report anything when no module uses an aggregate module" do
