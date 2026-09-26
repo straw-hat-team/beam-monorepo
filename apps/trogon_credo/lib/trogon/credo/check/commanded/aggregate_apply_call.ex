@@ -5,6 +5,8 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
     run_on_all: true,
     param_defaults: [
       aggregate_modules: [Trogon.Commanded.Aggregate],
+      command_handler_modules: [Trogon.Commanded.CommandHandler],
+      command_handler_case: Trogon.Commanded.TestSupport.CommandHandlerCase,
       hint: nil
     ],
     explanations: [
@@ -53,6 +55,18 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
       check did not collect as an aggregate, local or not, since nothing marks it as
       the callback in the first place.
 
+      What to do instead depends on where the call is, so the message does too. Inside
+      the aggregate, the message suggests a private function the clauses share. Inside
+      a command handler, a module whose body `use`s one of the
+      `command_handler_modules`, the usual reason to call `apply/2` is to read the
+      state an event would produce before emitting the next one, which is what
+      `Commanded.Aggregate.Multi` already does: each `Multi.execute/2` step receives
+      the aggregate with the events of the previous steps applied. Inside a test, a
+      file whose name ends in `_test.exs`, the message suggests the
+      `command_handler_case`, whose `assert_events/3`, `assert_state/3`, and
+      `assert_error/3` reach a state by replaying events and dispatching a command
+      through the handler. Anywhere else, the message suggests dispatching a command.
+
       Aliases are collected for the whole file rather than per lexical scope, the same
       way `Trogon.Credo.Check.Warning.PreferredModule` collects them, except for an
       `alias` written inside a `quote` block, which takes effect wherever the macro
@@ -66,6 +80,16 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
         in a macro of its own, a `MyApp.Aggregate` that `use`s the base module and adds
         its own conventions, lists that wrapper here instead, since a module that
         `use`s the wrapper never writes `use Trogon.Commanded.Aggregate` directly.
+        """,
+        command_handler_modules: """
+        A list of modules that mark a module as a command handler when brought in with
+        `use`, so a call from one suggests `Commanded.Aggregate.Multi`. Defaults to
+        `Trogon.Commanded.CommandHandler`.
+        """,
+        command_handler_case: """
+        The test case module the message suggests for a call from a test. Defaults to
+        `Trogon.Commanded.TestSupport.CommandHandlerCase`; a project that wraps it in a
+        case template of its own names that wrapper here.
         """,
         hint: """
         A sentence appended to the message of every issue this check reports, so a
@@ -81,12 +105,7 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
   @doc false
   @impl true
   def run_on_all_source_files(exec, source_files, params) do
-    markers =
-      params
-      |> Params.get(:aggregate_modules, __MODULE__)
-      |> List.wrap()
-      |> Enum.map(&ModuleName.full/1)
-      |> MapSet.new()
+    markers = markers(params, :aggregate_modules)
 
     aggregates =
       source_files
@@ -97,13 +116,27 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
       if MapSet.size(aggregates) == 0 do
         []
       else
-        hint = Params.get(params, :hint, __MODULE__)
-        Enum.flat_map(source_files, &file_issues(&1, aggregates, hint, params))
+        settings = %{
+          aggregates: aggregates,
+          command_handlers: markers(params, :command_handler_modules),
+          command_handler_case: ModuleName.full(Params.get(params, :command_handler_case, __MODULE__)),
+          hint: Params.get(params, :hint, __MODULE__)
+        }
+
+        Enum.flat_map(source_files, &file_issues(&1, settings, params))
       end
 
     append_issues_and_timings(issues, exec)
 
     :ok
+  end
+
+  defp markers(params, key) do
+    params
+    |> Params.get(key, __MODULE__)
+    |> List.wrap()
+    |> Enum.map(&ModuleName.full/1)
+    |> MapSet.new()
   end
 
   # Pass 1: which modules, across the whole analyzed set, `use` one of the `aggregate_modules`.
@@ -173,97 +206,96 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
 
   # Pass 2: calls to `apply` on a collected aggregate, from outside it or from within it.
 
-  defp file_issues(source_file, aggregates, hint, params) do
-    ctx = %{
-      aliases: ModuleName.collect_aliases(source_file),
-      aggregates: aggregates,
-      hint: hint,
-      issue_meta: IssueMeta.for(source_file, params)
-    }
+  defp file_issues(source_file, settings, params) do
+    ctx =
+      Map.merge(settings, %{
+        aliases: ModuleName.collect_aliases(source_file),
+        test_file?: String.ends_with?(source_file.filename, "_test.exs"),
+        issue_meta: IssueMeta.for(source_file, params)
+      })
 
     source_file
     |> SourceFile.ast()
-    |> visit([], false, ctx, [])
+    |> visit([], {:other, nil}, ctx, [])
     |> Enum.reverse()
   end
 
-  defp visit({:defmodule, _meta, [{:__aliases__, _ameta, parts}, body]}, prefix, _is_aggregate, ctx, issues)
+  defp visit({:defmodule, _meta, [{:__aliases__, _ameta, parts}, body]}, prefix, _scope, ctx, issues)
        when is_list(parts) do
     if Enum.all?(parts, &is_atom/1) do
       nested_prefix = prefix ++ parts
-      is_aggregate = MapSet.member?(ctx.aggregates, ModuleName.full(nested_prefix))
-      visit(body, nested_prefix, is_aggregate, ctx, issues)
+      visit(body, nested_prefix, module_scope(ModuleName.full(nested_prefix), body, ctx), ctx, issues)
     else
       issues
     end
   end
 
-  defp visit({:defmodule, _meta, [_name, body]}, prefix, _is_aggregate, ctx, issues) do
-    visit(body, prefix, false, ctx, issues)
+  defp visit({:defmodule, _meta, [_name, body]}, prefix, _scope, ctx, issues) do
+    visit(body, prefix, {:other, nil}, ctx, issues)
   end
 
-  defp visit({:quote, _meta, _args}, _prefix, _is_aggregate, _ctx, issues), do: issues
+  defp visit({:quote, _meta, _args}, _prefix, _scope, _ctx, issues), do: issues
 
   # `def apply(...)`/`defp apply(...)` define the callback; the head is not a call.
-  defp visit({def_kind, _meta, [head, kw]}, prefix, is_aggregate, ctx, issues)
+  defp visit({def_kind, _meta, [head, kw]}, prefix, scope, ctx, issues)
        when def_kind in [:def, :defp] and is_list(kw) do
     if apply_head?(head) do
-      visit(kw, prefix, is_aggregate, ctx, issues)
+      visit(kw, prefix, scope, ctx, issues)
     else
-      issues = visit(head, prefix, is_aggregate, ctx, issues)
-      visit(kw, prefix, is_aggregate, ctx, issues)
+      issues = visit(head, prefix, scope, ctx, issues)
+      visit(kw, prefix, scope, ctx, issues)
     end
   end
 
   # A bodyless `def apply(...)` declaration; still not a call.
-  defp visit({def_kind, _meta, [head]}, prefix, is_aggregate, ctx, issues)
+  defp visit({def_kind, _meta, [head]}, prefix, scope, ctx, issues)
        when def_kind in [:def, :defp] do
-    if apply_head?(head), do: issues, else: visit(head, prefix, is_aggregate, ctx, issues)
+    if apply_head?(head), do: issues, else: visit(head, prefix, scope, ctx, issues)
   end
 
   # Local `apply(aggregate, event)`.
-  defp visit({:apply, meta, args}, prefix, is_aggregate, ctx, issues) when is_list(args) and length(args) == 2 do
-    issues = if is_aggregate, do: [inside_issue(ctx, "apply", meta) | issues], else: issues
-    visit(args, prefix, is_aggregate, ctx, issues)
+  defp visit({:apply, meta, args}, prefix, scope, ctx, issues) when is_list(args) and length(args) == 2 do
+    issues = if aggregate?(scope), do: [inside_issue(ctx, "apply", meta) | issues], else: issues
+    visit(args, prefix, scope, ctx, issues)
   end
 
   # Local `apply(mod, :apply, args)`.
-  defp visit({:apply, meta, [mod_ref, second, args_list]}, prefix, is_aggregate, ctx, issues) do
+  defp visit({:apply, meta, [mod_ref, second, args_list]}, prefix, scope, ctx, issues) do
     issues =
       if second == :apply do
-        apply3_issue(mod_ref, is_aggregate, ctx, meta, "apply", issues)
+        apply3_issue(mod_ref, scope, ctx, meta, "apply", issues)
       else
         issues
       end
 
-    visit([mod_ref, args_list], prefix, is_aggregate, ctx, issues)
+    visit([mod_ref, args_list], prefix, scope, ctx, issues)
   end
 
   # Local `&apply/2` capture.
-  defp visit({:&, _meta, [{:/, _meta2, [{:apply, hmeta, local_ctx}, 2]}]}, _prefix, is_aggregate, ctx, issues)
+  defp visit({:&, _meta, [{:/, _meta2, [{:apply, hmeta, local_ctx}, 2]}]}, _prefix, scope, ctx, issues)
        when not is_list(local_ctx) do
-    if is_aggregate, do: [inside_issue(ctx, "apply", hmeta) | issues], else: issues
+    if aggregate?(scope), do: [inside_issue(ctx, "apply", hmeta) | issues], else: issues
   end
 
   # `aggregate |> apply(event)`.
-  defp visit({:|>, _meta, [lhs, {:apply, meta2, args}]}, prefix, is_aggregate, ctx, issues)
+  defp visit({:|>, _meta, [lhs, {:apply, meta2, args}]}, prefix, scope, ctx, issues)
        when is_list(args) and length(args) == 1 do
-    issues = if is_aggregate, do: [inside_issue(ctx, "apply", meta2) | issues], else: issues
-    issues = visit(lhs, prefix, is_aggregate, ctx, issues)
-    visit(args, prefix, is_aggregate, ctx, issues)
+    issues = if aggregate?(scope), do: [inside_issue(ctx, "apply", meta2) | issues], else: issues
+    issues = visit(lhs, prefix, scope, ctx, issues)
+    visit(args, prefix, scope, ctx, issues)
   end
 
   # `__MODULE__.apply(...)`, also reached when this dot node is embedded in a pipe or a capture.
-  defp visit({:., _meta, [{:__MODULE__, mmeta, _}, :apply]}, _prefix, is_aggregate, ctx, issues) do
-    if is_aggregate, do: [inside_issue(ctx, "__MODULE__.apply", mmeta) | issues], else: issues
+  defp visit({:., _meta, [{:__MODULE__, mmeta, _}, :apply]}, _prefix, scope, ctx, issues) do
+    if aggregate?(scope), do: [inside_issue(ctx, "__MODULE__.apply", mmeta) | issues], else: issues
   end
 
   # `Mod.apply(...)`, also reached when embedded in a pipe or a capture.
-  defp visit({:., _meta, [{:__aliases__, ameta, parts}, :apply]}, _prefix, _is_aggregate, ctx, issues) do
+  defp visit({:., _meta, [{:__aliases__, ameta, parts}, :apply]}, _prefix, scope, ctx, issues) do
     resolved = ModuleName.resolve(parts, ctx.aliases)
 
     if MapSet.member?(ctx.aggregates, resolved) do
-      [outside_issue(ctx, resolved, Name.full(parts), ameta) | issues]
+      [aggregate_issue(ctx, scope, resolved, Name.full(parts), ameta) | issues]
     else
       issues
     end
@@ -273,54 +305,68 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
   defp visit(
          {{:., _dmeta, [{:__aliases__, kmeta, [:Kernel]}, :apply]}, _cmeta, [mod_ref, :apply, args_list]},
          prefix,
-         is_aggregate,
+         scope,
          ctx,
          issues
        ) do
-    issues = apply3_issue(mod_ref, is_aggregate, ctx, kmeta, "Kernel.apply", issues)
-    issues = visit(mod_ref, prefix, is_aggregate, ctx, issues)
-    visit(args_list, prefix, is_aggregate, ctx, issues)
+    issues = apply3_issue(mod_ref, scope, ctx, kmeta, "Kernel.apply", issues)
+    issues = visit(mod_ref, prefix, scope, ctx, issues)
+    visit(args_list, prefix, scope, ctx, issues)
   end
 
-  defp visit({form, _meta, args}, prefix, is_aggregate, ctx, issues) when is_list(args) do
-    issues = if is_tuple(form), do: visit(form, prefix, is_aggregate, ctx, issues), else: issues
-    visit(args, prefix, is_aggregate, ctx, issues)
+  defp visit({form, _meta, args}, prefix, scope, ctx, issues) when is_list(args) do
+    issues = if is_tuple(form), do: visit(form, prefix, scope, ctx, issues), else: issues
+    visit(args, prefix, scope, ctx, issues)
   end
 
-  defp visit({left, right}, prefix, is_aggregate, ctx, issues) do
-    visit(right, prefix, is_aggregate, ctx, visit(left, prefix, is_aggregate, ctx, issues))
+  defp visit({left, right}, prefix, scope, ctx, issues) do
+    visit(right, prefix, scope, ctx, visit(left, prefix, scope, ctx, issues))
   end
 
-  defp visit(list, prefix, is_aggregate, ctx, issues) when is_list(list) do
-    Enum.reduce(list, issues, &visit(&1, prefix, is_aggregate, ctx, &2))
+  defp visit(list, prefix, scope, ctx, issues) when is_list(list) do
+    Enum.reduce(list, issues, &visit(&1, prefix, scope, ctx, &2))
   end
 
-  defp visit(_ast, _prefix, _is_aggregate, _ctx, issues), do: issues
+  defp visit(_ast, _prefix, _scope, _ctx, issues), do: issues
 
   defp apply_head?({:apply, _meta, args}) when is_list(args), do: true
   defp apply_head?({:when, _meta, [{:apply, _hmeta, args}, _guard]}) when is_list(args), do: true
   defp apply_head?(_head), do: false
 
-  defp apply3_issue({:__MODULE__, _, _}, is_aggregate, ctx, meta, trigger, issues) do
-    if is_aggregate, do: [inside_issue(ctx, trigger, meta) | issues], else: issues
+  defp apply3_issue({:__MODULE__, _, _}, scope, ctx, meta, trigger, issues) do
+    if aggregate?(scope), do: [inside_issue(ctx, trigger, meta) | issues], else: issues
   end
 
-  defp apply3_issue({:__aliases__, ameta, parts}, _is_aggregate, ctx, _meta, _trigger, issues) do
+  defp apply3_issue({:__aliases__, ameta, parts}, scope, ctx, _meta, _trigger, issues) do
     resolved = ModuleName.resolve(parts, ctx.aliases)
 
     if MapSet.member?(ctx.aggregates, resolved) do
-      [outside_issue(ctx, resolved, Name.full(parts), ameta) | issues]
+      [aggregate_issue(ctx, scope, resolved, Name.full(parts), ameta) | issues]
     else
       issues
     end
   end
 
-  defp apply3_issue(_mod_ref, _is_aggregate, _ctx, _meta, _trigger, issues), do: issues
+  defp apply3_issue(_mod_ref, _scope, _ctx, _meta, _trigger, issues), do: issues
 
-  defp outside_issue(ctx, resolved, trigger, meta) do
+  defp module_scope(module, body, ctx) do
+    cond do
+      MapSet.member?(ctx.aggregates, module) -> {:aggregate, module}
+      own_use?(body, ctx.aliases, ctx.command_handlers) -> {:command_handler, module}
+      true -> {:other, module}
+    end
+  end
+
+  defp aggregate?({kind, _module}), do: kind == :aggregate
+
+  defp aggregate_issue(ctx, {:aggregate, resolved}, resolved, trigger, meta) do
+    inside_issue(ctx, trigger, meta)
+  end
+
+  defp aggregate_issue(ctx, {kind, _module}, resolved, trigger, meta) do
     format_issue(
       ctx.issue_meta,
-      message: append_hint(outside_message(resolved), ctx.hint),
+      message: append_hint(outside_message(kind, resolved, ctx), ctx.hint),
       trigger: trigger,
       line_no: meta[:line],
       column: meta[:column]
@@ -337,7 +383,17 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
     )
   end
 
-  defp outside_message(resolved) do
+  defp outside_message(:command_handler, resolved, _ctx) do
+    "Use `Commanded.Aggregate.Multi` instead of calling `#{resolved}.apply/2` directly, " <>
+      "since `Multi.execute/2` hands each step the aggregate with the previous step's events already applied."
+  end
+
+  defp outside_message(_kind, resolved, %{test_file?: true} = ctx) do
+    "Test through the command handler with `#{ctx.command_handler_case}` instead of calling " <>
+      "`#{resolved}.apply/2` directly, since that builds a state the command handler could never produce."
+  end
+
+  defp outside_message(_kind, resolved, _ctx) do
     "Dispatch a command through the command handler instead of calling `#{resolved}.apply/2` directly, " <>
       "since that bypasses the command handler and can build a state the handler could never produce."
   end

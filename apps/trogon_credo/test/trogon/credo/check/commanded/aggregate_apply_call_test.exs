@@ -483,4 +483,142 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCallTest do
       |> refute_issues()
     end
   end
+
+  describe "the suggestion depends on where the call is" do
+    @aggregate """
+    defmodule Acme.Review.Domain.Aggregate do
+      use Trogon.Commanded.Aggregate, identifier: :id
+    end
+    """
+
+    test "suggests Commanded.Aggregate.Multi from a command handler" do
+      [
+        to_source_file(@aggregate, "lib/acme/review/domain/aggregate.ex"),
+        """
+        defmodule Acme.Review.Command.ApproveReview do
+          use Trogon.Commanded.CommandHandler
+
+          alias Acme.Review.Domain.Aggregate
+
+          def handle(aggregate, command) do
+            aggregate
+            |> Aggregate.apply(%ReviewSubmitted{id: command.id})
+            |> approve(command)
+          end
+        end
+        """
+        |> to_source_file("lib/acme/review/command/approve_review.ex")
+      ]
+      |> run_check(AggregateApplyCall)
+      |> assert_issue(fn issue ->
+        assert issue.trigger == "Aggregate"
+
+        assert issue.message ==
+                 "Use `Commanded.Aggregate.Multi` instead of calling `Acme.Review.Domain.Aggregate.apply/2` " <>
+                   "directly, since `Multi.execute/2` hands each step the aggregate with the previous step's " <>
+                   "events already applied."
+      end)
+    end
+
+    test "recognizes a command handler through an aliased use" do
+      [
+        to_source_file(@aggregate, "lib/acme/review/domain/aggregate.ex"),
+        """
+        defmodule Acme.Review.Command.ApproveReview do
+          alias Trogon.Commanded.CommandHandler
+          use CommandHandler
+
+          def handle(aggregate, event), do: Acme.Review.Domain.Aggregate.apply(aggregate, event)
+        end
+        """
+        |> to_source_file("lib/acme/review/command/approve_review.ex")
+      ]
+      |> run_check(AggregateApplyCall)
+      |> assert_issue(fn issue ->
+        assert issue.message =~ "Use `Commanded.Aggregate.Multi`"
+      end)
+    end
+
+    test "suggests Commanded.Aggregate.Multi from a custom command handler module" do
+      [
+        to_source_file(@aggregate, "lib/acme/review/domain/aggregate.ex"),
+        """
+        defmodule Acme.Review.Command.ApproveReview do
+          use Acme.CommandHandler
+
+          def handle(aggregate, event), do: Acme.Review.Domain.Aggregate.apply(aggregate, event)
+        end
+        """
+        |> to_source_file("lib/acme/review/command/approve_review.ex")
+      ]
+      |> run_check(AggregateApplyCall, command_handler_modules: [Acme.CommandHandler])
+      |> assert_issue(fn issue ->
+        assert issue.message =~ "Use `Commanded.Aggregate.Multi`"
+      end)
+    end
+
+    test "suggests the command handler case from a test" do
+      [
+        to_source_file(@aggregate, "lib/acme/review/domain/aggregate.ex"),
+        """
+        defmodule Acme.Review.Domain.AggregateTest do
+          use ExUnit.Case, async: true
+
+          alias Acme.Review.Domain.Aggregate
+
+          test "submits" do
+            assert Aggregate.apply(%Aggregate{}, %ReviewSubmitted{}).status == :submitted
+          end
+        end
+        """
+        |> to_source_file("test/acme/review/domain/aggregate_test.exs")
+      ]
+      |> run_check(AggregateApplyCall)
+      |> assert_issue(fn issue ->
+        assert issue.trigger == "Aggregate"
+
+        assert issue.message ==
+                 "Test through the command handler with `Trogon.Commanded.TestSupport.CommandHandlerCase` " <>
+                   "instead of calling `Acme.Review.Domain.Aggregate.apply/2` directly, since that builds a " <>
+                   "state the command handler could never produce."
+      end)
+    end
+
+    test "suggests a custom command handler case from a test" do
+      [
+        to_source_file(@aggregate, "lib/acme/review/domain/aggregate.ex"),
+        """
+        defmodule Acme.Review.Domain.AggregateTest do
+          use ExUnit.Case, async: true
+
+          test "submits" do
+            Acme.Review.Domain.Aggregate.apply(%{}, %ReviewSubmitted{})
+          end
+        end
+        """
+        |> to_source_file("test/acme/review/domain/aggregate_test.exs")
+      ]
+      |> run_check(AggregateApplyCall, command_handler_case: Acme.CommandHandlerCase)
+      |> assert_issue(fn issue ->
+        assert issue.message =~ "Test through the command handler with `Acme.CommandHandlerCase`"
+      end)
+    end
+
+    test "suggests a shared private function when the aggregate names itself" do
+      """
+      defmodule Acme.Review.Domain.Aggregate do
+        use Trogon.Commanded.Aggregate, identifier: :id
+
+        def apply(aggregate, %Approved{} = event) do
+          Acme.Review.Domain.Aggregate.apply(aggregate, %Submitted{from: event})
+        end
+      end
+      """
+      |> to_source_file("lib/acme/review/domain/aggregate.ex")
+      |> run_check(AggregateApplyCall)
+      |> assert_issue(fn issue ->
+        assert issue.message =~ "Extract the shared logic into a private function"
+      end)
+    end
+  end
 end
