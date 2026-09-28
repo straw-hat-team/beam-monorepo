@@ -178,10 +178,10 @@ name your module, at the stage boundary where it happened, so the module at faul
 ## Nested dispatch
 
 A middleware or a handler is free to call another dispatcher. Carry the ambient identity forward with
-`Trogon.Dispatcher.DispatchOptions.from_context/1`:
+`Trogon.Dispatcher.Context.to_dispatch_options/1`:
 
 ```elixir
-options = DispatchOptions.from_context(context)
+options = Context.to_dispatch_options(context)
 MyApp.Billing.Dispatcher.dispatch_message(%ChargeCard{}, options)
 ```
 
@@ -190,7 +190,7 @@ library defines no message-id contract and will not invent one. Set causation yo
 messages already carry:
 
 ```elixir
-options = %{DispatchOptions.from_context(context) | causation_id: context.message.id}
+options = %{Context.to_dispatch_options(context) | causation_id: context.message.id}
 ```
 
 ## Test a middleware in isolation

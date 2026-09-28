@@ -115,4 +115,27 @@ defmodule Trogon.Dispatcher.Context do
   def get_private(%__MODULE__{} = context, owner, default \\ nil) when is_atom(owner) do
     Map.get(context.private, owner, default)
   end
+
+  @doc """
+  Builds options for a nested dispatch out of the context of the dispatch currently in flight.
+
+  Carries `correlation_id` and `actor` forward. It does not carry `causation_id`: the library defines no identity
+  contract for commands, so it cannot know what identifies the causing message. Set it yourself from whatever identity
+  your commands carry.
+
+  ## Example
+
+      def handle_message(%ArchiveUser{} = message, context) do
+        options = Context.to_dispatch_options(context)
+        MyApp.Dispatcher.dispatch_message(%NotifyUser{user_id: message.user_id}, options)
+      end
+  """
+  @spec to_dispatch_options(t()) :: DispatchOptions.t()
+  def to_dispatch_options(%__MODULE__{} = context) do
+    %DispatchOptions{
+      correlation_id: context.correlation_id,
+      actor: context.actor,
+      assigns: context.assigns
+    }
+  end
 end
