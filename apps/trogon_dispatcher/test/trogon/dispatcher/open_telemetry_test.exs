@@ -8,6 +8,8 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
   require OpenTelemetry.Tracer, as: Tracer
 
+  doctest Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes
+
   defmodule FalsyError do
     @moduledoc false
     defstruct []

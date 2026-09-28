@@ -28,6 +28,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
     """
 
     alias OpenTelemetry.Span
+    alias Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes
 
     @tracer_id __MODULE__
     @telemetry_event [:trogon_dispatcher, :dispatch]
@@ -85,14 +86,20 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
           {:"messaging.operation.name", "dispatch"},
           {:"messaging.operation.type", "process"},
           {:"messaging.destination.name", destination_name},
-          {:"trogon_dispatcher.message", destination_name},
-          {:"trogon_dispatcher.kind", Atom.to_string(metadata.kind)},
-          {:"trogon_dispatcher.dispatcher", inspect(metadata.dispatcher)},
-          {:"trogon_dispatcher.registered_by", inspect(metadata.registered_by)}
+          {DispatcherAttributes.trogon_dispatcher_message(), destination_name},
+          {DispatcherAttributes.trogon_dispatcher_kind(), Atom.to_string(metadata.kind)},
+          {DispatcherAttributes.trogon_dispatcher_dispatcher(), inspect(metadata.dispatcher)},
+          {DispatcherAttributes.trogon_dispatcher_registered_by(), inspect(metadata.registered_by)}
         ]
         |> maybe_add_attribute(:"messaging.message.conversation_id", id_attribute(context.correlation_id))
-        |> maybe_add_attribute(:"trogon_dispatcher.correlation_id", id_attribute(context.correlation_id))
-        |> maybe_add_attribute(:"trogon_dispatcher.causation_id", id_attribute(context.causation_id))
+        |> maybe_add_attribute(
+          DispatcherAttributes.trogon_dispatcher_correlation_id(),
+          id_attribute(context.correlation_id)
+        )
+        |> maybe_add_attribute(
+          DispatcherAttributes.trogon_dispatcher_causation_id(),
+          id_attribute(context.causation_id)
+        )
 
       OpentelemetryTelemetry.start_telemetry_span(
         @tracer_id,
@@ -121,7 +128,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
         ) do
       ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, metadata)
 
-      Span.set_attribute(ctx, :"erlang.exception.kind", kind)
+      Span.set_attribute(ctx, DispatcherAttributes.erlang_exception_kind(), kind)
 
       exception = Exception.normalize(kind, reason, stacktrace)
       Span.set_attribute(ctx, :"error.type", error_type(exception))

@@ -58,6 +58,9 @@ Attributes:
 - `trogon_dispatcher.correlation_id`: when set
 - `trogon_dispatcher.causation_id`: when set
 
+The `trogon_dispatcher.*` names are exposed as functions on `Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes`, so
+code that queries or asserts on spans does not have to repeat the strings.
+
 The actor and the message payload never end up on the span: they are not safe to export to a tracing backend by
 default.
 
