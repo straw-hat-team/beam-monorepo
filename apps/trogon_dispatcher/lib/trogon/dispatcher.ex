@@ -456,7 +456,7 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def dispatch(message, options, kind, dispatcher, registered_by, middleware, handler) do
+  def dispatch(message, options, kind, dispatcher, registered_by, middleware, {handler_mod, _handle} = handler) do
     context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
 
     metadata = %{
@@ -464,6 +464,7 @@ defmodule Trogon.Dispatcher do
       kind: context.kind,
       dispatcher: context.dispatcher,
       registered_by: context.registered_by,
+      handler: handler_mod,
       context: context
     }
 

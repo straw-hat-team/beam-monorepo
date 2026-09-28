@@ -1,10 +1,10 @@
-if Code.ensure_loaded?(OpentelemetryTelemetry) do
+if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOptions) do
   defmodule Trogon.Dispatcher.OpenTelemetry do
     @moduledoc """
     Optional OpenTelemetry integration for `Trogon.Dispatcher`.
 
-    This module only exists when `:opentelemetry_api` and `:opentelemetry_telemetry` are dependencies of the host
-    app; nothing in this library requires them.
+    This module only exists when `:opentelemetry_api`, `:opentelemetry_telemetry` and `:nimble_options` are
+    dependencies of the host app; nothing in this library requires them.
 
     ## Usage
 
@@ -45,6 +45,41 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
             (event_name :: [atom()], measurements :: map(), metadata :: map(), config :: keyword() ->
                :unset | :ok | :error | nil)
 
+    @options_schema NimbleOptions.new!(
+                      error_status: [
+                        type: {:or, [nil, {:fun, 4}]},
+                        default: nil,
+                        doc: """
+                        A `t:error_status_callback/0` to override the span status set for a returned `:error`.
+                        Defaults to always setting an error status. Return `nil` from the callback to leave the
+                        status unset.
+                        """
+                      ],
+                      extra_attrs: [
+                        type: :map,
+                        default: %{},
+                        doc: """
+                        Extra span attributes added to every dispatch span. An attribute this module already sets
+                        wins over an extra one under the same key.
+                        """
+                      ],
+                      opt_out_attrs: [
+                        type:
+                          {:list,
+                           {:in,
+                            [
+                              SemConv.messaging_message_id(),
+                              SemConv.messaging_message_conversation_id(),
+                              SemConv.code_function_name()
+                            ]}},
+                        default: [],
+                        doc: """
+                        Attributes this module sets by default that a span should leave off:
+                        `messaging.message.id`, `messaging.message.conversation_id`, `code.function.name`.
+                        """
+                      ]
+                    )
+
     @doc """
     Attaches telemetry handlers that turn dispatch spans into OpenTelemetry spans.
 
@@ -53,8 +88,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
 
     ## Options
 
-      * `:error_status` - a `t:error_status_callback/0` to override the span status set for a returned `:error`.
-        Defaults to always setting an error status. Return `nil` from the callback to leave the status unset.
+    #{NimbleOptions.docs(@options_schema)}
 
     ## Example
 
@@ -69,7 +103,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
     """
     @spec setup(keyword()) :: :ok
     def setup(opts \\ []) do
-      config = Keyword.validate!(opts, error_status: nil)
+      config = NimbleOptions.validate!(opts, @options_schema)
 
       :ok = :telemetry.attach_many({__MODULE__, :dispatch}, @events, &__MODULE__.handle_telemetry_event/4, config)
     end
@@ -77,9 +111,10 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
     @doc false
     def handle_telemetry_event(event, measurements, metadata, config)
 
-    def handle_telemetry_event([:trogon_dispatcher, :dispatch, :start], _measurements, metadata, _config) do
+    def handle_telemetry_event([:trogon_dispatcher, :dispatch, :start], _measurements, metadata, config) do
       destination_name = inspect(metadata.message)
       context = metadata.context
+      opt_out_attrs = Keyword.fetch!(config, :opt_out_attrs)
 
       attributes =
         [
@@ -92,7 +127,6 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
           {DispatcherAttributes.trogon_dispatcher_dispatcher(), inspect(metadata.dispatcher)},
           {DispatcherAttributes.trogon_dispatcher_registered_by(), inspect(metadata.registered_by)}
         ]
-        |> maybe_add_attribute(SemConv.messaging_message_conversation_id(), id_attribute(context.correlation_id))
         |> maybe_add_attribute(
           DispatcherAttributes.trogon_dispatcher_correlation_id(),
           id_attribute(context.correlation_id)
@@ -101,12 +135,24 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
           DispatcherAttributes.trogon_dispatcher_causation_id(),
           id_attribute(context.causation_id)
         )
+        |> maybe_add_opt_out_attribute(
+          SemConv.code_function_name(),
+          "#{inspect(metadata.handler)}.handle_message",
+          opt_out_attrs
+        )
+        |> maybe_add_opt_out_attribute(SemConv.messaging_message_id(), id_attribute(context.message_id), opt_out_attrs)
+        |> maybe_add_opt_out_attribute(
+          SemConv.messaging_message_conversation_id(),
+          id_attribute(context.correlation_id),
+          opt_out_attrs
+        )
+        |> add_extra_attrs(Keyword.fetch!(config, :extra_attrs))
 
       OpentelemetryTelemetry.start_telemetry_span(
         @tracer_id,
         "dispatch #{destination_name}",
         metadata,
-        %{kind: :internal, attributes: attributes}
+        %{kind: :consumer, attributes: attributes}
       )
     end
 
@@ -129,25 +175,41 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
         ) do
       ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, metadata)
 
-      Span.set_attribute(ctx, DispatcherAttributes.erlang_exception_kind(), kind)
+      Span.set_attribute(ctx, SemConv.erlang_exception_kind(), kind)
 
-      record_exception(ctx, Exception.normalize(kind, reason, stacktrace), kind, stacktrace)
+      record_exception(ctx, Exception.normalize(kind, reason, stacktrace), kind, reason, stacktrace)
       Span.set_status(ctx, OpenTelemetry.status(:error, Exception.format_banner(kind, reason, stacktrace)))
 
       OpentelemetryTelemetry.end_telemetry_span(@tracer_id, metadata)
     end
 
-    defp record_exception(ctx, exception, _kind, stacktrace) when is_exception(exception) do
+    defp record_exception(ctx, exception, _kind, _reason, stacktrace) when is_exception(exception) do
       Span.set_attribute(ctx, SemConv.error_type(), error_type(exception))
       Span.record_exception(ctx, exception, stacktrace)
     end
 
-    defp record_exception(ctx, _payload, kind, _stacktrace) do
-      Span.set_attribute(ctx, SemConv.error_type(), Atom.to_string(kind))
+    defp record_exception(ctx, _normalized, kind, reason, stacktrace) do
+      Span.set_attribute(ctx, SemConv.error_type(), "_OTHER")
+      :otel_span.record_exception(ctx, kind, reason, stacktrace, [])
     end
 
     defp maybe_add_attribute(attributes, _key, nil), do: attributes
     defp maybe_add_attribute(attributes, key, value), do: [{key, value} | attributes]
+
+    defp maybe_add_opt_out_attribute(attributes, key, value, opt_out_attrs) do
+      if key in opt_out_attrs do
+        attributes
+      else
+        maybe_add_attribute(attributes, key, value)
+      end
+    end
+
+    defp add_extra_attrs(attributes, extra_attrs) do
+      existing_keys = Enum.map(attributes, &elem(&1, 0))
+      extra = for {key, value} <- extra_attrs, key not in existing_keys, do: {key, value}
+
+      attributes ++ extra
+    end
 
     defp id_attribute(nil), do: nil
     defp id_attribute(id) when is_binary(id) or is_integer(id), do: to_string(id)
@@ -159,11 +221,11 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
 
     defp error_type(error) do
       :telemetry.execute([:trogon_dispatcher, :open_telemetry, :warning], %{count: 1}, %{
-        message: "Unknown error type encountered, returning UNKNOWN",
+        message: "Unknown error type encountered, returning _OTHER",
         error: error
       })
 
-      "UNKNOWN"
+      "_OTHER"
     end
 
     defp set_error_status(ctx, error, event_name, measurements, metadata, config) do

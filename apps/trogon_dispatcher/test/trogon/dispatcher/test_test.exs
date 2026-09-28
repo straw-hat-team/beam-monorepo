@@ -24,6 +24,7 @@ defmodule Trogon.Dispatcher.TestTest do
 
     test "carries the dispatch options" do
       options = %DispatchOptions{
+        message_id: "msg-1",
         correlation_id: "corr-1",
         causation_id: "cause-1",
         actor: :root,
@@ -33,6 +34,7 @@ defmodule Trogon.Dispatcher.TestTest do
       context = Test.build_context(%Support.GetUser{id: 1}, options, kind: :query)
 
       assert context.kind == :query
+      assert context.message_id == "msg-1"
       assert context.correlation_id == "corr-1"
       assert context.causation_id == "cause-1"
       assert context.actor == :root

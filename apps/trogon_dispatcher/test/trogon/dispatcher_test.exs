@@ -245,9 +245,10 @@ defmodule Trogon.DispatcherTest do
   end
 
   describe "Context.to_dispatch_options/1" do
-    test "carries correlation and actor forward but not causation" do
+    test "carries correlation and actor forward, sets causation to the current message_id, and drops message_id" do
       context =
         build_context(%Support.RegisterUser{}, %DispatchOptions{
+          message_id: "msg-1",
           correlation_id: "corr",
           causation_id: "cause",
           actor: :someone,
@@ -255,8 +256,9 @@ defmodule Trogon.DispatcherTest do
         })
 
       assert %DispatchOptions{
+               message_id: nil,
                correlation_id: "corr",
-               causation_id: nil,
+               causation_id: "msg-1",
                actor: :someone,
                assigns: %{thing: 1}
              } = Context.to_dispatch_options(context)

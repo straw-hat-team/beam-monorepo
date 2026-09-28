@@ -17,6 +17,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     def handle_message(%__MODULE__{}, _context), do: {:error, nil}
   end
 
+  defmodule UnknownShapeError do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context), do: {:error, %{}}
+  end
+
   defmodule Throwing do
     @moduledoc false
     defstruct []
@@ -50,6 +57,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     register_message FalsyError, kind: :command
   end
 
+  defmodule UnknownShapeErrorDispatcher do
+    @moduledoc false
+    use Trogon.Dispatcher
+
+    register_message UnknownShapeError, kind: :command
+  end
+
   setup do
     OpenTelemetryCase.detach_handlers()
     DispatcherOpenTelemetry.setup()
@@ -73,24 +87,40 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     test "calling setup/1 twice raises MatchError" do
       assert_raise MatchError, fn -> DispatcherOpenTelemetry.setup() end
     end
+
+    test "rejects an opt_out_attrs entry outside the allowed attribute list" do
+      OpenTelemetryCase.detach_handlers()
+
+      assert_raise NimbleOptions.ValidationError, fn ->
+        DispatcherOpenTelemetry.setup(opt_out_attrs: [:"messaging.system"])
+      end
+    end
   end
 
   describe "successful dispatch" do
-    test "starts a span named after the operation and destination, kind internal, with messaging attributes" do
-      options = %DispatchOptions{correlation_id: "corr-1", causation_id: "cause-1", assigns: %{trail: []}}
+    test "starts a span named after the operation and destination, kind consumer, with messaging and code attributes" do
+      options = %DispatchOptions{
+        message_id: "msg-1",
+        correlation_id: "corr-1",
+        causation_id: "cause-1",
+        assigns: %{trail: []}
+      }
+
       assert {:ok, _user} = Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       assert_receive {:span, span(name: name, kind: kind, attributes: attributes)}, 1000
 
       assert name == "dispatch #{inspect(Support.RegisterUser)}"
-      assert kind == :internal
+      assert kind == :consumer
 
       assert :otel_attributes.map(attributes) == %{
                "messaging.system": "trogon_dispatcher",
                "messaging.operation.name": "dispatch",
                "messaging.operation.type": "process",
                "messaging.destination.name": inspect(Support.RegisterUser),
+               "messaging.message.id": "msg-1",
                "messaging.message.conversation_id": "corr-1",
+               "code.function.name": "#{inspect(Support.RegisterUser)}.handle_message",
                "trogon_dispatcher.message": inspect(Support.RegisterUser),
                "trogon_dispatcher.kind": "command",
                "trogon_dispatcher.dispatcher": inspect(Support.RootDispatcher),
@@ -100,7 +130,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
              }
     end
 
-    test "omits correlation and causation attributes when absent" do
+    test "omits correlation, causation, and messaging id attributes when absent" do
       assert {:ok, _user} =
                Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
                  assigns: %{trail: []}
@@ -108,9 +138,25 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       assert_receive {:span, span(attributes: attributes)}, 1000
 
-      refute Map.has_key?(:otel_attributes.map(attributes), :"messaging.message.conversation_id")
-      refute Map.has_key?(:otel_attributes.map(attributes), :"trogon_dispatcher.correlation_id")
-      refute Map.has_key?(:otel_attributes.map(attributes), :"trogon_dispatcher.causation_id")
+      attributes_map = :otel_attributes.map(attributes)
+
+      refute Map.has_key?(attributes_map, :"messaging.message.id")
+      refute Map.has_key?(attributes_map, :"messaging.message.conversation_id")
+      refute Map.has_key?(attributes_map, :"trogon_dispatcher.correlation_id")
+      refute Map.has_key?(attributes_map, :"trogon_dispatcher.causation_id")
+      assert Map.has_key?(attributes_map, :"code.function.name")
+    end
+
+    test "does not fall back to causation_id for messaging.message.id" do
+      options = %DispatchOptions{causation_id: "cause-1", assigns: %{trail: []}}
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+
+      attributes_map = :otel_attributes.map(attributes)
+
+      refute Map.has_key?(attributes_map, :"messaging.message.id")
+      assert attributes_map[:"trogon_dispatcher.causation_id"] == "cause-1"
     end
   end
 
@@ -129,6 +175,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       assert_receive {:span, span(status: {:status, :error, "nil"}, attributes: attributes)}, 1000
       assert :otel_attributes.map(attributes)[:"error.type"] == "nil"
+    end
+
+    test "falls back to error.type _OTHER for an error reason that is neither a struct nor an atom" do
+      UnknownShapeErrorDispatcher.dispatch_message(%UnknownShapeError{})
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+      assert :otel_attributes.map(attributes)[:"error.type"] == "_OTHER"
     end
 
     test "counts a middleware short circuit as a returned error" do
@@ -188,20 +241,86 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
   end
 
   describe "throws and exits" do
-    test "a thrown pipeline ends the span with an error status and error.type throw" do
+    test "a thrown pipeline records an exception event and falls back to error.type _OTHER" do
       assert catch_throw(NonRaisingFailureDispatcher.dispatch_message(%Throwing{})) == :boom
 
-      assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes)}, 1000
-      assert :otel_attributes.map(attributes)[:"error.type"] == "throw"
+      assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes, events: events)}, 1000
+
+      assert :otel_attributes.map(attributes)[:"error.type"] == "_OTHER"
       assert :otel_attributes.map(attributes)[:"erlang.exception.kind"] == :throw
+      assert Enum.any?(:otel_events.list(events), &match?(event(name: :exception), &1))
     end
 
-    test "an exited pipeline ends the span with an error status and error.type exit" do
+    test "an exited pipeline records an exception event and falls back to error.type _OTHER" do
       assert catch_exit(NonRaisingFailureDispatcher.dispatch_message(%Exiting{})) == :boom
 
-      assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes)}, 1000
-      assert :otel_attributes.map(attributes)[:"error.type"] == "exit"
+      assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes, events: events)}, 1000
+
+      assert :otel_attributes.map(attributes)[:"error.type"] == "_OTHER"
       assert :otel_attributes.map(attributes)[:"erlang.exception.kind"] == :exit
+      assert Enum.any?(:otel_events.list(events), &match?(event(name: :exception), &1))
+    end
+  end
+
+  describe "opt_out_attrs option" do
+    test "leaves off messaging.message.id when opted out" do
+      OpenTelemetryCase.detach_handlers()
+      DispatcherOpenTelemetry.setup(opt_out_attrs: [:"messaging.message.id"])
+
+      options = %DispatchOptions{message_id: "msg-1", assigns: %{trail: []}}
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+      refute Map.has_key?(:otel_attributes.map(attributes), :"messaging.message.id")
+    end
+
+    test "leaves off messaging.message.conversation_id when opted out" do
+      OpenTelemetryCase.detach_handlers()
+      DispatcherOpenTelemetry.setup(opt_out_attrs: [:"messaging.message.conversation_id"])
+
+      options = %DispatchOptions{correlation_id: "corr-1", assigns: %{trail: []}}
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+      refute Map.has_key?(:otel_attributes.map(attributes), :"messaging.message.conversation_id")
+    end
+
+    test "leaves off code.function.name when opted out" do
+      OpenTelemetryCase.detach_handlers()
+      DispatcherOpenTelemetry.setup(opt_out_attrs: [:"code.function.name"])
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+        assigns: %{trail: []}
+      })
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+      refute Map.has_key?(:otel_attributes.map(attributes), :"code.function.name")
+    end
+  end
+
+  describe "extra_attrs option" do
+    test "adds extra attributes to every span" do
+      OpenTelemetryCase.detach_handlers()
+      DispatcherOpenTelemetry.setup(extra_attrs: %{"deployment.environment.name": "test"})
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+        assigns: %{trail: []}
+      })
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+      assert :otel_attributes.map(attributes)[:"deployment.environment.name"] == "test"
+    end
+
+    test "an attribute this module already sets wins over an extra one under the same key" do
+      OpenTelemetryCase.detach_handlers()
+      DispatcherOpenTelemetry.setup(extra_attrs: %{"messaging.system": "overridden"})
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+        assigns: %{trail: []}
+      })
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+      assert :otel_attributes.map(attributes)[:"messaging.system"] == "trogon_dispatcher"
     end
   end
 

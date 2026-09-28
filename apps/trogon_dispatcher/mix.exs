@@ -48,6 +48,7 @@ defmodule Trogon.Dispatcher.MixProject do
       # Optional OpenTelemetry integration
       {:opentelemetry_api, "~> 1.0", optional: true},
       {:opentelemetry_telemetry, "~> 1.0", optional: true},
+      {:nimble_options, "~> 1.0", optional: true},
       {:opentelemetry, "~> 1.0", only: [:test]},
 
       # Tools

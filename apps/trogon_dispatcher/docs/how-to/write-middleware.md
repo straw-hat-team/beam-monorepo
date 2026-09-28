@@ -35,8 +35,8 @@ middleware MyApp.RequireTenant, default: "acme"
 `call(context, next, options)`:
 
 - `context` is a `Trogon.Dispatcher.Context` struct carrying the message, the kind, the dispatcher, the dispatcher
-  that registered the message, the reserved `:correlation_id`, `:causation_id` and `:actor` fields, plus `:assigns`
-  and `:private`.
+  that registered the message, the reserved `:message_id`, `:correlation_id`, `:causation_id` and `:actor` fields,
+  plus `:assigns` and `:private`.
 - `next` is a context-to-context function. Call it with a context to continue; do not call it to halt.
 - `options` is the struct `init/1` returned at compile time, or the raw options passed to `middleware` when the
   middleware does not export `init/1`.
@@ -68,8 +68,8 @@ context = Context.put_private(context, __MODULE__, tenant)
 Context.get_private(context, MyApp.RequireTenant)
 ```
 
-The reserved `:correlation_id`, `:causation_id` and `:actor` fields are top-level on the struct because the library
-propagates them itself. Everything else belongs in assigns or private.
+The reserved `:message_id`, `:correlation_id`, `:causation_id` and `:actor` fields are top-level on the struct
+because the library propagates them itself. Everything else belongs in assigns or private.
 
 ## Per-message metadata
 
@@ -218,12 +218,15 @@ options = Trogon.Dispatcher.Context.to_dispatch_options(context)
 MyApp.Billing.Dispatcher.dispatch_message(%ChargeCard{}, options)
 ```
 
-That carries `:correlation_id`, `:actor` and `:assigns`. It deliberately does not carry `:causation_id`, because the
-library defines no message-id contract and will not invent one. Set causation yourself from whatever identity your
-messages already carry:
+That carries `:correlation_id`, `:actor` and `:assigns` forward, and sets `:causation_id` to the current context's
+`:message_id`: the message in flight is what causes the nested dispatch. It deliberately does not carry `:message_id`
+itself forward, since the nested dispatch has an identity of its own. Set it yourself if the nested message carries
+one:
 
 ```elixir
-options = %{Trogon.Dispatcher.Context.to_dispatch_options(context) | causation_id: context.message.id}
+charge = %ChargeCard{}
+options = %{Trogon.Dispatcher.Context.to_dispatch_options(context) | message_id: charge.id}
+MyApp.Billing.Dispatcher.dispatch_message(charge, options)
 ```
 
 ## Test a middleware in isolation

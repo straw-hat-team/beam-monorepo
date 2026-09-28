@@ -30,6 +30,7 @@ Start metadata:
 - `:kind` is `:command` or `:query`.
 - `:dispatcher` is the module whose `dispatch_message/2` was called.
 - `:registered_by` is the dispatcher that declared the registration, which is the owning boundary.
+- `:handler` is the module whose `handle_message/2` runs.
 - `:context` is the full `Trogon.Dispatcher.Context`. On `:start` it is the context the pipeline began with; on
   `:stop` it is the context the pipeline finished with, so anything a middleware or the handler assigned is visible
   there, along with `:response`.

@@ -22,6 +22,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
       assert metadata.kind == :command
       assert metadata.dispatcher == Support.RootDispatcher
       assert metadata.registered_by == Support.AccountsDispatcher
+      assert metadata.handler == Support.RegisterUser
       assert metadata.context.correlation_id == "corr"
       assert metadata.context.actor == :someone
       assert metadata.context.message == %Support.RegisterUser{email: "a@b.c"}

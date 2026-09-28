@@ -2,18 +2,9 @@ defmodule Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes do
   @moduledoc """
   OpenTelemetry span attribute names that `Trogon.Dispatcher.OpenTelemetry` sets beyond the semantic conventions.
 
-  Library attributes are prefixed with `trogon_dispatcher.` so they never collide with standard OpenTelemetry
-  attributes, and use `snake_case` with dot notation for namespacing.
-
-  | Attribute | Type | Description |
-  |---|---|---|
-  | `trogon_dispatcher.message` | string | The dispatched message module |
-  | `trogon_dispatcher.kind` | string | `command` or `query` |
-  | `trogon_dispatcher.dispatcher` | string | The dispatcher whose `dispatch_message/2` was called |
-  | `trogon_dispatcher.registered_by` | string | The dispatcher that declared the registration |
-  | `trogon_dispatcher.correlation_id` | string | Correlation ID for tracing related operations |
-  | `trogon_dispatcher.causation_id` | string | Causation ID linking cause and effect |
-  | `erlang.exception.kind` | atom | `:error`, `:throw` or `:exit` for a pipeline that raised, threw or exited |
+  These are library-specific facts with no semantic convention of their own, so every name here is prefixed with
+  `trogon_dispatcher.` and uses `snake_case` with dot notation for namespacing. Each function's `@doc` and `@spec`
+  say what it holds.
 
   ## Example
 
@@ -56,12 +47,4 @@ defmodule Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes do
   """
   @spec trogon_dispatcher_causation_id() :: :"trogon_dispatcher.causation_id"
   def trogon_dispatcher_causation_id, do: :"trogon_dispatcher.causation_id"
-
-  @doc """
-  The Erlang exception class of a pipeline that raised, threw or exited.
-
-  OpenTelemetry has no semantic convention for it yet.
-  """
-  @spec erlang_exception_kind() :: :"erlang.exception.kind"
-  def erlang_exception_kind, do: :"erlang.exception.kind"
 end
