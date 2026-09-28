@@ -8,16 +8,6 @@
 
 **It is for Elixir teams that want an explicit, observable boundary between their web or worker layer and their domain code.** That suits applications which have outgrown scattered routing but do not want to take on a framework's opinion about how the domain itself is implemented, and teams who need the dispatch boundary to be the one place identity propagation, authorization and tracing are applied.
 
-## Installation
-
-```elixir
-def deps do
-  [
-    {:trogon_dispatcher, "~> 0.1"}
-  ]
-end
-```
-
 ## Usage
 
 ```elixir
