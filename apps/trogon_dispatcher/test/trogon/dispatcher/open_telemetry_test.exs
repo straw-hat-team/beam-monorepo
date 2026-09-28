@@ -17,6 +17,32 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     def handle_message(%__MODULE__{}, _context), do: {:error, nil}
   end
 
+  defmodule Throwing do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context) do
+      if Support.Opaque.wrap(true), do: throw(:boom), else: :ok
+    end
+  end
+
+  defmodule Exiting do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context) do
+      if Support.Opaque.wrap(true), do: exit(:boom), else: :ok
+    end
+  end
+
+  defmodule NonRaisingFailureDispatcher do
+    @moduledoc false
+    use Trogon.Dispatcher
+
+    register_message Throwing, kind: :command
+    register_message Exiting, kind: :command
+  end
+
   defmodule FalsyErrorDispatcher do
     @moduledoc false
     use Trogon.Dispatcher
@@ -158,6 +184,24 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       assert :otel_attributes.map(attributes)[:"erlang.exception.kind"] == :error
 
       assert Enum.any?(:otel_events.list(events), &match?(event(name: :exception), &1))
+    end
+  end
+
+  describe "throws and exits" do
+    test "a thrown pipeline ends the span with an error status and error.type throw" do
+      assert catch_throw(NonRaisingFailureDispatcher.dispatch_message(%Throwing{})) == :boom
+
+      assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes)}, 1000
+      assert :otel_attributes.map(attributes)[:"error.type"] == "throw"
+      assert :otel_attributes.map(attributes)[:"erlang.exception.kind"] == :throw
+    end
+
+    test "an exited pipeline ends the span with an error status and error.type exit" do
+      assert catch_exit(NonRaisingFailureDispatcher.dispatch_message(%Exiting{})) == :boom
+
+      assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes)}, 1000
+      assert :otel_attributes.map(attributes)[:"error.type"] == "exit"
+      assert :otel_attributes.map(attributes)[:"erlang.exception.kind"] == :exit
     end
   end
 

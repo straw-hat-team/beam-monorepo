@@ -16,7 +16,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
           def start(_type, _args) do
             Trogon.Dispatcher.OpenTelemetry.setup()
 
-            Supervisor.start_link([MyApp.Dispatcher], strategy: :one_for_one)
+            Supervisor.start_link([MyApp.Repo], strategy: :one_for_one)
           end
         end
 
@@ -131,12 +131,19 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
 
       Span.set_attribute(ctx, DispatcherAttributes.erlang_exception_kind(), kind)
 
-      exception = Exception.normalize(kind, reason, stacktrace)
-      Span.set_attribute(ctx, SemConv.error_type(), error_type(exception))
-      Span.record_exception(ctx, exception, stacktrace)
+      record_exception(ctx, Exception.normalize(kind, reason, stacktrace), kind, stacktrace)
       Span.set_status(ctx, OpenTelemetry.status(:error, Exception.format_banner(kind, reason, stacktrace)))
 
       OpentelemetryTelemetry.end_telemetry_span(@tracer_id, metadata)
+    end
+
+    defp record_exception(ctx, exception, _kind, stacktrace) when is_exception(exception) do
+      Span.set_attribute(ctx, SemConv.error_type(), error_type(exception))
+      Span.record_exception(ctx, exception, stacktrace)
+    end
+
+    defp record_exception(ctx, _payload, kind, _stacktrace) do
+      Span.set_attribute(ctx, SemConv.error_type(), Atom.to_string(kind))
     end
 
     defp maybe_add_attribute(attributes, _key, nil), do: attributes

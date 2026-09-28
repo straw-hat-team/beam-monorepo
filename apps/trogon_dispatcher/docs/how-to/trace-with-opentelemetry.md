@@ -31,7 +31,7 @@ defmodule MyApp.Application do
   def start(_type, _args) do
     Trogon.Dispatcher.OpenTelemetry.setup()
 
-    Supervisor.start_link([MyApp.Dispatcher], strategy: :one_for_one)
+    Supervisor.start_link([MyApp.Repo], strategy: :one_for_one)
   end
 end
 ```
@@ -65,8 +65,9 @@ The actor and the message payload never end up on the span: they are not safe to
 default.
 
 A returned `{:error, reason}` sets an error status and an `error.type` attribute derived from `reason`. A raised,
-thrown, or exited pipeline records an OpenTelemetry exception on the span, with `erlang.exception.kind` and
-`error.type` attributes, and sets an error status.
+thrown, or exited pipeline sets an error status and the `erlang.exception.kind` attribute. A raise also records an
+OpenTelemetry exception event and sets `error.type` to the exception module; a throw or an exit carries no exception,
+so `error.type` is `throw` or `exit`.
 
 ## Overriding the status for a returned error
 
