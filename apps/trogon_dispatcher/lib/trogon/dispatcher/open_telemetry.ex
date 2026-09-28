@@ -29,6 +29,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
 
     alias OpenTelemetry.Span
     alias Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes
+    alias Trogon.Dispatcher.OpenTelemetry.SemConv
 
     @tracer_id __MODULE__
     @telemetry_event [:trogon_dispatcher, :dispatch]
@@ -82,16 +83,16 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
 
       attributes =
         [
-          {:"messaging.system", "trogon_dispatcher"},
-          {:"messaging.operation.name", "dispatch"},
-          {:"messaging.operation.type", "process"},
-          {:"messaging.destination.name", destination_name},
+          {SemConv.messaging_system(), "trogon_dispatcher"},
+          {SemConv.messaging_operation_name(), "dispatch"},
+          {SemConv.messaging_operation_type(), "process"},
+          {SemConv.messaging_destination_name(), destination_name},
           {DispatcherAttributes.trogon_dispatcher_message(), destination_name},
           {DispatcherAttributes.trogon_dispatcher_kind(), Atom.to_string(metadata.kind)},
           {DispatcherAttributes.trogon_dispatcher_dispatcher(), inspect(metadata.dispatcher)},
           {DispatcherAttributes.trogon_dispatcher_registered_by(), inspect(metadata.registered_by)}
         ]
-        |> maybe_add_attribute(:"messaging.message.conversation_id", id_attribute(context.correlation_id))
+        |> maybe_add_attribute(SemConv.messaging_message_conversation_id(), id_attribute(context.correlation_id))
         |> maybe_add_attribute(
           DispatcherAttributes.trogon_dispatcher_correlation_id(),
           id_attribute(context.correlation_id)
@@ -113,7 +114,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
       ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, metadata)
 
       with %{result: :error, error: error} <- metadata do
-        Span.set_attribute(ctx, :"error.type", error_type(error))
+        Span.set_attribute(ctx, SemConv.error_type(), error_type(error))
         set_error_status(ctx, error, [:trogon_dispatcher, :dispatch, :stop], measurements, metadata, config)
       end
 
@@ -131,7 +132,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
       Span.set_attribute(ctx, DispatcherAttributes.erlang_exception_kind(), kind)
 
       exception = Exception.normalize(kind, reason, stacktrace)
-      Span.set_attribute(ctx, :"error.type", error_type(exception))
+      Span.set_attribute(ctx, SemConv.error_type(), error_type(exception))
       Span.record_exception(ctx, exception, stacktrace)
       Span.set_status(ctx, OpenTelemetry.status(:error, Exception.format_banner(kind, reason, stacktrace)))
 
