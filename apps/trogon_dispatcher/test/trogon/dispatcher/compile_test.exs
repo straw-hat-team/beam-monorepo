@@ -231,6 +231,32 @@ defmodule Trogon.Dispatcher.CompileTest do
       assert Exception.message(error) =~ "Conflicting registration for Trogon.Dispatcher.TestSupport.ArchiveUser"
     end
 
+    test "rejects two dispatchers registering the same message even when their pipelines match" do
+      error =
+        assert_raise DuplicateMessageError, ~r/one registering dispatcher/, fn ->
+          compile!("""
+          defmodule OwnerLeft do
+            use Trogon.Dispatcher
+            register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
+          end
+
+          defmodule OwnerRight do
+            use Trogon.Dispatcher
+            register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
+          end
+
+          defmodule TwoOwners do
+            use Trogon.Dispatcher
+            import_dispatcher OwnerLeft
+            import_dispatcher OwnerRight
+          end
+          """)
+        end
+
+      assert error.existing.registered_by == OwnerLeft
+      assert error.conflicting.registered_by == OwnerRight
+    end
+
     test "rejects the same message reaching a dispatcher with different middleware chains" do
       assert_raise DuplicateMessageError, ~r/one middleware chain/, fn ->
         compile!("""

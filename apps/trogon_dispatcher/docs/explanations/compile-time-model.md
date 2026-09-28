@@ -28,8 +28,9 @@ dispatcher or declared by both an importer and the dispatcher it imports, runs e
 collapsed, so a retry or a timer can sit at more than one layer on purpose. A middleware that must run only once per
 dispatch guards itself; see [Write a middleware](../how-to/write-middleware.md).
 
-The same message registered more than once is fine when every registration is identical, and raises
-`Trogon.Dispatcher.DuplicateMessageError` when they disagree.
+The same registration reached more than once through imports is fine, and dedupes. Registrations that disagree
+raise `Trogon.Dispatcher.DuplicateMessageError`, and so do two dispatchers that each register the same message: a
+message has one owning boundary, and `registered_by` reports it.
 
 ## What happens when you dispatch
 

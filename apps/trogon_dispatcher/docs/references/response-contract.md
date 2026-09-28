@@ -80,7 +80,7 @@ Two conditions are outcomes rather than bugs, so they come back as terms:
 | a middleware returning something other than a `Trogon.Dispatcher.Context` | `Trogon.Dispatcher.InvalidContextError` | runtime |
 | a second argument that is not a `DispatchOptions` | `ArgumentError` | runtime |
 | an exception raised inside a handler or middleware | the original exception, untouched | runtime |
-| the same message reached with a different handler, kind, or middleware chain | `Trogon.Dispatcher.DuplicateMessageError` | compile time |
+| the same message reached with a different handler, kind, middleware chain, or registering dispatcher | `Trogon.Dispatcher.DuplicateMessageError` | compile time |
 | a dispatcher importing itself, directly or transitively | `Trogon.Dispatcher.CircularImportError` | compile time |
 | a registered handler that does not export `handle_message/2` | `ArgumentError` | compile time, via `@after_verify` |
 

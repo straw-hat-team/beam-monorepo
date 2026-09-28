@@ -40,7 +40,8 @@ defmodule Trogon.Dispatcher do
   appears.
 
   Reaching the same registration twice through a diamond of imports dedupes silently. Two paths that disagree on the
-  handler, the kind, or the effective middleware chain raise `Trogon.Dispatcher.DuplicateMessageError` at compile time.
+  handler, the kind, the effective middleware chain, or the dispatcher that registered the message raise
+  `Trogon.Dispatcher.DuplicateMessageError` at compile time.
 
   ## Generated API
 

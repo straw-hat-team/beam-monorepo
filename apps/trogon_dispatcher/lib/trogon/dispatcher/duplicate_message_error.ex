@@ -3,7 +3,9 @@ defmodule Trogon.Dispatcher.DuplicateMessageError do
   Raised at compile time when one message would resolve to two different pipelines in the same dispatcher.
 
   Reaching the same registration twice through a diamond of imports is fine and dedupes silently. This fires only when
-  the two paths genuinely disagree: a different handler, a different kind, or a different effective middleware chain.
+  the two paths genuinely disagree: a different handler, a different kind, a different effective middleware chain, or
+  a different dispatcher that registered the message. Two dispatchers registering the same message conflict even when
+  their pipelines match, because a message has one owning boundary and `registered_by` reports it.
   """
 
   defexception [:dispatched_message, :dispatcher, :existing, :conflicting]
@@ -34,11 +36,11 @@ defmodule Trogon.Dispatcher.DuplicateMessageError do
     #{describe(exception.existing)}
     Conflicting registration:
     #{describe(exception.conflicting)}
-    A message may resolve to exactly one handler, one kind, and one middleware chain. Reaching the same registration
-    twice through imports is fine; these two disagree.
+    A message may resolve to exactly one handler, one kind, one middleware chain, and one registering dispatcher.
+    Reaching the same registration twice through imports is fine; these two disagree.
 
-    To fix this, register the message in exactly one place, or align the two dispatchers so the effective pipelines
-    match.
+    To fix this, register the message in exactly one dispatcher. If both registrations come from that one dispatcher,
+    align the paths that import it so the effective middleware chains match.
     """
   end
 

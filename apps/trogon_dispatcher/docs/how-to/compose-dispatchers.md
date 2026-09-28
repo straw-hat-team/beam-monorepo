@@ -88,8 +88,13 @@ end
 ```
 
 Two paths that disagree raise `Trogon.Dispatcher.DuplicateMessageError` at compile time. They disagree when the same
-message resolves to a different handler, a different kind, or a different effective middleware chain. The compiler
-tells you which message and which two chains, rather than picking one silently.
+message resolves to a different handler, a different kind, a different effective middleware chain, or a different
+registering dispatcher. The compiler tells you which message and which two registrations, rather than picking one
+silently.
+
+Two dispatchers that each call `register_message` for the same message conflict even when everything else matches.
+A message belongs to one boundary, and `registered_by` in the context and in telemetry reports which one, so register
+it in exactly one dispatcher and import that dispatcher wherever the message is needed.
 
 Importing a dispatcher that transitively imports you raises `Trogon.Dispatcher.CircularImportError` with the full
 path.
