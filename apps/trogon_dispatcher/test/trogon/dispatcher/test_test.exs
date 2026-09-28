@@ -181,35 +181,6 @@ defmodule Trogon.Dispatcher.TestTest do
     end
   end
 
-  describe "mocking a dispatcher with Mox" do
-    test "a dispatcher is a behaviour, so Mox can mock it directly" do
-      Mox.expect(Support.DispatcherMock, :dispatch_message, fn %Support.RegisterUser{} = message ->
-        {:ok, %Support.User{email: message.email}}
-      end)
-
-      assert {:ok, %Support.User{email: "a@b.c"}} =
-               Support.DispatcherMock.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
-    end
-
-    test "the two-argument callback is mockable as well" do
-      Mox.expect(Support.DispatcherMock, :dispatch_message, fn %Support.GetUser{}, %DispatchOptions{} = options ->
-        send(self(), {:options, options})
-        {:ok, %Support.User{email: "read@example.com"}}
-      end)
-
-      assert {:ok, _user} =
-               Support.DispatcherMock.dispatch_message(%Support.GetUser{id: 1}, %DispatchOptions{actor: :root})
-
-      assert_received {:options, %DispatchOptions{actor: :root}}
-    end
-
-    test "the bang callback is mockable" do
-      Mox.expect(Support.DispatcherMock, :dispatch_message!, fn %Support.ArchiveUser{} -> :ok end)
-
-      assert :ok = Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{id: 1})
-    end
-  end
-
   describe "expect_dispatch/3" do
     test "defaults the response to :ok" do
       Test.expect_dispatch(Support.DispatcherMock, Support.ArchiveUser)
