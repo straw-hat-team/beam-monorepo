@@ -25,6 +25,34 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
     Dispatch is synchronous and runs in the caller's process, so the OpenTelemetry context already flows from
     caller to handler without any middleware: the dispatch span is naturally a child of whatever span the caller has
     open. There is nothing to propagate.
+
+    ## Span attributes
+
+    Every registered dispatch becomes one span, named `"dispatch \#{inspect(message)}"`, with `kind: :consumer`.
+    Per the OpenTelemetry messaging semantic conventions, a `process` operation is a consumer operation, even
+    though dispatch runs in-process on the caller's own call stack rather than off a queue.
+
+      * `messaging.system` - `"trogon_dispatcher"`
+      * `messaging.operation.name` - `"dispatch"`
+      * `messaging.operation.type` - `"process"`
+      * `messaging.destination.name` - the message module, as `inspect/1`
+      * `messaging.message.id` - the message id, when set. Can be turned off with `opt_out_attrs`.
+      * `messaging.message.conversation_id` - the correlation id, when set. Can be turned off with `opt_out_attrs`.
+      * `code.function.name` - the handler's fully qualified `handle_message/2`. Can be turned off with
+        `opt_out_attrs`.
+      * `trogon_dispatcher.*` - see `Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes` for each attribute.
+
+    The actor and the message payload never end up on the span: they are not safe to export to a tracing backend
+    by default.
+
+    ## Error mapping
+
+    A returned `{:error, reason}` sets an error status and an `error.type` attribute derived from `reason`. A
+    raised, thrown, or exited pipeline sets an error status, records an OpenTelemetry exception event, and sets
+    the `erlang.exception.kind` attribute to `:error`, `:throw`, or `:exit`. A raise sets `error.type` to the
+    exception module; a throw or an exit carries no exception, so `error.type` is `"_OTHER"`, the semantic
+    convention's fallback value, with the class already on `erlang.exception.kind`. An unrecognized returned error
+    shape also falls back to `error.type` `"_OTHER"`.
     """
 
     alias OpenTelemetry.Span

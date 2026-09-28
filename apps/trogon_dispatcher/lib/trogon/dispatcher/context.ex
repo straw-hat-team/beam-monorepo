@@ -2,6 +2,11 @@ defmodule Trogon.Dispatcher.Context do
   @moduledoc """
   The value threaded through every middleware and handed to the handler.
 
+  `message` is the struct being dispatched, matched by the dispatch clause that built this context; no function on
+  this module replaces it. `kind` is `:command` or `:query`, from the registration. `dispatcher` is the module whose
+  `dispatch_message/2` was called; `registered_by` is the dispatcher that declared the registration, the message's
+  owning boundary.
+
   Reserved concepts (`message_id`, `correlation_id`, `causation_id`, `actor`) are first-class typed fields rather
   than entries in `private`, because host apps need to read them. `assigns` is host-app space and the library never
   reads it. `private` is middleware scratch space and should be namespaced by the owning module.

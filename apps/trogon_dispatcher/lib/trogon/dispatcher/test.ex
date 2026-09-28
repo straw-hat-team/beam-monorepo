@@ -18,7 +18,8 @@ defmodule Trogon.Dispatcher.Test do
         end)
       end
 
-  Mock at the dispatcher boundary. There is no per-message handler stubbing, by design.
+  Mock at the dispatcher boundary: it is the seam your application code depends on, so it is the seam worth
+  faking. There is deliberately no per-message handler stubbing.
 
   ## Importing
 

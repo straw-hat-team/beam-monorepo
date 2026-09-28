@@ -1,8 +1,6 @@
 # Test with Mox
 
-Every dispatcher declares `dispatch_message/1`, `dispatch_message/2`, `dispatch_message!/1` and `dispatch_message!/2`
-as callbacks on itself. A dispatcher is therefore already a behaviour, and Mox can mock it directly. There is no
-companion `MyApp.Dispatcher.Behaviour` module and no generated `MyApp.Dispatcher.Mock`.
+Every dispatcher is already a Mox-mockable behaviour; see the Generated API section of `Trogon.Dispatcher` for why.
 
 ## Define the mock
 
@@ -57,8 +55,7 @@ defmodule MyAppWeb.UserControllerTest do
 end
 ```
 
-Mock at the dispatcher boundary. There is deliberately no per-message handler stubbing: the dispatcher is the seam
-your application code depends on, so it is the seam worth faking.
+Mock at the dispatcher boundary; see `Trogon.Dispatcher.Test` for why there is no per-message handler stubbing.
 
 ## Test the real dispatcher
 
@@ -78,4 +75,4 @@ context = build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: a
 assert {:ok, %User{}} = MyApp.Accounts.RegisterUser.handle_message(context.message, context)
 ```
 
-`build_context/3` accepts `:kind`, `:dispatcher`, `:registered_by` and `:private` as overrides.
+See `Trogon.Dispatcher.Test.build_context/3` for the overrides it accepts.

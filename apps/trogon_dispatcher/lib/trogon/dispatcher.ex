@@ -50,7 +50,55 @@ defmodule Trogon.Dispatcher do
   the module and mocks it with `Mox.defmock(MyApp.DispatcherMock, for: MyApp.Dispatcher)` without a separate
   behaviour module.
 
+  `dispatch_message/2` returns the final context's `:response`, per the contract in `Trogon.Dispatcher.Handler`. It
+  raises `ArgumentError` when the first argument is not a struct, or the second is not a
+  `Trogon.Dispatcher.DispatchOptions.t()`. The bang variants unwrap that response:
+
+  | `:response` | `dispatch_message!` returns or raises |
+  | --- | --- |
+  | `:ok` | `:ok` |
+  | `{:ok, struct}` | the struct |
+  | `{:error, exception}` where the term is an exception struct | re-raises that exception as itself |
+  | `{:error, term}` otherwise | raises `Trogon.Dispatcher.DispatchError` carrying `:reason`, `:dispatched_message` and `:dispatcher` |
+
+  Re-raising an exception term as itself, rather than wrapping it, means a host whose errors are already exception
+  structs keeps its own error type at the top of the stacktrace, and a `rescue` clause matching that type still
+  works.
+
   It also gets `__trogon_dispatcher__/1` for introspection, which is what `import_dispatcher` reads.
+  `:registrations` returns the flattened list, each entry a map with `:message`, `:handler`, `:kind`,
+  `:registered_by` and the resolved `:middleware` chain; `:middleware` and `:imports` return what was declared
+  locally on this dispatcher.
+
+  ## Telemetry
+
+  Every registered dispatch is a `:telemetry.span/3` under `[:trogon_dispatcher, :dispatch, *]`. The event names
+  are the same for every dispatcher; tell them apart with the `:dispatcher` and `:registered_by` metadata rather
+  than the event name. A message reached through a root dispatcher emits once, not once per layer, and dispatching
+  an unregistered message emits nothing (see `Trogon.Dispatcher.UnregisteredMessageError`).
+
+  | Event | Measurements |
+  | --- | --- |
+  | `[:trogon_dispatcher, :dispatch, :start]` | `:system_time`, `:monotonic_time` |
+  | `[:trogon_dispatcher, :dispatch, :stop]` | `:duration`, `:monotonic_time` |
+  | `[:trogon_dispatcher, :dispatch, :exception]` | `:duration`, `:monotonic_time` |
+
+  Start metadata:
+
+    * `:message` - the message module
+    * `:kind` - `:command` or `:query`
+    * `:dispatcher` - the module whose `dispatch_message/2` was called
+    * `:registered_by` - the dispatcher that declared the registration
+    * `:handler` - the module whose `handle_message/2` runs
+    * `:context` - the `Trogon.Dispatcher.Context` the pipeline began with
+    * `:telemetry_span_context` - added by `:telemetry.span/3`
+
+  Stop metadata carries all of the above, with `:context` updated to the context the pipeline finished with, plus
+  `:result` (`:ok` or `:error`) and, only when `:result` is `:error`, `:error` with the error term.
+
+  Exception metadata carries the same keys as start metadata, plus `:reason` and `:stacktrace`; `:kind` is
+  overwritten by `:telemetry.span/3` with `:error`, `:throw` or `:exit`. An exception raised inside a handler or a
+  middleware passes through untouched after this event fires; the library does not wrap it.
   """
 
   alias Trogon.Dispatcher.CircularImportError

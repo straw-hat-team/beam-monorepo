@@ -807,5 +807,5 @@ of those examples: state that belongs in a local variable has to be stashed some
 ## See also
 
 - [Why wrapping middleware](why-wrapping-middleware.md) for the argument in this library's own terms.
-- [The response contract](../references/response-contract.md) for where the response lives on the context.
+- `Trogon.Dispatcher.Handler` for the response contract and where the response lives on the context.
 - [Write a middleware](../how-to/write-middleware.md) for the practical version.

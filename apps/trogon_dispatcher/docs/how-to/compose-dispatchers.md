@@ -1,8 +1,7 @@
 # Compose dispatchers
 
-There is one construct in this library. A dispatcher that registers messages and a dispatcher that imports other
-dispatchers are the same kind of module, so composition is a decision you make about your own boundaries rather than
-a hierarchy the library imposes.
+There is one construct in this library, so composing dispatchers is a decision about your own boundaries rather
+than a hierarchy the library imposes.
 
 ## Register messages in a leaf dispatcher
 
@@ -18,20 +17,7 @@ defmodule MyApp.Accounts.Dispatcher do
 end
 ```
 
-`:kind` is required. It is `:command` or `:query`, and it has no default. Events are out of scope: this library
-dispatches to exactly one handler and returns its response.
-
-Both kinds travel the same pipeline and both go out through `dispatch_message/2`. `message` is the genus, the thing
-you register, dispatch and handle, and `:command` and `:query` are the two species. `:kind` is where the read and
-write distinction lives, so command query separation is preserved rather than dissolved, and it is stated as a
-required field that every registration has to answer. What the library does not do is give commands and queries
-separate dispatch functions, which is a transport decision and not a semantic one.
-
-`:to` names the handler module and defaults to the message module itself, so a message that handles itself needs no
-extra module.
-
-A leaf dispatcher is a first-class entry point. `MyApp.Accounts.Dispatcher.dispatch_message/2` works on its own and
-runs only its own middleware. You do not have to route everything through a root.
+See `Trogon.Dispatcher.register_message/2` for what `:kind` and `:to` require.
 
 ## Import one dispatcher into another
 
@@ -46,24 +32,8 @@ defmodule MyApp.Dispatcher do
 end
 ```
 
-`import_dispatcher` lifts every registration out of the imported dispatcher at compile time, the way
-`import_type_provider` works in `Trogon.TypeProvider`.
-
-Middleware attaches per registration, not per dispatcher. The importer's middleware wraps whatever the imported
-dispatcher already had:
-
-- `MyApp.Dispatcher` dispatching `RegisterUser` runs `Authorize`, then `RequireTenant`, then the handler.
-- `MyApp.Dispatcher` dispatching a Billing message runs `Authorize` and then the Billing chain. `RequireTenant` never
-  touches it.
-
-Composition is additive. An importer can add middleware around what it imports; it can never remove or reorder
-middleware it inherited. If the importer declares a middleware the imported dispatcher already has, it runs at both
-layers: the importer's copy outside, the imported one inside.
-
-## Recompilation
-
-Importing creates a compile-time dependency on the imported dispatcher, so adding a message to
-`MyApp.Accounts.Dispatcher` recompiles `MyApp.Dispatcher` automatically.
+See `Trogon.Dispatcher.import_dispatcher/1` and the Composition section of `Trogon.Dispatcher` for how the
+imported middleware and registrations combine.
 
 ## Diamonds
 
@@ -87,17 +57,8 @@ defmodule MyApp.Root do
 end
 ```
 
-Two paths that disagree raise `Trogon.Dispatcher.DuplicateMessageError` at compile time. They disagree when the same
-message resolves to a different handler, a different kind, a different effective middleware chain, or a different
-registering dispatcher. The compiler tells you which message and which two registrations, rather than picking one
-silently.
-
-Two dispatchers that each call `register_message` for the same message conflict even when everything else matches.
-A message belongs to one boundary, and `registered_by` in the context and in telemetry reports which one, so register
-it in exactly one dispatcher and import that dispatcher wherever the message is needed.
-
-Importing a dispatcher that transitively imports you raises `Trogon.Dispatcher.CircularImportError` with the full
-path.
+Two paths that disagree raise `Trogon.Dispatcher.DuplicateMessageError` at compile time, and importing a dispatcher
+that transitively imports you raises `Trogon.Dispatcher.CircularImportError`.
 
 ## Introspect what a dispatcher resolved
 
@@ -107,6 +68,4 @@ MyApp.Dispatcher.__trogon_dispatcher__(:middleware)
 MyApp.Dispatcher.__trogon_dispatcher__(:imports)
 ```
 
-`:registrations` returns the flattened list, each entry carrying `:message`, `:handler`, `:kind`, `:registered_by`
-and the resolved `:middleware` chain. This is what `import_dispatcher` reads, and it is the fastest way to see what a
-composed dispatcher actually routes.
+See the Generated API section of `Trogon.Dispatcher` for what each key returns.

@@ -20,6 +20,25 @@ defmodule Trogon.Dispatcher.Handler do
       end
 
   Use `to:` on `register_message` when the handler belongs somewhere else.
+
+  ## Response contract
+
+  `handle_message/2` returns one of exactly three shapes:
+
+  | Response | Meaning |
+  | --- | --- |
+  | `:ok` | success with no value |
+  | `{:ok, struct}` | success with a value, which must be a struct |
+  | `{:error, term}` | failure, with any term as the reason |
+
+  The success value must be a struct: a map, a keyword list, a bare list, a binary, an integer or `nil` is a
+  contract violation, not a success. Wrap a collection in a struct you define. `{:error, term}` accepts any term;
+  the library has no error type of its own. A command whose outcome is only the effect returns `:ok` rather than
+  `{:ok, nil}`.
+
+  A response outside these shapes raises `Trogon.Dispatcher.InvalidResponseError`, naming the handler, the message
+  and the dispatcher. A middleware never returns a response directly either: it returns a
+  `Trogon.Dispatcher.Context` whose `:response` field holds one of these same three shapes.
   """
 
   alias Trogon.Dispatcher.Context

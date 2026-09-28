@@ -89,5 +89,4 @@ iex> MyApp.Dispatcher.dispatch_message(%MyApp.Accounts.RegisterUser{email: "a@b.
 
 ### References
 
-- [The response contract](response-contract.html)
 - [API Reference](api-reference.html)

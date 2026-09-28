@@ -120,14 +120,12 @@ defmodule Trogon.Dispatcher.MixProject do
         "docs/explanations/why-wrapping-middleware.md",
         "docs/explanations/handlers-and-context.md",
         "docs/explanations/compile-time-model.md",
-        "docs/explanations/prior-art.md",
-        "docs/references/response-contract.md"
+        "docs/explanations/prior-art.md"
       ],
       groups_for_extras: [
         Tutorials: ~r/docs\/tutorials\/.?/,
         "How-to": ~r/docs\/how-to\/.?/,
-        Explanations: ~r/docs\/explanations\/.?/,
-        References: ~r/docs\/references\/.?/
+        Explanations: ~r/docs\/explanations\/.?/
       ]
     ]
   end

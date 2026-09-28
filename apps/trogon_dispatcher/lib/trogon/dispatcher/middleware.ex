@@ -44,8 +44,8 @@ defmodule Trogon.Dispatcher.Middleware do
   Returning anything other than a struct from `init/1` raises `ArgumentError` at compile time.
 
   Returning anything other than a `Trogon.Dispatcher.Context` raises `Trogon.Dispatcher.InvalidContextError` naming
-  the middleware. The context's `response` is held to the response contract at the same boundary, so a middleware
-  that halts without putting a response raises `Trogon.Dispatcher.InvalidResponseError`.
+  the middleware. The context's `response` is held to the same contract described in `Trogon.Dispatcher.Handler`,
+  so a middleware that halts without putting a response raises `Trogon.Dispatcher.InvalidResponseError`.
   """
 
   alias Trogon.Dispatcher.Context
