@@ -105,7 +105,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) do
     def handle_telemetry_event([:trogon_dispatcher, :dispatch, :stop], measurements, metadata, config) do
       ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, metadata)
 
-      if error = metadata[:error] do
+      with %{result: :error, error: error} <- metadata do
         Span.set_attribute(ctx, :"error.type", error_type(error))
         set_error_status(ctx, error, [:trogon_dispatcher, :dispatch, :stop], measurements, metadata, config)
       end

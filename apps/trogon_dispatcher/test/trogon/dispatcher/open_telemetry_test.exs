@@ -8,6 +8,20 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
   require OpenTelemetry.Tracer, as: Tracer
 
+  defmodule FalsyError do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context), do: {:error, nil}
+  end
+
+  defmodule FalsyErrorDispatcher do
+    @moduledoc false
+    use Trogon.Dispatcher
+
+    register_message FalsyError, kind: :command
+  end
+
   setup do
     OpenTelemetryCase.detach_handlers()
     DispatcherOpenTelemetry.setup()
@@ -80,6 +94,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       assert message == ":nope"
       assert :otel_attributes.map(attributes)[:"error.type"] == ":nope"
+    end
+
+    test "sets an error status when the reason is falsy" do
+      FalsyErrorDispatcher.dispatch_message(%FalsyError{})
+
+      assert_receive {:span, span(status: {:status, :error, "nil"}, attributes: attributes)}, 1000
+      assert :otel_attributes.map(attributes)[:"error.type"] == "nil"
     end
 
     test "counts a middleware short circuit as a returned error" do
