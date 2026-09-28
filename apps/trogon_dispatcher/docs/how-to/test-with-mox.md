@@ -42,22 +42,23 @@ defmodule MyAppWeb.UserControllerTest do
   use MyAppWeb.ConnCase, async: true
 
   import Mox
+  import Trogon.Dispatcher.Test
 
   setup :verify_on_exit!
 
   test "creates a user", %{conn: conn} do
-    expect(MyApp.DispatcherMock, :dispatch_message, fn %RegisterUser{email: email}, %DispatchOptions{} ->
-      {:ok, %User{email: email}}
-    end)
+    expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
 
     conn = post(conn, ~p"/users", %{"email" => "a@b.c"})
 
     assert json_response(conn, 200)["email"] == "a@b.c"
+    assert_dispatched(%RegisterUser{email: "a@b.c"})
   end
 end
 ```
 
-Mock at the dispatcher boundary; see `Trogon.Dispatcher.Test` for why there is no per-message handler stubbing.
+See `Trogon.Dispatcher.Test.expect_dispatch/3` for the options it takes and the contract it enforces, and
+`Trogon.Dispatcher.Test` for why there is no per-message handler stubbing.
 
 ## Test the real dispatcher
 

@@ -13,13 +13,18 @@ defmodule Trogon.Dispatcher.Test do
       Mox.defmock(MyApp.DispatcherMock, for: MyApp.Dispatcher)
 
       test "registers the user" do
-        Mox.expect(MyApp.DispatcherMock, :dispatch_message, fn %RegisterUser{}, _options ->
-          {:ok, %User{id: 1}}
-        end)
+        expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{id: 1}})
+
+        # ... exercise the code under test ...
+
+        assert_dispatched(%RegisterUser{}, %DispatchOptions{})
       end
 
   Mock at the dispatcher boundary: it is the seam your application code depends on, so it is the seam worth
   faking. There is deliberately no per-message handler stubbing.
+
+  `expect_dispatch/3` and `assert_dispatched/2` only exist when `Mox` is loaded. A plain `Mox.expect/4` still works,
+  but it lets a mock return a response no real dispatch could, so the test passes where production would raise.
 
   ## Importing
 
@@ -113,6 +118,98 @@ defmodule Trogon.Dispatcher.Test do
     context
     |> middleware_mod.call(Keyword.fetch!(opts, :next), initialized)
     |> Trogon.Dispatcher.validate(middleware_mod, context)
+  end
+
+  if Code.ensure_loaded?(Mox) do
+    @doc """
+    Expects `mock` to dispatch a `message_mod` message, using `Mox.expect/4`.
+
+    The expectation covers every entry point a real dispatcher has: `dispatch_message/1` and `dispatch_message!/1,2`
+    are stubbed to route through the expected `dispatch_message/2`, so the test does not depend on which one the code
+    under test calls. The bang variants unwrap the response exactly as a real dispatcher does.
+
+    The mocked response is held to the contract in `Trogon.Dispatcher.Handler`, so a response no real dispatch could
+    produce raises `Trogon.Dispatcher.InvalidResponseError`. Every call is sent to the test process for
+    `assert_dispatched/2`.
+
+    Expectations are consumed in the order they are declared, as with `Mox.expect/4`. A dispatched message that is
+    not a `message_mod` fails the test rather than falling through to the next expectation.
+
+    ## Options
+
+      * `:returns` - the response, such as `:ok`, `{:ok, %User{}}` or `{:error, :taken}`, or a function receiving
+        the message and the `Trogon.Dispatcher.DispatchOptions` that returns one. Defaults to `:ok`.
+      * `:times` - how many dispatches to expect. Defaults to `1`.
+
+    ## Examples
+
+        expect_dispatch(MyApp.DispatcherMock, ArchiveUser)
+
+        expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
+
+        expect_dispatch(MyApp.DispatcherMock, RegisterUser,
+          returns: fn %RegisterUser{email: email}, _options -> {:ok, %User{email: email}} end
+        )
+    """
+    @spec expect_dispatch(module(), module(), keyword()) :: module()
+    def expect_dispatch(mock, message_mod, opts \\ []) when is_atom(mock) and is_atom(message_mod) do
+      opts = Keyword.validate!(opts, returns: :ok, times: 1)
+      returns = Keyword.fetch!(opts, :returns)
+      test_process = self()
+
+      Mox.expect(mock, :dispatch_message, Keyword.fetch!(opts, :times), fn message, options ->
+        verify_dispatch!(mock, message_mod, message, options)
+        send(test_process, {@telemetry_tag, :dispatched, mock, message, options})
+
+        message
+        |> mocked_response(options, returns)
+        |> Trogon.Dispatcher.validate_response(mock, Context.new(message, options, dispatcher: mock))
+        |> Map.fetch!(:response)
+      end)
+
+      mock
+      |> Mox.stub(:dispatch_message, fn message -> mock.dispatch_message(message, %DispatchOptions{}) end)
+      |> Mox.stub(:dispatch_message!, fn message -> mock.dispatch_message!(message, %DispatchOptions{}) end)
+      |> Mox.stub(:dispatch_message!, fn message, options ->
+        message |> mock.dispatch_message(options) |> Trogon.Dispatcher.unwrap(message, mock)
+      end)
+    end
+
+    defp verify_dispatch!(mock, message_mod, message, options) do
+      if not is_struct(message, message_mod) do
+        ExUnit.Assertions.flunk("""
+        expected #{inspect(mock)} to dispatch #{inspect(message_mod)}, got: #{inspect(message)}
+
+        Expectations are consumed in the order they are declared.
+        """)
+      end
+
+      if not is_struct(options, DispatchOptions) do
+        raise ArgumentError,
+              "expected a %#{inspect(DispatchOptions)}{} as the second argument, got: #{inspect(options)}"
+      end
+    end
+
+    defp mocked_response(message, options, returns) when is_function(returns, 2), do: returns.(message, options)
+    defp mocked_response(_message, _options, returns), do: returns
+
+    @doc """
+    Asserts that a mock set up with `expect_dispatch/3` received a dispatch matching `message` and `options`.
+
+    Both arguments are patterns, and variables they bind are available after the assertion.
+
+    ## Example
+
+        assert_dispatched(%RegisterUser{email: email}, %DispatchOptions{actor: %User{}})
+        assert email == "a@b.c"
+    """
+    defmacro assert_dispatched(message, options \\ quote(do: _)) do
+      quote do
+        ExUnit.Assertions.assert_received(
+          {unquote(@telemetry_tag), :dispatched, _mock, unquote(message), unquote(options)}
+        )
+      end
+    end
   end
 
   @doc """

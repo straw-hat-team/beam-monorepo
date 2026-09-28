@@ -51,8 +51,10 @@ defmodule Trogon.Dispatcher.MixProject do
       {:nimble_options, "~> 1.0", optional: true},
       {:opentelemetry, "~> 1.0", only: [:test]},
 
+      # Optional Mox integration
+      {:mox, "~> 1.0", optional: true},
+
       # Tools
-      {:mox, ">= 0.0.0", only: [:test]},
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
       {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:excoveralls, ">= 0.0.0", only: [:test], runtime: false},

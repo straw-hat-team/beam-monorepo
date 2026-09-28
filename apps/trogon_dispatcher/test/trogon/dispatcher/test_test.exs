@@ -210,4 +210,70 @@ defmodule Trogon.Dispatcher.TestTest do
       assert :ok = Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{id: 1})
     end
   end
+
+  describe "expect_dispatch/3" do
+    test "defaults the response to :ok" do
+      expect_dispatch(Support.DispatcherMock, Support.ArchiveUser)
+
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 1})
+      assert_dispatched(%Support.ArchiveUser{id: 1})
+    end
+
+    test "returns a plain response and records the options" do
+      expect_dispatch(Support.DispatcherMock, Support.RegisterUser, returns: {:ok, %Support.User{email: "a@b.c"}})
+
+      assert {:ok, %Support.User{email: "a@b.c"}} =
+               Support.DispatcherMock.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+                 actor: :alice
+               })
+
+      assert_dispatched(%Support.RegisterUser{email: email}, %DispatchOptions{actor: :alice})
+      assert email == "a@b.c"
+    end
+
+    test "builds the response from a function" do
+      expect_dispatch(Support.DispatcherMock, Support.RegisterUser,
+        returns: fn %Support.RegisterUser{email: email}, %DispatchOptions{} -> {:ok, %Support.User{email: email}} end
+      )
+
+      assert {:ok, %Support.User{email: "a@b.c"}} =
+               Support.DispatcherMock.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
+    end
+
+    test "the bang variants unwrap the response like a real dispatcher" do
+      expect_dispatch(Support.DispatcherMock, Support.RegisterUser, returns: {:ok, %Support.User{email: "a@b.c"}})
+      expect_dispatch(Support.DispatcherMock, Support.ArchiveUser, returns: {:error, :gone})
+
+      assert %Support.User{email: "a@b.c"} = Support.DispatcherMock.dispatch_message!(%Support.RegisterUser{})
+
+      assert_raise Trogon.Dispatcher.DispatchError, fn ->
+        Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, %DispatchOptions{})
+      end
+    end
+
+    test "expects the given number of dispatches" do
+      expect_dispatch(Support.DispatcherMock, Support.ArchiveUser, times: 2)
+
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 1})
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 2})
+      assert_dispatched(%Support.ArchiveUser{id: 1})
+      assert_dispatched(%Support.ArchiveUser{id: 2})
+    end
+
+    test "raises when the mocked response breaks the contract" do
+      expect_dispatch(Support.DispatcherMock, Support.RegisterUser, returns: {:ok, %{email: "a@b.c"}})
+
+      assert_raise Trogon.Dispatcher.InvalidResponseError, fn ->
+        Support.DispatcherMock.dispatch_message(%Support.RegisterUser{})
+      end
+    end
+
+    test "fails when a different message is dispatched" do
+      expect_dispatch(Support.DispatcherMock, Support.RegisterUser)
+
+      assert_raise ExUnit.AssertionError, ~r/to dispatch #{inspect(Support.RegisterUser)}/, fn ->
+        Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{})
+      end
+    end
+  end
 end
