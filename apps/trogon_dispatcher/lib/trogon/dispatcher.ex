@@ -434,7 +434,13 @@ defmodule Trogon.Dispatcher do
             )
     end
 
-    ensure_compiled!(dispatcher_mod)
+    ensure_compiled!(dispatcher_mod, fn ->
+      raise CircularImportError.exception(
+              dispatcher: module,
+              imported: dispatcher_mod,
+              path: [module, dispatcher_mod]
+            )
+    end)
 
     if not dispatcher?(dispatcher_mod) do
       raise ArgumentError, """
@@ -656,7 +662,7 @@ defmodule Trogon.Dispatcher do
     function_exported?(module, :__struct__, 0)
   end
 
-  defp ensure_compiled!(module) do
+  defp ensure_compiled!(module, on_unavailable \\ nil) do
     case Code.ensure_compiled(module) do
       {:module, _module} ->
         :ok
@@ -664,6 +670,9 @@ defmodule Trogon.Dispatcher do
       {:error, :nofile} ->
         # Compiled inline, for example inside a test. Nothing to wait for.
         :ok
+
+      {:error, :unavailable} when is_function(on_unavailable, 0) ->
+        on_unavailable.()
 
       {:error, reason} ->
         raise ArgumentError, "could not load module #{inspect(module)} due to reason #{inspect(reason)}"

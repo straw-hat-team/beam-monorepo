@@ -2,8 +2,8 @@ defmodule Trogon.Dispatcher.CircularImportError do
   @moduledoc """
   Raised at compile time when `import_dispatcher` would close a cycle.
 
-  A cycle between two separately compiled dispatchers usually shows up as a compiler deadlock before this runs. The
-  check exists so the cases it can catch produce a legible message instead.
+  Across separately compiled files, the compiler reports the cycle as a module it cannot wait for, so `path` only
+  holds the two dispatchers on either side of the import that could not complete.
   """
 
   defexception [:dispatcher, :imported, :path]

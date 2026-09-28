@@ -221,6 +221,13 @@ defmodule Trogon.Dispatcher.TestTest do
       end
     end
 
+    test "the bang variant with explicit options unwraps a success value" do
+      Test.expect_dispatch(Support.DispatcherMock, Support.RegisterUser, returns: {:ok, %Support.User{email: "a@b.c"}})
+
+      assert %Support.User{email: "a@b.c"} =
+               Support.DispatcherMock.dispatch_message!(%Support.RegisterUser{}, %DispatchOptions{})
+    end
+
     test "expects the given number of dispatches" do
       Test.expect_dispatch(Support.DispatcherMock, Support.ArchiveUser, times: 2)
 

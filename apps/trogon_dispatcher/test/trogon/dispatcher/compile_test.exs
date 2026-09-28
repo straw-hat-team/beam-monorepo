@@ -87,6 +87,43 @@ defmodule Trogon.Dispatcher.CompileTest do
                "Expected: Trogon.Dispatcher.TestSupport.ArchiveUser to export handle_message/2"
     end
 
+    test "rejects two local registrations of the same message with different handlers" do
+      error =
+        assert_raise DuplicateMessageError, fn ->
+          compile!("""
+          defmodule ConflictingHandlerOnly do
+            use Trogon.Dispatcher
+            register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: Trogon.Dispatcher.TestSupport.ArchiveUserHandler
+            register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: Trogon.Dispatcher.TestSupport.RegisterUser
+          end
+          """)
+        end
+
+      assert error.dispatched_message == Support.ArchiveUser
+      assert Exception.message(error) =~ "Conflicting registration for Trogon.Dispatcher.TestSupport.ArchiveUser"
+      assert Exception.message(error) =~ "handler: Trogon.Dispatcher.TestSupport.ArchiveUserHandler"
+      assert Exception.message(error) =~ "handler: Trogon.Dispatcher.TestSupport.RegisterUser"
+    end
+
+    test "rejects two local registrations of the same message with different kinds" do
+      error =
+        assert_raise DuplicateMessageError, fn ->
+          compile!("""
+          defmodule ConflictingKindOnly do
+            use Trogon.Dispatcher
+            register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: Trogon.Dispatcher.TestSupport.ArchiveUserHandler
+            register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :query, to: Trogon.Dispatcher.TestSupport.ArchiveUserHandler
+          end
+          """)
+        end
+
+      assert error.dispatched_message == Support.ArchiveUser
+      assert Exception.message(error) =~ "Conflicting registration for Trogon.Dispatcher.TestSupport.ArchiveUser"
+      assert Exception.message(error) =~ "kind: :command"
+      assert Exception.message(error) =~ "kind: :query"
+    end
+
+    @tag :type_checker
     test "warns at the registration and at each import when the handler cannot accept the message" do
       diagnostics =
         compile_diagnostics("""
@@ -113,6 +150,7 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
+    @tag :type_checker
     test "does not warn when the handler accepts the message" do
       diagnostics =
         compile_diagnostics("""
@@ -204,6 +242,44 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
+    @tag :tmp_dir
+    test "rejects a cross-file cycle that the parallel compiler cannot resolve", %{tmp_dir: tmp_dir} do
+      unique = System.unique_integer([:positive])
+      mod_a_name = "CycA#{unique}"
+      mod_b_name = "CycB#{unique}"
+      mod_a = :"Elixir.#{mod_a_name}"
+      mod_b = :"Elixir.#{mod_b_name}"
+
+      on_exit(fn ->
+        :code.purge(mod_a)
+        :code.delete(mod_a)
+        :code.purge(mod_b)
+        :code.delete(mod_b)
+      end)
+
+      path_a = Path.join(tmp_dir, "cyc_a.ex")
+      path_b = Path.join(tmp_dir, "cyc_b.ex")
+
+      File.write!(path_a, """
+      defmodule #{mod_a_name} do
+        use Trogon.Dispatcher
+        import_dispatcher #{mod_b_name}
+      end
+      """)
+
+      File.write!(path_b, """
+      defmodule #{mod_b_name} do
+        use Trogon.Dispatcher
+        import_dispatcher #{mod_a_name}
+      end
+      """)
+
+      {:error, diagnostics, _warnings} =
+        Kernel.ParallelCompiler.compile([path_a, path_b], return_diagnostics: true)
+
+      assert Enum.any?(diagnostics, &(&1.message =~ "Circular import"))
+    end
+
     test "rejects importing a module that is not a dispatcher" do
       assert_raise ArgumentError, ~r/to be a Trogon.Dispatcher/, fn ->
         compile!("""
@@ -213,22 +289,6 @@ defmodule Trogon.Dispatcher.CompileTest do
         end
         """)
       end
-    end
-
-    test "rejects two registrations of the same message with different handlers" do
-      error =
-        assert_raise DuplicateMessageError, fn ->
-          compile!("""
-          defmodule ConflictingHandler do
-            use Trogon.Dispatcher
-            register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: Trogon.Dispatcher.TestSupport.ArchiveUserHandler
-            import_dispatcher Trogon.Dispatcher.TestSupport.AccountsDispatcher
-          end
-          """)
-        end
-
-      assert error.dispatched_message == Support.ArchiveUser
-      assert Exception.message(error) =~ "Conflicting registration for Trogon.Dispatcher.TestSupport.ArchiveUser"
     end
 
     test "rejects two dispatchers registering the same message even when their pipelines match" do

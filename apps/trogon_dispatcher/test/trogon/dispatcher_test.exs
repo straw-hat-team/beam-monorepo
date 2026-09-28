@@ -199,6 +199,10 @@ defmodule Trogon.DispatcherTest do
   describe "import composition" do
     test "a diamond dedupes instead of conflicting" do
       assert {:ok, %Support.User{}} = Support.DiamondDispatcher.dispatch_message(%Support.BillingCommand{})
+
+      registrations = Support.DiamondDispatcher.__trogon_dispatcher__(:registrations)
+
+      assert [_registration] = Enum.filter(registrations, &(&1.message == Support.BillingCommand))
     end
 
     test "registrations carry the dispatcher that registered them" do
