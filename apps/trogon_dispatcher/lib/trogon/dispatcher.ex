@@ -474,23 +474,26 @@ defmodule Trogon.Dispatcher do
   defp resolve_registrations(module, local_middleware, registrations) do
     registrations
     |> Enum.map(&%{&1 | middleware: local_middleware ++ &1.middleware})
-    |> Enum.reduce([], fn registration, acc ->
-      case Enum.find(acc, &(&1.message == registration.message)) do
-        nil ->
-          acc ++ [registration]
+    |> Enum.reduce([], &add_registration(&1, &2, module))
+    |> Enum.reverse()
+  end
 
-        ^registration ->
-          acc
+  defp add_registration(registration, registrations, module) do
+    case Enum.find(registrations, &(&1.message == registration.message)) do
+      nil ->
+        [registration | registrations]
 
-        existing ->
-          raise DuplicateMessageError.exception(
-                  dispatched_message: registration.message,
-                  dispatcher: module,
-                  existing: existing,
-                  conflicting: registration
-                )
-      end
-    end)
+      ^registration ->
+        registrations
+
+      existing ->
+        raise DuplicateMessageError.exception(
+                dispatched_message: registration.message,
+                dispatcher: module,
+                existing: existing,
+                conflicting: registration
+              )
+    end
   end
 
   defp dispatch_clause(registration, options_mod, line) do
