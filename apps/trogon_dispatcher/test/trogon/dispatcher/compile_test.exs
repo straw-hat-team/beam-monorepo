@@ -101,11 +101,55 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
-    test "dedupes a middleware reached both locally and through an import" do
-      registrations = Support.RepeatedMiddlewareDispatcher.__trogon_dispatcher__(:registrations)
-      [registration] = registrations
+    test "raises when a middleware is reached both locally and through an import with the same options" do
+      error =
+        assert_raise ArgumentError, fn ->
+          compile!("""
+          defmodule SharedMiddlewareDispatcher do
+            use Trogon.Dispatcher
+            middleware Trogon.Dispatcher.TestSupport.Authorize
+            register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
+          end
 
-      assert Enum.map(registration.middleware, &elem(&1, 0)) == [Support.Authorize]
+          defmodule RepeatedMiddlewareDispatcher do
+            use Trogon.Dispatcher
+            middleware Trogon.Dispatcher.TestSupport.Authorize
+            import_dispatcher SharedMiddlewareDispatcher
+          end
+          """)
+        end
+
+      assert Exception.message(error) =~ "Invalid middleware Trogon.Dispatcher.TestSupport.Authorize"
+      assert Exception.message(error) =~ "inherited from SharedMiddlewareDispatcher"
+    end
+
+    test "raises when a leaf lists the same middleware twice with identical options" do
+      error =
+        assert_raise ArgumentError, fn ->
+          compile!("""
+          defmodule DoubleListedMiddlewareDispatcher do
+            use Trogon.Dispatcher
+            middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "acme"
+            middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "acme"
+            register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
+          end
+          """)
+        end
+
+      assert Exception.message(error) =~ "Invalid middleware Trogon.Dispatcher.TestSupport.RequireTenant"
+      assert Exception.message(error) =~ "declared twice with the same options"
+    end
+
+    test "allows the same middleware module listed twice with different options" do
+      assert :ok =
+               compile!("""
+               defmodule DistinctOptionsMiddlewareDispatcher do
+                 use Trogon.Dispatcher
+                 middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "acme"
+                 middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "other"
+                 register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
+               end
+               """)
     end
   end
 

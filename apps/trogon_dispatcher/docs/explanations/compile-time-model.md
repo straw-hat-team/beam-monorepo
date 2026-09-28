@@ -18,9 +18,9 @@ handler module is verified, which is why this package requires Elixir 1.14.
 A dispatcher's own middleware wraps every message it handles, including the ones it gets through
 `import_dispatcher`. Composition is additive: an importer wraps what it imported and cannot reorder or remove it.
 
-A middleware reached through more than one import path runs once, at its earliest position. Two entries count as the
-same when both the module and the result of its `init/1` are equal, so the same middleware can appear twice with
-different options. The flip side is that listing the same middleware twice with identical options runs it once.
+A middleware reaching one message's chain more than once, whether through overlapping import paths or by being
+listed twice on one dispatcher with the same options, fails the build rather than silently collapsing or
+reordering. The same module with different options is fine and stays as two distinct steps.
 
 The same message registered more than once is fine when every registration is identical, and raises
 `Trogon.Dispatcher.DuplicateMessageError` when they disagree.

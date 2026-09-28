@@ -86,8 +86,9 @@ defmodule MyApp.Root do
 end
 ```
 
-A middleware reached through more than one path runs once. Dedup is keyed on the module together with its `init/1`
-result, so the same middleware listed twice with different options stays as two distinct steps.
+The same middleware reaching one message's chain more than once, whether through overlapping import paths or by
+listing it twice on one dispatcher, fails the build. The same module with different options is fine and stays as
+two distinct steps.
 
 Two paths that disagree raise `Trogon.Dispatcher.DuplicateMessageError` at compile time. They disagree when the same
 message resolves to a different handler, a different kind, or a different effective middleware chain. The compiler

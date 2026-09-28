@@ -274,24 +274,6 @@ defmodule Trogon.Dispatcher.TestSupport do
     register_message RegisterUser, kind: :command
   end
 
-  defmodule SharedMiddlewareDispatcher do
-    @moduledoc false
-    use Trogon.Dispatcher
-
-    middleware Authorize
-
-    register_message BillingCommand, kind: :command
-  end
-
-  defmodule RepeatedMiddlewareDispatcher do
-    @moduledoc false
-    use Trogon.Dispatcher
-
-    middleware Authorize
-
-    import_dispatcher SharedMiddlewareDispatcher
-  end
-
   defmodule LeftDispatcher do
     @moduledoc false
     use Trogon.Dispatcher

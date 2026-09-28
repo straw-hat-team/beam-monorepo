@@ -36,7 +36,7 @@ defmodule Trogon.Dispatcher do
   `import_dispatcher` flattens at compile time. The importer's middleware wraps the imported dispatcher's, per
   registration, so `MyApp.Dispatcher` dispatching `RegisterUser` runs `Authorize -> RequireTenant -> handler` while a
   Billing message is untouched by `RequireTenant`. Composition is additive: nothing can remove or reorder middleware
-  it inherited.
+  it inherited. The same middleware reaching one message's chain twice fails the build instead.
 
   Reaching the same registration twice through a diamond of imports dedupes silently. Two paths that disagree on the
   handler, the kind, or the effective middleware chain raise `Trogon.Dispatcher.DuplicateMessageError` at compile time.
@@ -415,7 +415,7 @@ defmodule Trogon.Dispatcher do
   defp resolve_registrations(module, local_middleware, registrations) do
     registrations
     |> Enum.map(fn registration ->
-      %{registration | middleware: Enum.uniq(local_middleware ++ registration.middleware)}
+      %{registration | middleware: validate_unique_middleware!(module, local_middleware, registration)}
     end)
     |> Enum.reduce([], fn registration, acc ->
       case Enum.find(acc, &(&1.message == registration.message)) do
@@ -434,6 +434,33 @@ defmodule Trogon.Dispatcher do
                 )
       end
     end)
+  end
+
+  defp validate_unique_middleware!(module, local_middleware, registration) do
+    resolved_middleware = local_middleware ++ registration.middleware
+
+    case resolved_middleware -- Enum.uniq(resolved_middleware) do
+      [] ->
+        resolved_middleware
+
+      [{middleware_mod, _init_result} = entry | _rest] ->
+        origin =
+          if entry in local_middleware and entry in registration.middleware do
+            "inherited from #{inspect(registration.registered_by)}"
+          else
+            "declared twice"
+          end
+
+        raise ArgumentError, """
+        Invalid middleware #{inspect(middleware_mod)} in #{inspect(module)}
+
+        Expected: #{inspect(middleware_mod)} to appear once in the middleware chain for #{inspect(registration.message)}
+        Problem: #{inspect(middleware_mod)} is already in that chain, #{origin} with the same options
+
+        Composition never reorders or drops inherited middleware, so a duplicate has to be resolved by hand: remove
+        #{inspect(middleware_mod)} from one side, or give the two calls different options.
+        """
+    end
   end
 
   defp dispatch_clause({registration, index}, event, options_mod) do

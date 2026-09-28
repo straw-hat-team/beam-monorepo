@@ -95,6 +95,8 @@ end
 defmodule MyApp.Authorize do
   @behaviour Trogon.Dispatcher.Middleware
 
+  alias Trogon.Dispatcher.Context
+
   @impl true
   def call(context, next, _opts) do
     scope = context.message.__struct__.auth_scope()
