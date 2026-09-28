@@ -10,60 +10,6 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
   doctest Trogon.Dispatcher.OpenTelemetry.DispatcherAttributes
 
-  defmodule FalsyError do
-    @moduledoc false
-    defstruct []
-
-    def handle_message(%__MODULE__{}, _context), do: {:error, nil}
-  end
-
-  defmodule UnknownShapeError do
-    @moduledoc false
-    defstruct []
-
-    def handle_message(%__MODULE__{}, _context), do: {:error, %{}}
-  end
-
-  defmodule Throwing do
-    @moduledoc false
-    defstruct []
-
-    def handle_message(%__MODULE__{}, _context) do
-      if Support.Opaque.wrap(true), do: throw(:boom), else: :ok
-    end
-  end
-
-  defmodule Exiting do
-    @moduledoc false
-    defstruct []
-
-    def handle_message(%__MODULE__{}, _context) do
-      if Support.Opaque.wrap(true), do: exit(:boom), else: :ok
-    end
-  end
-
-  defmodule NonRaisingFailureDispatcher do
-    @moduledoc false
-    use Trogon.Dispatcher
-
-    register_message Throwing, kind: :command
-    register_message Exiting, kind: :command
-  end
-
-  defmodule FalsyErrorDispatcher do
-    @moduledoc false
-    use Trogon.Dispatcher
-
-    register_message FalsyError, kind: :command
-  end
-
-  defmodule UnknownShapeErrorDispatcher do
-    @moduledoc false
-    use Trogon.Dispatcher
-
-    register_message UnknownShapeError, kind: :command
-  end
-
   setup do
     OpenTelemetryCase.detach_handlers()
     DispatcherOpenTelemetry.setup()
@@ -171,14 +117,14 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     end
 
     test "sets an error status when the reason is falsy" do
-      FalsyErrorDispatcher.dispatch_message(%FalsyError{})
+      Support.FalsyErrorDispatcher.dispatch_message(%Support.FalsyError{})
 
       assert_receive {:span, span(status: {:status, :error, "nil"}, attributes: attributes)}, 1000
       assert :otel_attributes.map(attributes)[:"error.type"] == "nil"
     end
 
     test "falls back to error.type _OTHER for an error reason that is neither a struct nor an atom" do
-      UnknownShapeErrorDispatcher.dispatch_message(%UnknownShapeError{})
+      Support.UnknownShapeErrorDispatcher.dispatch_message(%Support.UnknownShapeError{})
 
       assert_receive {:span, span(attributes: attributes)}, 1000
       assert :otel_attributes.map(attributes)[:"error.type"] == "_OTHER"
@@ -242,7 +188,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
   describe "throws and exits" do
     test "a thrown pipeline records an exception event and falls back to error.type _OTHER" do
-      assert catch_throw(NonRaisingFailureDispatcher.dispatch_message(%Throwing{})) == :boom
+      assert catch_throw(Support.NonRaisingFailureDispatcher.dispatch_message(%Support.Throwing{})) == :boom
 
       assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes, events: events)}, 1000
 
@@ -252,7 +198,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     end
 
     test "an exited pipeline records an exception event and falls back to error.type _OTHER" do
-      assert catch_exit(NonRaisingFailureDispatcher.dispatch_message(%Exiting{})) == :boom
+      assert catch_exit(Support.NonRaisingFailureDispatcher.dispatch_message(%Support.Exiting{})) == :boom
 
       assert_receive {:span, span(status: {:status, :error, _message}, attributes: attributes, events: events)}, 1000
 

@@ -81,6 +81,38 @@ defmodule Trogon.Dispatcher.TestSupport do
     def handle_message(%__MODULE__{}, _context), do: {:ok, Opaque.wrap(%{email: "nope"})}
   end
 
+  defmodule FalsyError do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context), do: {:error, nil}
+  end
+
+  defmodule UnknownShapeError do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context), do: {:error, %{}}
+  end
+
+  defmodule Throwing do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context) do
+      if Opaque.wrap(true), do: throw(:boom), else: :ok
+    end
+  end
+
+  defmodule Exiting do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context) do
+      if Opaque.wrap(true), do: exit(:boom), else: :ok
+    end
+  end
+
   defmodule NotRegistered do
     @moduledoc false
     defstruct []
@@ -294,5 +326,27 @@ defmodule Trogon.Dispatcher.TestSupport do
 
     import_dispatcher LeftDispatcher
     import_dispatcher RightDispatcher
+  end
+
+  defmodule NonRaisingFailureDispatcher do
+    @moduledoc false
+    use Trogon.Dispatcher
+
+    register_message Throwing, kind: :command
+    register_message Exiting, kind: :command
+  end
+
+  defmodule FalsyErrorDispatcher do
+    @moduledoc false
+    use Trogon.Dispatcher
+
+    register_message FalsyError, kind: :command
+  end
+
+  defmodule UnknownShapeErrorDispatcher do
+    @moduledoc false
+    use Trogon.Dispatcher
+
+    register_message UnknownShapeError, kind: :command
   end
 end
