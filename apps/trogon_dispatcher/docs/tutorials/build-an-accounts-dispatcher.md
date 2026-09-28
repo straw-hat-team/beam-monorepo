@@ -1,11 +1,9 @@
 # Build an accounts dispatcher
 
 In this tutorial you build a small accounts boundary: two commands, their handlers, an authorization policy, a
-multi-factor check that only one command asks for, and the dispatcher that wires them together. Along the way you
-will see the compiler reject a wrong handler before any code runs.
+multi-factor check that only one command asks for, and the dispatcher that wires them together.
 
-You need a Mix project with `{:trogon_dispatcher, "~> 0.1"}` in its dependencies and Elixir 1.20 for the type check
-at the end.
+You need a Mix project with `{:trogon_dispatcher, "~> 0.1"}` in its dependencies.
 
 ## Define the messages
 
@@ -119,8 +117,8 @@ defmodule MyApp.RequireMFA do
 end
 ```
 
-`MyApp.Authorize` has an `init/1` that returns a struct. It runs once, while the dispatcher compiles, and `call/3`
-receives that struct on every dispatch. `MyApp.RequireMFA` needs no options, so it has no `init/1`.
+`MyApp.Authorize` turns its options into a struct in `init/1`, and `call/3` receives that struct. `MyApp.RequireMFA`
+needs no options, so it has no `init/1`.
 
 Not calling `next` is how a middleware stops the dispatch. It puts a response on the context instead.
 
@@ -180,33 +178,6 @@ iex> MyApp.Dispatcher.dispatch_message(%DeleteAccount{user_id: 7}, %DispatchOpti
 {:error, :forbidden}
 ```
 
-## Let the compiler catch a wrong handler
-
-In `MyApp.Accounts.Dispatcher`, point `DeleteAccount` at the wrong handler:
-
-```elixir
-register_message Accounts.DeleteAccount, kind: :command, to: Accounts.RegisterUserHandler
-```
-
-Run `mix compile`. The compiler warns at that line, and again at the `import_dispatcher` line in `MyApp.Dispatcher`:
-
-```text
-warning: incompatible types given to MyApp.Accounts.RegisterUserHandler.handle_message/2:
-
-    MyApp.Accounts.RegisterUserHandler.handle_message(message, &1)
-
-given types:
-
-    -dynamic(%MyApp.Accounts.DeleteAccount{})-, dynamic()
-
-but expected one of:
-
-    %MyApp.Accounts.RegisterUser{}, term()
-```
-
-`RegisterUserHandler` only accepts `%RegisterUser{}`, and the compiler knows it. With `mix compile
---warnings-as-errors`, which is what CI usually runs, the build fails. Put the registration back.
-
 ## What you built
 
 - Messages that carry their own facts, and handlers that only do the work.
@@ -214,5 +185,6 @@ but expected one of:
 - A dispatcher that is the single place where the order is decided.
 
 To go further, [Write a middleware](../how-to/write-middleware.md) covers middleware in depth,
-[Test with Mox](../how-to/test-with-mox.md) shows how callers test against the dispatcher, and
-[Handlers and the context](../explanations/handlers-and-context.md) explains why the pieces are shaped this way.
+[Test with Mox](../how-to/test-with-mox.md) shows how callers test against the dispatcher,
+[Handlers and the context](../explanations/handlers-and-context.md) explains why the pieces are shaped this way, and
+[The compile-time model](../explanations/compile-time-model.md) covers what the build checks for you.
