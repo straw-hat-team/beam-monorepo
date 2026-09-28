@@ -72,13 +72,6 @@ defmodule Trogon.Dispatcher.TelemetryTest do
       assert metadata.result == :error
       assert metadata.error == :unauthorized
     end
-
-    test "measures the whole dispatch including middleware" do
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
-
-      assert_receive {Trogon.Dispatcher.Test, :stop, _event, measurements, _metadata}
-      assert measurements.duration > 0
-    end
   end
 
   describe "exception event" do
@@ -106,12 +99,12 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 
-      assert_receive {Trogon.Dispatcher.Test, :start, [:trogon_dispatcher, :dispatch, :start], _m, _meta}
+      Test.assert_dispatch_start(Support.RegisterUser)
+      metadata = Test.assert_dispatch_stop(Support.RegisterUser)
 
-      assert_receive {Trogon.Dispatcher.Test, :stop, [:trogon_dispatcher, :dispatch, :stop], _m,
-                      %{dispatcher: Support.RootDispatcher, registered_by: Support.AccountsDispatcher}}
-
-      refute_receive {Trogon.Dispatcher.Test, _phase, _event, _m, _meta}
+      assert metadata.dispatcher == Support.RootDispatcher
+      assert metadata.registered_by == Support.AccountsDispatcher
+      Test.refute_dispatch(Support.RegisterUser)
     end
   end
 

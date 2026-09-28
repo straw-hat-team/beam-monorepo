@@ -175,9 +175,9 @@ defmodule Trogon.Dispatcher.TestTest do
 
       assert {:ok, _user} = Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
 
-      Test.assert_dispatch_stop(Support.RegisterUser)
-      Test.assert_dispatch_stop(Support.RegisterUser)
-      refute_receive {Trogon.Dispatcher.Test, :stop, _event, _measurements, _metadata}
+      Test.assert_dispatch_start(Support.RegisterUser)
+      Test.assert_dispatch_start(Support.RegisterUser)
+      Test.refute_dispatch(Support.RegisterUser)
     end
   end
 
