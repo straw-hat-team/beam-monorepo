@@ -79,17 +79,11 @@ end
 
 ## OpenTelemetry
 
-`:telemetry` spans map onto OpenTelemetry through `opentelemetry_telemetry`, so tracing is a wiring step in the host
-app rather than a dependency of this library:
+For distributed tracing, see [Trace with OpenTelemetry](trace-with-opentelemetry.html): an optional
+`Trogon.Dispatcher.OpenTelemetry` module ships with the library and turns the dispatch span into an OpenTelemetry
+span once you add the OpenTelemetry deps.
 
-```elixir
-OpentelemetryTelemetry.start_telemetry_span(
-  :my_app,
-  "dispatch",
-  metadata,
-  %{kind: :internal}
-)
-```
+## Metrics
 
 Metrics work the same way through `telemetry_metrics`:
 

@@ -45,6 +45,11 @@ defmodule Trogon.Dispatcher.MixProject do
     [
       {:telemetry, "~> 1.0"},
 
+      # Optional OpenTelemetry integration
+      {:opentelemetry_api, "~> 1.0", optional: true},
+      {:opentelemetry_telemetry, "~> 1.0", optional: true},
+      {:opentelemetry, "~> 1.0", only: [:test]},
+
       # Tools
       {:mox, ">= 0.0.0", only: [:test]},
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
@@ -110,6 +115,7 @@ defmodule Trogon.Dispatcher.MixProject do
         "docs/how-to/write-middleware.md",
         "docs/how-to/test-with-mox.md",
         "docs/how-to/observe-with-telemetry.md",
+        "docs/how-to/trace-with-opentelemetry.md",
         "docs/explanations/why-wrapping-middleware.md",
         "docs/explanations/handlers-and-context.md",
         "docs/explanations/compile-time-model.md",
