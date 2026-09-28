@@ -45,15 +45,17 @@ Trogon.Dispatcher.OpenTelemetry.setup(
 )
 ```
 
-## Override the status for a returned error
+## Adjust the span from your own code
 
 ```elixir
-Trogon.Dispatcher.OpenTelemetry.setup(
-  error_status: fn
-    _event_name, _measurements, %{error: :not_found}, _config -> :unset
-    _event_name, _measurements, _metadata, _config -> :error
-  end
-)
+Trogon.Dispatcher.OpenTelemetry.setup(hook: &MyApp.Tracing.dispatch_hook/1)
+
+def dispatch_hook(%{phase: :stop, meta: %{error: :not_found}, span_ctx: span_ctx}) do
+  OpenTelemetry.Span.set_status(span_ctx, OpenTelemetry.status(:ok))
+end
+
+def dispatch_hook(_context), do: :ok
 ```
 
-See the `setup/1` options documentation on `Trogon.Dispatcher.OpenTelemetry` for what each option defaults to.
+See the moduledoc's "Hook" section on `Trogon.Dispatcher.OpenTelemetry` for the context map shape, and the
+`setup/1` options documentation for what each option defaults to.

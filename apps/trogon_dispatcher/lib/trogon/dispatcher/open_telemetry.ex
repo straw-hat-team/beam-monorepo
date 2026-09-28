@@ -51,6 +51,33 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
     exception module; a throw or an exit carries no exception, so `error.type` is `"_OTHER"`, the semantic
     convention's fallback value, with the class already on `erlang.exception.kind`. An unrecognized returned error
     shape also falls back to `error.type` `"_OTHER"`.
+
+    ## Hook
+
+    The `hook` option runs your own code against the dispatch span, for cases the options above cannot cover, such
+    as marking a particular returned error as not an error, or adding an attribute this module has no knowledge of.
+
+        Trogon.Dispatcher.OpenTelemetry.setup(hook: &MyApp.Tracing.dispatch_hook/1)
+
+        def dispatch_hook(%{phase: :stop, meta: %{error: :not_found}, span_ctx: span_ctx}) do
+          OpenTelemetry.Span.set_status(span_ctx, OpenTelemetry.status(:ok))
+        end
+
+        def dispatch_hook(_context), do: :ok
+
+    The hook is called with a context map: `:event`, `:phase` (`:start` or `:stop`), `:meta`, `:measurements`,
+    `:config`, and `:span_ctx`. `:meta` holds the raw `:telemetry` metadata for the phase: on `:start` it is the
+    dispatch metadata; on `:stop` it adds `:result` and, on failure, `:error`; an exception also reports as phase
+    `:stop`, with `:meta` adding `:kind`, `:reason`, and `:stacktrace` instead.
+
+    A status the hook sets wins over the one this module sets, because the OpenTelemetry SDK keeps the first error
+    status and treats an ok status as final. An attribute the hook sets overwrites this module's own attribute
+    under the same key, since the hook runs after this module sets its attributes, so namespace your attributes
+    (for example `com.acme.*`) rather than reusing a key this module owns. The hook runs after the span already
+    exists, so it has no way to influence head sampling.
+
+    On `:start` the hook runs once the span is started and current. On `:stop` it runs after this module sets its
+    attributes and before it sets the status. Its return value is ignored.
     """
 
     alias OpenTelemetry.Span
@@ -61,27 +88,19 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
     @telemetry_event [:trogon_dispatcher, :dispatch]
     @events for phase <- [:start, :stop, :exception], do: @telemetry_event ++ [phase]
 
-    @typedoc """
-    Callback used to decide the OpenTelemetry span status for a returned `:error` result.
-
-    Only invoked when the `:stop` event carries an `:error`. Exceptions always use OpenTelemetry exception
-    semantics and never go through this callback.
-    """
-    @type error_status_callback ::
-            (event_name :: [atom()], measurements :: map(), metadata :: map(), config :: keyword() ->
-               :unset | :ok | :error | nil)
-
     @options_schema NimbleOptions.new!(
-                      error_status: [
-                        type: {:or, [nil, {:fun, 4}]},
+                      hook: [
+                        type: {:or, [nil, {:fun, 1}]},
                         default: nil,
                         doc: """
-                        A `t:error_status_callback/0` to override the span status set for a returned `:error`.
-                        Defaults to always setting an error status. Return `nil` from the callback to leave the
-                        status unset.
+                        A 1-arity function that receives a context map on each dispatch span's `:start` and `:stop`.
+                        See the "Hook" section of the moduledoc for the map, the timing, and an example. A raising, throwing, or
+                        exiting hook is ignored and reported through the `[:trogon_dispatcher, :open_telemetry, :warning]`
+                        telemetry event, so it cannot detach the handler.
 
-                        Experimental: this callback shape is expected to change to follow the hook contract proposed
-                        in [opentelemetry-erlang-contrib#814](https://github.com/open-telemetry/opentelemetry-erlang-contrib/pull/814).
+                        Experimental: the context map may change while the hook design in
+                        [opentelemetry-erlang-contrib#814](https://github.com/open-telemetry/opentelemetry-erlang-contrib/pull/814)
+                        is settled.
                         """
                       ],
                       extra_attrs: [
@@ -123,12 +142,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
 
         Trogon.Dispatcher.OpenTelemetry.setup()
 
-        Trogon.Dispatcher.OpenTelemetry.setup(
-          error_status: fn
-            _event_name, _measurements, %{error: :not_found}, _config -> :unset
-            _event_name, _measurements, _metadata, _config -> :error
-          end
-        )
+        Trogon.Dispatcher.OpenTelemetry.setup(hook: &MyApp.Tracing.dispatch_hook/1)
     """
     @spec setup(keyword()) :: :ok
     def setup(opts \\ []) do
@@ -140,7 +154,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
     @doc false
     def handle_telemetry_event(event, measurements, metadata, config)
 
-    def handle_telemetry_event([:trogon_dispatcher, :dispatch, :start], _measurements, metadata, config) do
+    def handle_telemetry_event([:trogon_dispatcher, :dispatch, :start] = event, measurements, metadata, config) do
       destination_name = inspect(metadata.message)
       context = metadata.context
       opt_out_attrs = Keyword.fetch!(config, :opt_out_attrs)
@@ -177,39 +191,81 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
         )
         |> add_extra_attrs(Keyword.fetch!(config, :extra_attrs))
 
-      OpentelemetryTelemetry.start_telemetry_span(
-        @tracer_id,
-        "dispatch #{destination_name}",
-        metadata,
-        %{kind: :consumer, attributes: attributes}
-      )
+      span_ctx =
+        OpentelemetryTelemetry.start_telemetry_span(
+          @tracer_id,
+          "dispatch #{destination_name}",
+          metadata,
+          %{kind: :consumer, attributes: attributes}
+        )
+
+      run_hook(config, event, :start, measurements, metadata, span_ctx)
     end
 
-    def handle_telemetry_event([:trogon_dispatcher, :dispatch, :stop], measurements, metadata, config) do
+    def handle_telemetry_event([:trogon_dispatcher, :dispatch, :stop] = event, measurements, metadata, config) do
       ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, metadata)
 
       with %{result: :error, error: error} <- metadata do
         Span.set_attribute(ctx, SemConv.error_type(), error_type(error))
-        set_error_status(ctx, error, [:trogon_dispatcher, :dispatch, :stop], measurements, metadata, config)
+      end
+
+      run_hook(config, event, :stop, measurements, metadata, ctx)
+
+      with %{result: :error, error: error} <- metadata do
+        Span.set_status(ctx, OpenTelemetry.status(:error, format_error(error)))
       end
 
       OpentelemetryTelemetry.end_telemetry_span(@tracer_id, metadata)
     end
 
     def handle_telemetry_event(
-          [:trogon_dispatcher, :dispatch, :exception],
-          _measurements,
+          [:trogon_dispatcher, :dispatch, :exception] = event,
+          measurements,
           %{kind: kind, reason: reason, stacktrace: stacktrace} = metadata,
-          _config
+          config
         ) do
       ctx = OpentelemetryTelemetry.set_current_telemetry_span(@tracer_id, metadata)
 
       Span.set_attribute(ctx, SemConv.erlang_exception_kind(), kind)
-
       record_exception(ctx, Exception.normalize(kind, reason, stacktrace), kind, reason, stacktrace)
+
+      run_hook(config, event, :stop, measurements, metadata, ctx)
+
       Span.set_status(ctx, OpenTelemetry.status(:error, Exception.format_banner(kind, reason, stacktrace)))
 
       OpentelemetryTelemetry.end_telemetry_span(@tracer_id, metadata)
+    end
+
+    defp run_hook(config, event, phase, measurements, metadata, span_ctx) do
+      case Keyword.fetch!(config, :hook) do
+        nil ->
+          :ok
+
+        hook ->
+          context = %{
+            event: event,
+            phase: phase,
+            meta: metadata,
+            measurements: measurements,
+            config: config,
+            span_ctx: span_ctx
+          }
+
+          try do
+            hook.(context)
+            :ok
+          catch
+            kind, reason ->
+              :telemetry.execute([:trogon_dispatcher, :open_telemetry, :warning], %{count: 1}, %{
+                message: "hook raised, ignoring",
+                kind: kind,
+                reason: reason,
+                stacktrace: __STACKTRACE__
+              })
+
+              :ok
+          end
+      end
     end
 
     defp record_exception(ctx, exception, _kind, _reason, stacktrace) when is_exception(exception) do
@@ -254,36 +310,6 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
       })
 
       "_OTHER"
-    end
-
-    defp set_error_status(ctx, error, event_name, measurements, metadata, config) do
-      status_code =
-        case Keyword.get(config, :error_status) do
-          nil -> :error
-          fun when is_function(fun, 4) -> fun.(event_name, measurements, metadata, config)
-        end
-
-      apply_error_status(ctx, status_code, error)
-    end
-
-    defp apply_error_status(_ctx, nil, _error), do: :ok
-
-    defp apply_error_status(ctx, code, _error) when code in [:unset, :ok] do
-      Span.set_status(ctx, OpenTelemetry.status(code))
-    end
-
-    defp apply_error_status(ctx, :error, error) do
-      Span.set_status(ctx, OpenTelemetry.status(:error, format_error(error)))
-    end
-
-    defp apply_error_status(ctx, status_code, error) do
-      :telemetry.execute([:trogon_dispatcher, :open_telemetry, :warning], %{count: 1}, %{
-        message: "Unknown error status encountered, falling back to error status",
-        error: error,
-        error_status: status_code
-      })
-
-      Span.set_status(ctx, OpenTelemetry.status(:error, format_error(error)))
     end
 
     defp format_error(%{__exception__: true} = exception), do: Exception.message(exception)

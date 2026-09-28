@@ -1,6 +1,7 @@
 defmodule Trogon.Dispatcher.OpenTelemetryTest do
   use Trogon.Dispatcher.OpenTelemetryCase, async: false
 
+  alias OpenTelemetry.Span
   alias Trogon.Dispatcher.DispatchOptions
   alias Trogon.Dispatcher.OpenTelemetry, as: DispatcherOpenTelemetry
   alias Trogon.Dispatcher.OpenTelemetryCase
@@ -140,28 +141,6 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       assert message == ":unauthorized"
       assert :otel_attributes.map(attributes)[:"error.type"] == ":unauthorized"
     end
-
-    test "error_status callback can leave the status unset" do
-      OpenTelemetryCase.detach_handlers()
-
-      DispatcherOpenTelemetry.setup(error_status: fn _event_name, _measurements, _metadata, _config -> :unset end)
-
-      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
-
-      assert_receive {:span, span(status: status)}, 1000
-      assert status == {:status, :unset, ""}
-    end
-
-    test "error_status callback returning nil leaves the span status untouched" do
-      OpenTelemetryCase.detach_handlers()
-
-      DispatcherOpenTelemetry.setup(error_status: fn _event_name, _measurements, _metadata, _config -> nil end)
-
-      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
-
-      assert_receive {:span, span(status: status)}, 1000
-      assert status == :undefined
-    end
   end
 
   describe "exceptions" do
@@ -267,6 +246,152 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       assert_receive {:span, span(attributes: attributes)}, 1000
       assert :otel_attributes.map(attributes)[:"messaging.system"] == "trogon_dispatcher"
+    end
+  end
+
+  describe "hook option" do
+    test "start phase receives the context map and can set an attribute on the dispatch span" do
+      OpenTelemetryCase.detach_handlers()
+      test_pid = self()
+
+      DispatcherOpenTelemetry.setup(
+        hook: fn context ->
+          send(test_pid, {:hook, context})
+
+          if context.phase == :start do
+            Span.set_attribute(context.span_ctx, :"com.acme.hooked", true)
+          end
+        end
+      )
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+        assigns: %{trail: []}
+      })
+
+      assert_receive {:hook,
+                      %{
+                        event: [:trogon_dispatcher, :dispatch, :start],
+                        phase: :start,
+                        meta: meta,
+                        measurements: measurements,
+                        config: config,
+                        span_ctx: span_ctx
+                      }},
+                     1000
+
+      assert meta.message == Support.RegisterUser
+      assert is_map(measurements)
+      assert Keyword.keyword?(config)
+      assert span_ctx != :undefined
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+      assert :otel_attributes.map(attributes)[:"com.acme.hooked"] == true
+    end
+
+    test "stop phase runs on a successful dispatch" do
+      OpenTelemetryCase.detach_handlers()
+      test_pid = self()
+
+      DispatcherOpenTelemetry.setup(hook: fn context -> send(test_pid, {:hook, context}) end)
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+        assigns: %{trail: []}
+      })
+
+      assert_receive {:hook, %{phase: :start}}, 1000
+      assert_receive {:hook, %{event: [:trogon_dispatcher, :dispatch, :stop], phase: :stop, meta: meta}}, 1000
+      assert meta.result == :ok
+      refute Map.has_key?(meta, :error)
+    end
+
+    test "stop phase can set the status to ok on a returned error, and that wins" do
+      OpenTelemetryCase.detach_handlers()
+
+      DispatcherOpenTelemetry.setup(
+        hook: fn
+          %{phase: :stop, meta: %{error: :nope}, span_ctx: span_ctx} ->
+            Span.set_status(span_ctx, OpenTelemetry.status(:ok))
+
+          _context ->
+            :ok
+        end
+      )
+
+      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+
+      assert_receive {:span, span(status: status)}, 1000
+      assert status == {:status, :ok, ""}
+    end
+
+    test "stop phase setting an error status with a custom description wins over ours" do
+      OpenTelemetryCase.detach_handlers()
+
+      DispatcherOpenTelemetry.setup(
+        hook: fn
+          %{phase: :stop, meta: %{error: :nope}, span_ctx: span_ctx} ->
+            Span.set_status(span_ctx, OpenTelemetry.status(:error, "custom description"))
+
+          _context ->
+            :ok
+        end
+      )
+
+      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+
+      assert_receive {:span, span(status: {:status, :error, "custom description"})}, 1000
+    end
+
+    test "an exception maps to phase :stop, with kind in meta" do
+      OpenTelemetryCase.detach_handlers()
+      test_pid = self()
+
+      DispatcherOpenTelemetry.setup(hook: fn context -> send(test_pid, {:hook, context}) end)
+
+      assert_raise RuntimeError, "boom", fn ->
+        Support.RootDispatcher.dispatch_message(%Support.ExplodingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+      end
+
+      assert_receive {:hook, %{phase: :start}}, 1000
+
+      assert_receive {:hook,
+                      %{
+                        event: [:trogon_dispatcher, :dispatch, :exception],
+                        phase: :stop,
+                        meta: %{kind: :error, reason: reason, stacktrace: stacktrace}
+                      }},
+                     1000
+
+      assert %RuntimeError{message: "boom"} = reason
+      assert is_list(stacktrace)
+    end
+
+    test "a raising hook does not detach the handler, and emits the warning event" do
+      OpenTelemetryCase.detach_handlers()
+      test_pid = self()
+
+      :telemetry.attach(
+        "hook-raises-warning-test",
+        [:trogon_dispatcher, :open_telemetry, :warning],
+        fn _event, _measurements, metadata, _config -> send(test_pid, {:warning, metadata}) end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach("hook-raises-warning-test") end)
+
+      DispatcherOpenTelemetry.setup(hook: fn _context -> raise "boom from hook" end)
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+        assigns: %{trail: []}
+      })
+
+      assert_receive {:warning, %{message: "hook raised, ignoring", kind: :error, reason: %RuntimeError{}}}, 1000
+      assert_receive {:span, _span}, 1000
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
+        assigns: %{trail: []}
+      })
+
+      assert_receive {:span, _span}, 1000
     end
   end
 
