@@ -81,6 +81,9 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
                         A `t:error_status_callback/0` to override the span status set for a returned `:error`.
                         Defaults to always setting an error status. Return `nil` from the callback to leave the
                         status unset.
+
+                        Experimental: this callback shape is expected to change to follow the hook contract proposed
+                        in [opentelemetry-erlang-contrib#814](https://github.com/open-telemetry/opentelemetry-erlang-contrib/pull/814).
                         """
                       ],
                       extra_attrs: [
