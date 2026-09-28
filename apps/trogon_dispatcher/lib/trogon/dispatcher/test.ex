@@ -52,30 +52,36 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc """
-  Runs a single middleware against a context and a `next` of your choosing.
+  Runs a single middleware against a context.
 
   `init/1` runs first, exactly as it would at compile time. The return value is the context the middleware produced,
-  so assert on `context.response`, `context.assigns` or `context.private`. `next` defaults to a function that puts
-  `:ok` as the response, so a middleware that only inspects the context needs nothing more than the context.
+  so assert on `context.response`, `context.assigns` or `context.private`.
+
+  ## Options
+
+    * `:options` - what `middleware MyMiddleware, options` would pass to `init/1`. Defaults to `[]`.
+    * `:next` - the rest of the pipeline. Defaults to a function that puts `:ok` as the response, so a middleware that
+      only inspects the context needs nothing more than the context.
 
   ## Example
 
-      context = Test.call_middleware(MyApp.Authorize, [role: :admin], Test.build_context(message))
+      context = Test.call_middleware(MyApp.Authorize, Test.build_context(message), options: [role: :admin])
       assert context.response == {:error, :unauthorized}
 
       context =
-        Test.call_middleware(MyApp.Authorize, [role: :admin], context, fn ctx ->
-          send(self(), {:reached, ctx})
-          Context.put_response(ctx, :ok)
-        end)
+        Test.call_middleware(MyApp.Authorize, context,
+          options: [role: :admin],
+          next: fn ctx ->
+            send(self(), {:reached, ctx})
+            Context.put_response(ctx, :ok)
+          end
+        )
   """
-  @spec call_middleware(module(), term(), Context.t(), (Context.t() -> Context.t())) :: Context.t()
-  def call_middleware(
-        middleware_mod,
-        options \\ [],
-        %Context{} = context,
-        next \\ &Context.put_response(&1, :ok)
-      ) do
+  @spec call_middleware(module(), Context.t(), keyword()) :: Context.t()
+  def call_middleware(middleware_mod, %Context{} = context, opts \\ []) do
+    opts = Keyword.validate!(opts, options: [], next: &Context.put_response(&1, :ok))
+    options = Keyword.fetch!(opts, :options)
+
     initialized =
       if Code.ensure_loaded?(middleware_mod) do
         Trogon.Dispatcher.initialize_middleware!(middleware_mod, options)
@@ -83,7 +89,7 @@ defmodule Trogon.Dispatcher.Test do
         options
       end
 
-    middleware_mod.call(context, next, initialized)
+    middleware_mod.call(context, Keyword.fetch!(opts, :next), initialized)
   end
 
   @doc """

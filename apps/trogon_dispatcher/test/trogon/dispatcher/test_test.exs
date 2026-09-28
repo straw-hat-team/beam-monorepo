@@ -53,11 +53,11 @@ defmodule Trogon.Dispatcher.TestTest do
     end
   end
 
-  describe "call_middleware/4" do
+  describe "call_middleware/3" do
     test "runs init/1 before call/3" do
       context = Test.build_context(%Support.RegisterUser{})
 
-      reached = Test.call_middleware(Support.RequireTenant, [tenant: "globex"], context)
+      reached = Test.call_middleware(Support.RequireTenant, context, options: [tenant: "globex"])
 
       assert reached.private[Support.RequireTenant] == "globex"
       assert reached.response == :ok
@@ -66,7 +66,7 @@ defmodule Trogon.Dispatcher.TestTest do
     test "passes the context through to next" do
       context = Test.build_context(%Support.RegisterUser{})
 
-      reached = Test.call_middleware(Support.RequireTenant, [], context)
+      reached = Test.call_middleware(Support.RequireTenant, context)
 
       assert reached.private[Support.RequireTenant] == "acme"
       assert reached.assigns.trail == [:require_tenant]
@@ -76,9 +76,11 @@ defmodule Trogon.Dispatcher.TestTest do
       context = Test.build_context(%Support.RegisterUser{}, %DispatchOptions{actor: :forbidden})
 
       halted =
-        Test.call_middleware(Support.Authorize, [], context, fn _ctx ->
-          flunk("next should not have been called")
-        end)
+        Test.call_middleware(Support.Authorize, context,
+          next: fn _ctx ->
+            flunk("next should not have been called")
+          end
+        )
 
       assert halted.response == {:error, :unauthorized}
     end
@@ -86,7 +88,7 @@ defmodule Trogon.Dispatcher.TestTest do
     test "a middleware without init/1 receives the raw options" do
       context = Test.build_context(%Support.RegisterUser{})
 
-      reached = Test.call_middleware(Support.NoInit, [some: :option], context)
+      reached = Test.call_middleware(Support.NoInit, context, options: [some: :option])
 
       assert reached.assigns.trail == [{:no_init, [some: :option]}]
     end
@@ -95,7 +97,7 @@ defmodule Trogon.Dispatcher.TestTest do
       context = Test.build_context(%Support.RegisterUser{})
 
       assert_raise ArgumentError, ~r/to return a struct/, fn ->
-        Test.call_middleware(Support.NonStructInit, [], context)
+        Test.call_middleware(Support.NonStructInit, context)
       end
     end
 
@@ -103,9 +105,11 @@ defmodule Trogon.Dispatcher.TestTest do
       context = Test.build_context(%Support.RegisterUser{})
 
       reached =
-        Test.call_middleware(Support.Stamp, [], context, fn ctx ->
-          ctx |> Context.assign(:inner, true) |> Context.put_response(:ok)
-        end)
+        Test.call_middleware(Support.Stamp, context,
+          next: fn ctx ->
+            ctx |> Context.assign(:inner, true) |> Context.put_response(:ok)
+          end
+        )
 
       assert reached.assigns.inner == true
       assert reached.private[Support.Stamp] == :stamped

@@ -200,12 +200,12 @@ import Trogon.Dispatcher.Test
 
 context = build_context(%RegisterUser{email: "a@b.c"})
 
-reached = call_middleware(MyApp.RequireTenant, [default: "acme"], context)
+reached = call_middleware(MyApp.RequireTenant, context, options: [default: "acme"])
 
 assert Context.get_private(reached, MyApp.RequireTenant) == "acme"
 assert reached.response == :ok
 ```
 
-`call_middleware/4` runs `init/1` exactly as compilation would, then `call/3`, and hands you back the context the
-middleware produced. `next` defaults to a function that puts `:ok` as the response; pass your own to assert on what
+`call_middleware/3` runs `init/1` exactly as compilation would, then `call/3`, and hands you back the context the
+middleware produced. `:next` defaults to a function that puts `:ok` as the response; pass your own to assert on what
 the middleware sent inward.
