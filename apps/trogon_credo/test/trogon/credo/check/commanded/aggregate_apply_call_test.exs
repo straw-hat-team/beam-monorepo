@@ -174,6 +174,29 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCallTest do
       end)
     end
 
+    test "reports a call from inside a dynamically named nested module" do
+      """
+      defmodule Acme.Review.Domain.Aggregate do
+        use Trogon.Commanded.Aggregate, identifier: :id
+      end
+
+      defmodule Acme.Review.Test do
+        alias Acme.Review.Domain.Aggregate
+
+        defmodule __MODULE__.Child do
+          def run(aggregate, event) do
+            Aggregate.apply(aggregate, event)
+          end
+        end
+      end
+      """
+      |> to_source_file()
+      |> run_check(AggregateApplyCall)
+      |> assert_issue(fn issue ->
+        assert issue.trigger == "Aggregate"
+      end)
+    end
+
     test "does not report a call to apply on a module that is not a collected aggregate" do
       """
       defmodule Acme.Review.Helper do
@@ -427,6 +450,50 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCallTest do
         def apply(%__MODULE__{} = aggregate, %Approved{}) do
           aggregate
         end
+      end
+      """
+      |> to_source_file()
+      |> run_check(AggregateApplyCall)
+      |> refute_issues()
+    end
+
+    test "does not report a call from a @spec typespec on the callback" do
+      """
+      defmodule Acme.Review.Domain.Aggregate do
+        use Trogon.Commanded.Aggregate, identifier: :id
+
+        @spec apply(t(), event) :: t()
+        def apply(%__MODULE__{} = aggregate, _event), do: aggregate
+      end
+      """
+      |> to_source_file()
+      |> run_check(AggregateApplyCall)
+      |> refute_issues()
+    end
+
+    test "still reports a call inside a non-typespec module attribute" do
+      """
+      defmodule Acme.Review.Domain.Aggregate do
+        use Trogon.Commanded.Aggregate, identifier: :id
+
+        @initial_state apply(%__MODULE__{}, %Submitted{})
+
+        def apply(%__MODULE__{} = aggregate, _event), do: aggregate
+      end
+      """
+      |> to_source_file()
+      |> run_check(AggregateApplyCall)
+      |> assert_issue(fn issue ->
+        assert issue.trigger == "apply"
+      end)
+    end
+
+    test "does not report a defdelegate whose head is apply/2" do
+      """
+      defmodule Acme.Review.Domain.Aggregate do
+        use Trogon.Commanded.Aggregate, identifier: :id
+
+        defdelegate apply(aggregate, event), to: Acme.Review.Domain.Evolver
       end
       """
       |> to_source_file()

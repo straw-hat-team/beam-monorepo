@@ -226,7 +226,7 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
       nested_prefix = prefix ++ parts
       visit(body, nested_prefix, module_scope(ModuleName.full(nested_prefix), body, ctx), ctx, issues)
     else
-      issues
+      visit(body, prefix, {:other, nil}, ctx, issues)
     end
   end
 
@@ -235,6 +235,12 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
   end
 
   defp visit({:quote, _meta, _args}, _prefix, _scope, _ctx, issues), do: issues
+
+  # `@spec`/`@callback`/`@macrocallback`/`@type`/`@typep`/`@opaque` are typespecs, not calls.
+  defp visit({:@, _meta, [{attr_kind, _ameta, _attr_args}]}, _prefix, _scope, _ctx, issues)
+       when attr_kind in [:spec, :callback, :macrocallback, :type, :typep, :opaque] do
+    issues
+  end
 
   # `def apply(...)`/`defp apply(...)` define the callback; the head is not a call.
   defp visit({def_kind, _meta, [head, kw]}, prefix, scope, ctx, issues)
@@ -251,6 +257,16 @@ defmodule Trogon.Credo.Check.Commanded.AggregateApplyCall do
   defp visit({def_kind, _meta, [head]}, prefix, scope, ctx, issues)
        when def_kind in [:def, :defp] do
     if apply_head?(head), do: issues, else: visit(head, prefix, scope, ctx, issues)
+  end
+
+  # `defdelegate apply(...), to: X` declares the callback through another module; the head is not a call.
+  defp visit({:defdelegate, _meta, [head, kw]}, prefix, scope, ctx, issues) when is_list(kw) do
+    if apply_head?(head) do
+      visit(kw, prefix, scope, ctx, issues)
+    else
+      issues = visit(head, prefix, scope, ctx, issues)
+      visit(kw, prefix, scope, ctx, issues)
+    end
   end
 
   # Local `apply(aggregate, event)`.
