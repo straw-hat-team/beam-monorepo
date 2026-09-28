@@ -41,9 +41,7 @@ end
 defmodule MyAppWeb.UserControllerTest do
   use MyAppWeb.ConnCase, async: true
 
-  alias Trogon.Dispatcher.Test
-
-  require Test
+  require Trogon.Dispatcher.Test, as: Test
 
   setup {Mox, :verify_on_exit!}
 

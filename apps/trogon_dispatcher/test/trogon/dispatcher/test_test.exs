@@ -3,10 +3,9 @@ defmodule Trogon.Dispatcher.TestTest do
 
   alias Trogon.Dispatcher.Context
   alias Trogon.Dispatcher.DispatchOptions
-  alias Trogon.Dispatcher.Test
   alias Trogon.Dispatcher.TestSupport, as: Support
 
-  require Test
+  require Trogon.Dispatcher.Test, as: Test
 
   setup {Mox, :verify_on_exit!}
 

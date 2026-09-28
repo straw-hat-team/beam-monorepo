@@ -33,9 +33,7 @@ defmodule Trogon.Dispatcher.Test do
       defmodule MyApp.DispatcherTest do
         use ExUnit.Case, async: true
 
-        alias Trogon.Dispatcher.Test
-
-        require Test
+        require Trogon.Dispatcher.Test, as: Test
       end
   """
 

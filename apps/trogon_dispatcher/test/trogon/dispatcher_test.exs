@@ -6,11 +6,10 @@ defmodule Trogon.DispatcherTest do
   alias Trogon.Dispatcher.DispatchOptions
   alias Trogon.Dispatcher.InvalidContextError
   alias Trogon.Dispatcher.InvalidResponseError
-  alias Trogon.Dispatcher.Test
   alias Trogon.Dispatcher.TestSupport, as: Support
   alias Trogon.Dispatcher.UnregisteredMessageError
 
-  require Test
+  require Trogon.Dispatcher.Test, as: Test
 
   describe "dispatch_message/2" do
     test "routes to the message module itself by default" do

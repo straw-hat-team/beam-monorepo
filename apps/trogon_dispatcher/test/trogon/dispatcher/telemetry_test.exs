@@ -2,10 +2,9 @@ defmodule Trogon.Dispatcher.TelemetryTest do
   use ExUnit.Case, async: true
 
   alias Trogon.Dispatcher.DispatchOptions
-  alias Trogon.Dispatcher.Test
   alias Trogon.Dispatcher.TestSupport, as: Support
 
-  require Test
+  require Trogon.Dispatcher.Test, as: Test
 
   describe "start event" do
     setup do
