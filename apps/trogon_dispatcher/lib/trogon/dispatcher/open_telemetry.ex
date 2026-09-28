@@ -15,8 +15,6 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
 
           def start(_type, _args) do
             Trogon.Dispatcher.OpenTelemetry.setup()
-
-            Supervisor.start_link([MyApp.Repo], strategy: :one_for_one)
           end
         end
 
