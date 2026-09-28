@@ -108,11 +108,16 @@ defmodule Trogon.Dispatcher.TestSupport do
     @moduledoc false
     @behaviour Trogon.Dispatcher.Middleware
 
-    @impl true
-    def init(opts), do: Keyword.get(opts, :tenant, "acme")
+    defmodule Options do
+      @moduledoc false
+      defstruct tenant: "acme"
+    end
 
     @impl true
-    def call(context, next, tenant) do
+    def init(opts), do: %Options{tenant: Keyword.get(opts, :tenant, "acme")}
+
+    @impl true
+    def call(context, next, %Options{tenant: tenant}) do
       context
       |> Trogon.Dispatcher.Context.put_private(__MODULE__, tenant)
       |> Trail.append(:require_tenant)
@@ -124,11 +129,16 @@ defmodule Trogon.Dispatcher.TestSupport do
     @moduledoc false
     @behaviour Trogon.Dispatcher.Middleware
 
-    @impl true
-    def init(opts), do: opts
+    defmodule Options do
+      @moduledoc false
+      defstruct []
+    end
 
     @impl true
-    def call(context, next, _options) do
+    def init(_opts), do: %Options{}
+
+    @impl true
+    def call(context, next, %Options{}) do
       case context.actor do
         :forbidden ->
           Trogon.Dispatcher.Context.put_response(context, {:error, :unauthorized})
@@ -145,6 +155,17 @@ defmodule Trogon.Dispatcher.TestSupport do
     def call(context, next, options) do
       context |> Trail.append({:no_init, options}) |> next.()
     end
+  end
+
+  defmodule NonStructInit do
+    @moduledoc false
+    @behaviour Trogon.Dispatcher.Middleware
+
+    @impl true
+    def init(opts), do: opts
+
+    @impl true
+    def call(context, next, _options), do: next.(context)
   end
 
   defmodule Stamp do
@@ -172,11 +193,16 @@ defmodule Trogon.Dispatcher.TestSupport do
     @moduledoc false
     @behaviour Trogon.Dispatcher.Middleware
 
-    @impl true
-    def init(opts), do: opts
+    defmodule Options do
+      @moduledoc false
+      defstruct []
+    end
 
     @impl true
-    def call(_context, _next, _options), do: Opaque.wrap(:bogus)
+    def init(_opts), do: %Options{}
+
+    @impl true
+    def call(_context, _next, %Options{}), do: Opaque.wrap(:bogus)
   end
 
   defmodule AccountsDispatcher do

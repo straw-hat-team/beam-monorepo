@@ -20,12 +20,14 @@ defmodule Trogon.Dispatcher.Middleware do
 
         alias Trogon.Dispatcher.Context
 
-        @impl true
-        def init(opts), do: opts
+        defstruct [:role]
 
         @impl true
-        def call(%Context{} = context, next, _options) do
-          if allowed?(context.actor, context.message) do
+        def init(opts), do: %__MODULE__{role: Keyword.fetch!(opts, :role)}
+
+        @impl true
+        def call(%Context{} = context, next, %__MODULE__{role: role}) do
+          if allowed?(context.actor, role, context.message) do
             context
             |> Context.assign(:authorized_at, DateTime.utc_now())
             |> next.()
@@ -37,8 +39,9 @@ defmodule Trogon.Dispatcher.Middleware do
       end
 
   `init/1` runs once at compile time and its result is baked into the generated pipeline as the literal third
-  argument to `call/3`, so it must return a term that can be represented in AST (no functions, pids, or references).
-  It is optional; when a middleware does not export it the options reach `call/3` unchanged.
+  argument to `call/3`, so it must return a struct whose fields are AST-representable (no functions, pids, or
+  references). It is optional; when a middleware does not export it the raw options reach `call/3` unchanged.
+  Returning anything other than a struct from `init/1` raises `ArgumentError` at compile time.
 
   Returning anything other than a `Trogon.Dispatcher.Context` raises `Trogon.Dispatcher.InvalidContextError` naming
   the middleware. The context's `response` is held to the response contract at the same boundary, so a middleware
@@ -48,10 +51,48 @@ defmodule Trogon.Dispatcher.Middleware do
   alias Trogon.Dispatcher.Context
 
   @type options :: term()
+  @type init_result :: struct()
   @type next :: (Context.t() -> Context.t())
 
-  @callback init(options()) :: options()
-  @callback call(Context.t(), next(), options()) :: Context.t()
+  @callback init(options()) :: init_result()
+  @callback call(Context.t(), next(), init_result() | options()) :: Context.t()
 
   @optional_callbacks init: 1
+
+  @doc false
+  @spec __init__!(module(), options(), String.t()) :: init_result() | options()
+  def __init__!(middleware_mod, opts, location \\ "") do
+    if function_exported?(middleware_mod, :init, 1) do
+      case middleware_mod.init(opts) do
+        initialized when is_struct(initialized) ->
+          initialized
+
+        other ->
+          raise ArgumentError, """
+          Invalid middleware #{inspect(middleware_mod)}#{location}
+
+          Expected: #{inspect(middleware_mod)}.init/1 to return a struct
+          Got: #{inspect(other)}
+
+          To fix this, return a struct from init/1:
+
+              defmodule #{inspect(middleware_mod)} do
+                @behaviour Trogon.Dispatcher.Middleware
+
+                defstruct [:max_per_minute]
+
+                @impl true
+                def init(opts), do: %__MODULE__{max_per_minute: Keyword.fetch!(opts, :max_per_minute)}
+
+                @impl true
+                def call(context, next, %__MODULE__{} = options) do
+                  next.(context)
+                end
+              end
+          """
+      end
+    else
+      opts
+    end
+  end
 end

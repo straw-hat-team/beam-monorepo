@@ -10,11 +10,13 @@ defmodule MyApp.RequireTenant do
 
   alias Trogon.Dispatcher.Context
 
-  @impl true
-  def init(opts), do: Keyword.fetch!(opts, :default)
+  defstruct [:default]
 
   @impl true
-  def call(context, next, default_tenant) do
+  def init(opts), do: %__MODULE__{default: Keyword.fetch!(opts, :default)}
+
+  @impl true
+  def call(context, next, %__MODULE__{default: default_tenant}) do
     context
     |> Context.put_private(__MODULE__, context.assigns[:tenant] || default_tenant)
     |> next.()
@@ -36,16 +38,18 @@ middleware MyApp.RequireTenant, default: "acme"
   that registered the message, the reserved `:correlation_id`, `:causation_id` and `:actor` fields, plus `:assigns`
   and `:private`.
 - `next` is a context-to-context function. Call it with a context to continue; do not call it to halt.
-- `options` is whatever `init/1` returned at compile time.
+- `options` is the struct `init/1` returned at compile time, or the raw options passed to `middleware` when the
+  middleware does not export `init/1`.
 
 The context that comes back out of `next` is not the one you passed in. It carries `:response` plus anything the
 inner middleware and the handler wrote, so the backward leg reads and writes the same struct as the forward leg.
 
 ## init/1 runs at compile time
 
-`init/1` is optional. When present it runs during compilation and its return value is baked into the generated
-pipeline as a literal, which means it must be a term representable in AST: atoms, numbers, binaries, lists, tuples,
-maps and structs of those. A compiled regex, a PID, a function or a reference will not survive.
+`init/1` is optional. When present it must return a struct: the module defines a `defstruct`, and its return value is
+baked into the generated pipeline as a literal, which means every field must be a term representable in AST: atoms,
+numbers, binaries, lists, tuples, maps and structs of those. A compiled regex, a PID, a function or a reference will
+not survive. Returning anything other than a struct from `init/1` raises `ArgumentError` at compile time.
 
 Put expensive but static setup in `init/1` and keep `call/3` doing only per-dispatch work.
 

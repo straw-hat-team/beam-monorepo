@@ -188,6 +188,11 @@ defmodule Trogon.DispatcherTest do
       assert {:ok, %Support.User{trail: [{:no_init, [some: :option]}]}} =
                Support.NoInitDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
+
+    test "bakes the struct init/1 returned into the pipeline unchanged" do
+      assert [{Support.RequireTenant, %Support.RequireTenant.Options{tenant: "acme"}}] =
+               Support.AccountsDispatcher.__trogon_dispatcher__(:middleware)
+    end
   end
 
   describe "import composition" do
@@ -206,7 +211,8 @@ defmodule Trogon.DispatcherTest do
     end
 
     test "exposes its own middleware and direct imports" do
-      assert [{Support.Authorize, []}] = Support.RootDispatcher.__trogon_dispatcher__(:middleware)
+      assert [{Support.Authorize, %Support.Authorize.Options{}}] =
+               Support.RootDispatcher.__trogon_dispatcher__(:middleware)
 
       assert [Support.AccountsDispatcher, Support.BillingDispatcher] =
                Support.RootDispatcher.__trogon_dispatcher__(:imports)

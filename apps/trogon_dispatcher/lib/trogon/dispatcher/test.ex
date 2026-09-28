@@ -33,6 +33,7 @@ defmodule Trogon.Dispatcher.Test do
 
   alias Trogon.Dispatcher.Context
   alias Trogon.Dispatcher.DispatchOptions
+  alias Trogon.Dispatcher.Middleware
 
   @telemetry_tag :trogon_dispatcher_telemetry
 
@@ -60,11 +61,11 @@ defmodule Trogon.Dispatcher.Test do
 
   ## Example
 
-      context = Test.call_middleware(MyApp.Authorize, [], Test.build_context(message))
+      context = Test.call_middleware(MyApp.Authorize, [role: :admin], Test.build_context(message))
       assert context.response == {:error, :unauthorized}
 
       context =
-        Test.call_middleware(MyApp.Authorize, [], context, fn ctx ->
+        Test.call_middleware(MyApp.Authorize, [role: :admin], context, fn ctx ->
           send(self(), {:reached, ctx})
           Context.put_response(ctx, :ok)
         end)
@@ -77,8 +78,8 @@ defmodule Trogon.Dispatcher.Test do
         next \\ &Context.put_response(&1, :ok)
       ) do
     initialized =
-      if Code.ensure_loaded?(middleware_mod) and function_exported?(middleware_mod, :init, 1) do
-        middleware_mod.init(options)
+      if Code.ensure_loaded?(middleware_mod) do
+        Middleware.__init__!(middleware_mod, options)
       else
         options
       end

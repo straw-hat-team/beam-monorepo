@@ -91,6 +91,14 @@ defmodule Trogon.Dispatcher.TestTest do
       assert reached.assigns.trail == [{:no_init, [some: :option]}]
     end
 
+    test "raises when init/1 does not return a struct" do
+      context = Test.build_context(%Support.RegisterUser{})
+
+      assert_raise ArgumentError, ~r/to return a struct/, fn ->
+        Test.call_middleware(Support.NonStructInit, [], context)
+      end
+    end
+
     test "returns the context an inner next handed back" do
       context = Test.build_context(%Support.RegisterUser{})
 

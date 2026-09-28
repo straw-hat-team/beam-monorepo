@@ -89,6 +89,18 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
+    test "rejects a middleware whose init/1 does not return a struct" do
+      assert_raise ArgumentError, ~r/to return a struct/, fn ->
+        compile!("""
+        defmodule NonStructInitDispatcher do
+          use Trogon.Dispatcher
+          middleware Trogon.Dispatcher.TestSupport.NonStructInit
+          register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
+        end
+        """)
+      end
+    end
+
     test "dedupes a middleware reached both locally and through an import" do
       registrations = Support.RepeatedMiddlewareDispatcher.__trogon_dispatcher__(:registrations)
       [registration] = registrations

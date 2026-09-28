@@ -58,6 +58,7 @@ defmodule Trogon.Dispatcher do
   alias Trogon.Dispatcher.DuplicateMessageError
   alias Trogon.Dispatcher.InvalidContextError
   alias Trogon.Dispatcher.InvalidResponseError
+  alias Trogon.Dispatcher.Middleware
   alias Trogon.Dispatcher.UnregisteredMessageError
 
   @type kind :: :command | :query
@@ -289,12 +290,7 @@ defmodule Trogon.Dispatcher do
       """
     end
 
-    initialized =
-      if function_exported?(middleware_mod, :init, 1) do
-        middleware_mod.init(opts)
-      else
-        opts
-      end
+    initialized = Middleware.__init__!(middleware_mod, opts, " in #{inspect(module)}")
 
     Module.put_attribute(module, :trogon_dispatcher_middleware, {middleware_mod, initialized})
   end
