@@ -183,7 +183,7 @@ A middleware or a handler is free to call another dispatcher. Carry the ambient 
 `Trogon.Dispatcher.Context.to_dispatch_options/1`:
 
 ```elixir
-options = Context.to_dispatch_options(context)
+options = Trogon.Dispatcher.Context.to_dispatch_options(context)
 MyApp.Billing.Dispatcher.dispatch_message(%ChargeCard{}, options)
 ```
 
@@ -192,7 +192,7 @@ library defines no message-id contract and will not invent one. Set causation yo
 messages already carry:
 
 ```elixir
-options = %{Context.to_dispatch_options(context) | causation_id: context.message.id}
+options = %{Trogon.Dispatcher.Context.to_dispatch_options(context) | causation_id: context.message.id}
 ```
 
 ## Test a middleware in isolation

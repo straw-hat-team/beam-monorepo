@@ -87,7 +87,7 @@ defmodule Trogon.Dispatcher.CompileTest do
                "Expected: Trogon.Dispatcher.TestSupport.ArchiveUser to export handle_message/2"
     end
 
-    test "warns at the registration when the handler cannot accept the message" do
+    test "warns at the registration and at each import when the handler cannot accept the message" do
       diagnostics =
         compile_diagnostics("""
         defmodule OnlyArchivesUsers do
@@ -98,10 +98,19 @@ defmodule Trogon.Dispatcher.CompileTest do
           use Trogon.Dispatcher
           register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command, to: OnlyArchivesUsers
         end
+
+        defmodule ImportsMismatchedHandler do
+          use Trogon.Dispatcher
+          import_dispatcher MismatchedHandler
+        end
         """)
 
-      assert [%{severity: :warning, position: 7, message: message}] = diagnostics
-      assert message =~ "incompatible types given to OnlyArchivesUsers.handle_message/2"
+      assert diagnostics |> Enum.map(& &1.position) |> Enum.sort() == [7, 12]
+
+      for diagnostic <- diagnostics do
+        assert diagnostic.severity == :warning
+        assert diagnostic.message =~ "incompatible types given to OnlyArchivesUsers.handle_message/2"
+      end
     end
 
     test "does not warn when the handler accepts the message" do
@@ -167,7 +176,34 @@ defmodule Trogon.Dispatcher.CompileTest do
         end
 
       assert Exception.message(error) =~ "Invalid middleware Trogon.Dispatcher.TestSupport.Authorize"
-      assert Exception.message(error) =~ "inherited from SharedMiddlewareDispatcher"
+      assert Exception.message(error) =~ "inherited through import_dispatcher"
+    end
+
+    test "does not blame the registering dispatcher for middleware an intermediate importer declared" do
+      error =
+        assert_raise ArgumentError, fn ->
+          compile!("""
+          defmodule PlainLeafDispatcher do
+            use Trogon.Dispatcher
+            register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
+          end
+
+          defmodule AuthorizingMiddleDispatcher do
+            use Trogon.Dispatcher
+            middleware Trogon.Dispatcher.TestSupport.Authorize
+            import_dispatcher PlainLeafDispatcher
+          end
+
+          defmodule AuthorizingRootDispatcher do
+            use Trogon.Dispatcher
+            middleware Trogon.Dispatcher.TestSupport.Authorize
+            import_dispatcher AuthorizingMiddleDispatcher
+          end
+          """)
+        end
+
+      assert Exception.message(error) =~ "inherited through import_dispatcher"
+      refute Exception.message(error) =~ "PlainLeafDispatcher"
     end
 
     test "raises when a leaf lists the same middleware twice with identical options" do

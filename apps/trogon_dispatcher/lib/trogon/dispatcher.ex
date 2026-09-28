@@ -84,6 +84,7 @@ defmodule Trogon.Dispatcher do
       Module.register_attribute(__MODULE__, :trogon_dispatcher_registrations, accumulate: true)
       Module.register_attribute(__MODULE__, :trogon_dispatcher_imported, accumulate: true)
       Module.register_attribute(__MODULE__, :trogon_dispatcher_imports, accumulate: true)
+      Module.register_attribute(__MODULE__, :trogon_dispatcher_import_lines, accumulate: true)
 
       @callback dispatch_message(message :: struct()) :: Trogon.Dispatcher.response()
       @callback dispatch_message(message :: struct(), options :: Trogon.Dispatcher.DispatchOptions.t()) ::
@@ -156,7 +157,7 @@ defmodule Trogon.Dispatcher do
   @spec import_dispatcher(module()) :: Macro.t()
   defmacro import_dispatcher(dispatcher_mod) do
     quote bind_quoted: [dispatcher_mod: dispatcher_mod] do
-      Trogon.Dispatcher.__import_dispatcher__(__MODULE__, dispatcher_mod)
+      Trogon.Dispatcher.__import_dispatcher__(__MODULE__, dispatcher_mod, __ENV__.line)
     end
   end
 
@@ -243,9 +244,11 @@ defmodule Trogon.Dispatcher do
   end
 
   defp registration_lines(module) do
-    Map.new(accumulated(module, :trogon_dispatcher_registrations), fn {message_mod, _handler_mod, _kind, line} ->
-      {message_mod, line}
-    end)
+    local_lines =
+      for {message_mod, _handler_mod, _kind, line} <- accumulated(module, :trogon_dispatcher_registrations),
+          do: {message_mod, line}
+
+    Map.new(accumulated(module, :trogon_dispatcher_import_lines) ++ local_lines)
   end
 
   @doc false
@@ -381,7 +384,7 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __import_dispatcher__(module, dispatcher_mod) do
+  def __import_dispatcher__(module, dispatcher_mod, line) do
     if module == dispatcher_mod do
       raise CircularImportError.exception(
               dispatcher: module,
@@ -415,6 +418,7 @@ defmodule Trogon.Dispatcher do
 
     for registration <- dispatcher_mod.__trogon_dispatcher__(:registrations) do
       Module.put_attribute(module, :trogon_dispatcher_imported, registration)
+      Module.put_attribute(module, :trogon_dispatcher_import_lines, {registration.message, line})
     end
 
     :ok
@@ -454,7 +458,7 @@ defmodule Trogon.Dispatcher do
       [{middleware_mod, _init_result} = entry | _rest] ->
         origin =
           if entry in local_middleware and entry in registration.middleware do
-            "inherited from #{inspect(registration.registered_by)}"
+            "inherited through import_dispatcher"
           else
             "declared twice"
           end
