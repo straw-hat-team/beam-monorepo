@@ -10,6 +10,18 @@ defmodule Trogon.Dispatcher.CompileTest do
     :ok
   end
 
+  defp compile_diagnostics(source) do
+    previous = Code.get_compiler_option(:infer_signatures)
+    Code.put_compiler_option(:infer_signatures, true)
+
+    try do
+      {_result, diagnostics} = Code.with_diagnostics(fn -> compile!(source) end)
+      diagnostics
+    after
+      Code.put_compiler_option(:infer_signatures, previous)
+    end
+  end
+
   defp assert_compile_exit(source) do
     Process.flag(:trap_exit, true)
     pid = spawn_link(fn -> compile!(source) end)
@@ -73,6 +85,41 @@ defmodule Trogon.Dispatcher.CompileTest do
 
       assert Exception.message(error) =~
                "Expected: Trogon.Dispatcher.TestSupport.ArchiveUser to export handle_message/2"
+    end
+
+    test "warns at the registration when the handler cannot accept the message" do
+      diagnostics =
+        compile_diagnostics("""
+        defmodule OnlyArchivesUsers do
+          def handle_message(%Trogon.Dispatcher.TestSupport.ArchiveUser{}, _context), do: :ok
+        end
+
+        defmodule MismatchedHandler do
+          use Trogon.Dispatcher
+          register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command, to: OnlyArchivesUsers
+        end
+        """)
+
+      assert [%{severity: :warning, position: 7, message: message}] = diagnostics
+      assert message =~ "incompatible types given to OnlyArchivesUsers.handle_message/2"
+    end
+
+    test "does not warn when the handler accepts the message" do
+      diagnostics =
+        compile_diagnostics("""
+        defmodule HandlesBothUserMessages do
+          def handle_message(%Trogon.Dispatcher.TestSupport.RegisterUser{}, _context), do: :ok
+          def handle_message(%Trogon.Dispatcher.TestSupport.ArchiveUser{}, _context), do: :ok
+        end
+
+        defmodule MatchingHandler do
+          use Trogon.Dispatcher
+          register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command, to: HandlesBothUserMessages
+          register_message Trogon.Dispatcher.TestSupport.ArchiveUser, kind: :command, to: HandlesBothUserMessages
+        end
+        """)
+
+      assert diagnostics == []
     end
   end
 

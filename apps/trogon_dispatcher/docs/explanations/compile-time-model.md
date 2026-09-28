@@ -13,6 +13,10 @@ of something that is not a dispatcher fails at the line that caused it.
 A registered handler that does not export `handle_message/2` also fails the build. That check has to wait until the
 handler module is verified, which is why this package requires Elixir 1.14.
 
+On Elixir 1.20, a handler whose `handle_message/2` heads cannot match the registered message is a type warning at the
+`register_message` line, so `to:` pointing at the wrong handler fails a `--warnings-as-errors` build. The check needs
+the handler to pattern-match the message struct in its function head; a catch-all head accepts anything.
+
 ## How the middleware chain is resolved
 
 A dispatcher's own middleware wraps every message it handles, including the ones it gets through

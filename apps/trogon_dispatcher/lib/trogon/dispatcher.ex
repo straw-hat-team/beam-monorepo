@@ -139,7 +139,7 @@ defmodule Trogon.Dispatcher do
   @spec register_message(module(), keyword()) :: Macro.t()
   defmacro register_message(message_mod, opts) do
     quote bind_quoted: [message_mod: message_mod, opts: opts] do
-      Trogon.Dispatcher.__register_message__(__MODULE__, message_mod, opts)
+      Trogon.Dispatcher.__register_message__(__MODULE__, message_mod, opts, __ENV__.line)
     end
   end
 
@@ -176,16 +176,18 @@ defmodule Trogon.Dispatcher do
     telemetry_prefix = Module.get_attribute(module, :trogon_dispatcher_telemetry_prefix)
     event = telemetry_prefix ++ [:dispatch]
 
-    indexed = Enum.with_index(registrations)
-    clauses = Enum.map(indexed, &dispatch_clause(&1, event, options_mod))
-    stages = Enum.flat_map(indexed, &stage_functions/1)
+    lines = registration_lines(module)
+
+    clauses =
+      Enum.map(registrations, fn registration ->
+        dispatch_clause(registration, event, options_mod, Map.get(lines, registration.message, env.line))
+      end)
 
     quote do
       unquote(introspection(registrations, local_middleware, imports, telemetry_prefix))
       unquote(entrypoints(options_mod))
       unquote(clauses)
       unquote(fallbacks(options_mod, unregistered_mod))
-      unquote(stages)
     end
   end
 
@@ -235,9 +237,15 @@ defmodule Trogon.Dispatcher do
   end
 
   defp local_registrations(module) do
-    for {message_mod, handler_mod, kind} <- accumulated(module, :trogon_dispatcher_registrations) do
+    for {message_mod, handler_mod, kind, _line} <- accumulated(module, :trogon_dispatcher_registrations) do
       %{message: message_mod, handler: handler_mod, kind: kind, registered_by: module, middleware: []}
     end
+  end
+
+  defp registration_lines(module) do
+    Map.new(accumulated(module, :trogon_dispatcher_registrations), fn {message_mod, _handler_mod, _kind, line} ->
+      {message_mod, line}
+    end)
   end
 
   @doc false
@@ -334,7 +342,7 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __register_message__(module, message_mod, opts) do
+  def __register_message__(module, message_mod, opts, line) do
     ensure_compiled!(message_mod)
 
     kind = Keyword.get(opts, :kind)
@@ -369,7 +377,7 @@ defmodule Trogon.Dispatcher do
 
     handler_mod = Keyword.get(opts, :to, message_mod)
 
-    Module.put_attribute(module, :trogon_dispatcher_registrations, {message_mod, handler_mod, kind})
+    Module.put_attribute(module, :trogon_dispatcher_registrations, {message_mod, handler_mod, kind, line})
   end
 
   @doc false
@@ -463,10 +471,8 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp dispatch_clause({registration, index}, event, options_mod) do
-    entry = capture(stage_name(index, 0))
-
-    quote do
+  defp dispatch_clause(registration, event, options_mod, line) do
+    quote line: line do
       def dispatch_message(%unquote(registration.message){} = message, %unquote(options_mod){} = options) do
         Trogon.Dispatcher.dispatch(
           message,
@@ -475,14 +481,15 @@ defmodule Trogon.Dispatcher do
           __MODULE__,
           unquote(registration.registered_by),
           unquote(event),
-          unquote(entry)
+          unquote(Macro.escape(registration.middleware)),
+          {unquote(registration.handler), &unquote(registration.handler).handle_message(message, &1)}
         )
       end
     end
   end
 
   @doc false
-  def dispatch(message, options, kind, dispatcher, registered_by, event, entry) do
+  def dispatch(message, options, kind, dispatcher, registered_by, event, middleware, handler) do
     context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
 
     metadata = %{
@@ -494,42 +501,17 @@ defmodule Trogon.Dispatcher do
     }
 
     :telemetry.span(event, metadata, fn ->
-      final = entry.(context)
+      final = run(context, middleware, handler)
       {final.response, stop_metadata(metadata, final)}
     end)
   end
 
-  defp stage_functions({registration, index}) do
-    middleware_stages =
-      registration.middleware
-      |> Enum.with_index()
-      |> Enum.map(fn {{middleware_mod, options}, step} ->
-        name = stage_name(index, step)
-        next = capture(stage_name(index, step + 1))
+  defp run(context, [{middleware_mod, options} | rest], handler) do
+    validate(middleware_mod.call(context, &run(&1, rest, handler), options), middleware_mod, context)
+  end
 
-        quote do
-          defp unquote(name)(context) do
-            Trogon.Dispatcher.validate(
-              unquote(middleware_mod).call(context, unquote(next), unquote(Macro.escape(options))),
-              unquote(middleware_mod),
-              context
-            )
-          end
-        end
-      end)
-
-    handler_stage =
-      quote do
-        defp unquote(stage_name(index, length(registration.middleware)))(context) do
-          Trogon.Dispatcher.validate_response(
-            unquote(registration.handler).handle_message(context.message, context),
-            unquote(registration.handler),
-            context
-          )
-        end
-      end
-
-    middleware_stages ++ [handler_stage]
+  defp run(context, [], {handler_mod, handle}) do
+    validate_response(handle.(context), handler_mod, context)
   end
 
   @doc false
@@ -649,10 +631,6 @@ defmodule Trogon.Dispatcher do
         end)
     end
   end
-
-  defp stage_name(index, step), do: :"__trogon_dispatcher_stage_#{index}_#{step}__"
-
-  defp capture(name), do: {:&, [], [{:/, [], [{name, [], nil}, 1]}]}
 
   defp dispatcher?(module) do
     function_exported?(module, :__trogon_dispatcher__, 1)
