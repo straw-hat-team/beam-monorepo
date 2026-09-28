@@ -13,11 +13,11 @@ defmodule Trogon.Dispatcher.Test do
       Mox.defmock(MyApp.DispatcherMock, for: MyApp.Dispatcher)
 
       test "registers the user" do
-        expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{id: 1}})
+        Test.expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{id: 1}})
 
         # ... exercise the code under test ...
 
-        assert_dispatched(%RegisterUser{}, %DispatchOptions{})
+        Test.assert_dispatched(%RegisterUser{}, %DispatchOptions{})
       end
 
   Mock at the dispatcher boundary: it is the seam your application code depends on, so it is the seam worth
@@ -26,14 +26,16 @@ defmodule Trogon.Dispatcher.Test do
   `expect_dispatch/3` and `assert_dispatched/2` only exist when `Mox` is loaded. A plain `Mox.expect/4` still works,
   but it lets a mock return a response no real dispatch could, so the test passes where production would raise.
 
-  ## Importing
+  ## Requiring
 
-  The assertion helpers are macros, so import the module (or `require` it) before using them:
+  The assertion helpers are macros, so require the module before using them:
 
       defmodule MyApp.DispatcherTest do
         use ExUnit.Case, async: true
 
-        import Trogon.Dispatcher.Test
+        alias Trogon.Dispatcher.Test
+
+        require Test
       end
   """
 
@@ -143,11 +145,11 @@ defmodule Trogon.Dispatcher.Test do
 
     ## Examples
 
-        expect_dispatch(MyApp.DispatcherMock, ArchiveUser)
+        Test.expect_dispatch(MyApp.DispatcherMock, ArchiveUser)
 
-        expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
+        Test.expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
 
-        expect_dispatch(MyApp.DispatcherMock, RegisterUser,
+        Test.expect_dispatch(MyApp.DispatcherMock, RegisterUser,
           returns: fn %RegisterUser{email: email}, _options -> {:ok, %User{email: email}} end
         )
     """
@@ -200,7 +202,7 @@ defmodule Trogon.Dispatcher.Test do
 
     ## Example
 
-        assert_dispatched(%RegisterUser{email: email}, %DispatchOptions{actor: %User{}})
+        Test.assert_dispatched(%RegisterUser{email: email}, %DispatchOptions{actor: %User{}})
         assert email == "a@b.c"
     """
     defmacro assert_dispatched(message, options \\ quote(do: _)) do

@@ -1,14 +1,15 @@
 defmodule Trogon.Dispatcher.TelemetryTest do
   use ExUnit.Case, async: true
 
-  import Trogon.Dispatcher.Test
-
   alias Trogon.Dispatcher.DispatchOptions
+  alias Trogon.Dispatcher.Test
   alias Trogon.Dispatcher.TestSupport, as: Support
+
+  require Test
 
   describe "start event" do
     setup do
-      attach_telemetry!()
+      Test.attach_telemetry!()
       :ok
     end
 
@@ -16,7 +17,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
       options = %DispatchOptions{correlation_id: "corr", actor: :someone, assigns: %{trail: []}}
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
-      metadata = assert_dispatch_start(Support.RegisterUser)
+      metadata = Test.assert_dispatch_start(Support.RegisterUser)
 
       assert metadata.message == Support.RegisterUser
       assert metadata.kind == :command
@@ -31,7 +32,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     test "reports the kind of a query" do
       Support.RootDispatcher.dispatch_message(%Support.GetUser{id: 1}, %DispatchOptions{assigns: %{trail: []}})
 
-      metadata = assert_dispatch_start(Support.GetUser)
+      metadata = Test.assert_dispatch_start(Support.GetUser)
 
       assert metadata.kind == :query
     end
@@ -39,7 +40,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
   describe "stop event" do
     setup do
-      attach_telemetry!()
+      Test.attach_telemetry!()
       :ok
     end
 
@@ -48,7 +49,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
         assigns: %{trail: []}
       })
 
-      metadata = assert_dispatch_stop(Support.RegisterUser)
+      metadata = Test.assert_dispatch_stop(Support.RegisterUser)
 
       assert metadata.result == :ok
       refute Map.has_key?(metadata, :error)
@@ -57,7 +58,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     test "reports failure and carries the error term" do
       Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
 
-      metadata = assert_dispatch_stop(Support.FailingCommand)
+      metadata = Test.assert_dispatch_stop(Support.FailingCommand)
 
       assert metadata.result == :error
       assert metadata.error == :nope
@@ -66,7 +67,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     test "counts a middleware short circuit as a failure" do
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{actor: :forbidden})
 
-      metadata = assert_dispatch_stop(Support.RegisterUser)
+      metadata = Test.assert_dispatch_stop(Support.RegisterUser)
 
       assert metadata.result == :error
       assert metadata.error == :unauthorized
@@ -82,7 +83,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
   describe "exception event" do
     setup do
-      attach_telemetry!()
+      Test.attach_telemetry!()
       :ok
     end
 
@@ -91,7 +92,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
         Support.RootDispatcher.dispatch_message(%Support.ExplodingCommand{}, %DispatchOptions{assigns: %{trail: []}})
       end
 
-      metadata = assert_dispatch_exception(Support.ExplodingCommand)
+      metadata = Test.assert_dispatch_exception(Support.ExplodingCommand)
 
       assert metadata.kind == :error
       assert %RuntimeError{message: "boom"} = metadata.reason
@@ -101,7 +102,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
   describe "events" do
     test "a dispatch through an importer emits once, naming the entry point and the registering dispatcher" do
-      attach_telemetry!()
+      Test.attach_telemetry!()
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 
@@ -116,11 +117,11 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
   describe "refute_dispatch/1" do
     test "passes when the message was never dispatched" do
-      attach_telemetry!()
+      Test.attach_telemetry!()
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 
-      refute_dispatch(Support.GetUser)
+      Test.refute_dispatch(Support.GetUser)
     end
   end
 end

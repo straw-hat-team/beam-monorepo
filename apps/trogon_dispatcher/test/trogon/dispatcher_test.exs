@@ -1,15 +1,16 @@
 defmodule Trogon.DispatcherTest do
   use ExUnit.Case, async: true
 
-  import Trogon.Dispatcher.Test
-
   alias Trogon.Dispatcher.Context
   alias Trogon.Dispatcher.DispatchError
   alias Trogon.Dispatcher.DispatchOptions
   alias Trogon.Dispatcher.InvalidContextError
   alias Trogon.Dispatcher.InvalidResponseError
+  alias Trogon.Dispatcher.Test
   alias Trogon.Dispatcher.TestSupport, as: Support
   alias Trogon.Dispatcher.UnregisteredMessageError
+
+  require Test
 
   describe "dispatch_message/2" do
     test "routes to the message module itself by default" do
@@ -107,11 +108,11 @@ defmodule Trogon.DispatcherTest do
 
   describe "backward pipe" do
     test "the stop metadata carries the context the pipeline finished with" do
-      attach_telemetry!()
+      Test.attach_telemetry!()
 
       assert {:ok, _user} = Support.StampDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
 
-      metadata = assert_dispatch_stop(Support.RegisterUser)
+      metadata = Test.assert_dispatch_stop(Support.RegisterUser)
 
       assert metadata.context.private[Support.Stamp] == :stamped
       assert metadata.context.private[Support.RequireTenant] == "acme"
@@ -223,17 +224,17 @@ defmodule Trogon.DispatcherTest do
     test "carries the dispatcher and the registering dispatcher separately" do
       options = %DispatchOptions{assigns: %{trail: []}}
 
-      attach_telemetry!()
+      Test.attach_telemetry!()
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
-      metadata = assert_dispatch_stop(Support.RegisterUser)
+      metadata = Test.assert_dispatch_stop(Support.RegisterUser)
 
       assert metadata.context.dispatcher == Support.RootDispatcher
       assert metadata.context.registered_by == Support.AccountsDispatcher
     end
 
     test "assign/3 writes host space and put_private/3 writes middleware space" do
-      context = build_context(%Support.RegisterUser{})
+      context = Test.build_context(%Support.RegisterUser{})
 
       context = Context.assign(context, :thing, 1)
       context = Context.put_private(context, Support.RequireTenant, "tenant")
@@ -247,7 +248,7 @@ defmodule Trogon.DispatcherTest do
   describe "Context.to_dispatch_options/1" do
     test "carries correlation and actor forward, sets causation to the current message_id, and drops message_id" do
       context =
-        build_context(%Support.RegisterUser{}, %DispatchOptions{
+        Test.build_context(%Support.RegisterUser{}, %DispatchOptions{
           message_id: "msg-1",
           correlation_id: "corr",
           causation_id: "cause",

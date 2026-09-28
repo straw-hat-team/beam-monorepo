@@ -9,8 +9,6 @@ defmodule Trogon.Dispatcher.OpenTelemetryCase do
 
   using do
     quote do
-      import Trogon.Dispatcher.OpenTelemetryCase
-
       require Record
 
       for {name, spec} <- Record.extract_all(from_lib: "opentelemetry/include/otel_span.hrl") do

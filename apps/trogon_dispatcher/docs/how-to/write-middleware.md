@@ -174,11 +174,11 @@ MyApp.Billing.Dispatcher.dispatch_message(charge, options)
 ## Test a middleware in isolation
 
 ```elixir
-import Trogon.Dispatcher.Test
+alias Trogon.Dispatcher.Test
 
-context = build_context(%RegisterUser{email: "a@b.c"})
+context = Test.build_context(%RegisterUser{email: "a@b.c"})
 
-reached = call_middleware(MyApp.RequireTenant, context, options: [default: "acme"])
+reached = Test.call_middleware(MyApp.RequireTenant, context, options: [default: "acme"])
 
 assert Context.get_private(reached, MyApp.RequireTenant) == "acme"
 assert reached.response == :ok

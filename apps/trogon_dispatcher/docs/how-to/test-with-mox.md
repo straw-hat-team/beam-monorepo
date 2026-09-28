@@ -41,18 +41,19 @@ end
 defmodule MyAppWeb.UserControllerTest do
   use MyAppWeb.ConnCase, async: true
 
-  import Mox
-  import Trogon.Dispatcher.Test
+  alias Trogon.Dispatcher.Test
 
-  setup :verify_on_exit!
+  require Test
+
+  setup {Mox, :verify_on_exit!}
 
   test "creates a user", %{conn: conn} do
-    expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
+    Test.expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
 
     conn = post(conn, ~p"/users", %{"email" => "a@b.c"})
 
     assert json_response(conn, 200)["email"] == "a@b.c"
-    assert_dispatched(%RegisterUser{email: "a@b.c"})
+    Test.assert_dispatched(%RegisterUser{email: "a@b.c"})
   end
 end
 ```
@@ -71,11 +72,11 @@ assert {:ok, %User{email: "a@b.c"}} = MyApp.Dispatcher.dispatch_message(%Registe
 To exercise a handler or a middleware without a dispatcher at all, build a context directly:
 
 ```elixir
-import Trogon.Dispatcher.Test
+alias Trogon.Dispatcher.Test
 
-context = build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
+context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
 
-assert {:ok, %User{}} = call_handler(MyApp.Accounts.RegisterUser, context)
+assert {:ok, %User{}} = Test.call_handler(MyApp.Accounts.RegisterUser, context)
 ```
 
 See `Trogon.Dispatcher.Test.build_context/3` for the overrides it accepts, and `Trogon.Dispatcher.Test.call_handler/2`

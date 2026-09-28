@@ -63,28 +63,30 @@ Telemetry.Metrics.distribution("trogon_dispatcher.dispatch.stop.duration",
 defmodule MyApp.DispatcherTest do
   use ExUnit.Case, async: true
 
-  import Trogon.Dispatcher.Test
+  alias Trogon.Dispatcher.Test
+
+  require Test
 
   setup do
-    attach_telemetry!()
+    Test.attach_telemetry!()
     :ok
   end
 
   test "emits a successful span" do
     assert {:ok, _user} = MyApp.Dispatcher.dispatch_message(%RegisterUser{email: "a@b.c"})
 
-    assert_dispatch_start(RegisterUser)
-    metadata = assert_dispatch_stop(RegisterUser)
+    Test.assert_dispatch_start(RegisterUser)
+    metadata = Test.assert_dispatch_stop(RegisterUser)
 
     assert metadata.result == :ok
     assert metadata.registered_by == MyApp.Accounts.Dispatcher
   end
 
   test "does not dispatch when the request is rejected" do
-    refute_dispatch(RegisterUser)
+    Test.refute_dispatch(RegisterUser)
   end
 end
 ```
 
 See `Trogon.Dispatcher.Test` for what `attach_telemetry!/0` isolates and why the assertion helpers must be
-imported.
+required.
