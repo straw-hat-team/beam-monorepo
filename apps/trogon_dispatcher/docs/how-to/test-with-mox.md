@@ -74,7 +74,8 @@ import Trogon.Dispatcher.Test
 
 context = build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
 
-assert {:ok, %User{}} = MyApp.Accounts.RegisterUser.handle_message(context.message, context)
+assert {:ok, %User{}} = call_handler(MyApp.Accounts.RegisterUser, context)
 ```
 
-See `Trogon.Dispatcher.Test.build_context/3` for the overrides it accepts.
+See `Trogon.Dispatcher.Test.build_context/3` for the overrides it accepts, and `Trogon.Dispatcher.Test.call_handler/2`
+for the contract it enforces.

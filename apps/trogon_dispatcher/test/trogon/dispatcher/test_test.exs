@@ -55,6 +55,28 @@ defmodule Trogon.Dispatcher.TestTest do
     end
   end
 
+  describe "call_handler/2" do
+    test "hands the handler the context's message and returns its response" do
+      context = Test.build_context(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: :alice})
+
+      assert {:ok, %Support.User{email: "a@b.c", actor: :alice}} = Test.call_handler(Support.RegisterUser, context)
+    end
+
+    test "passes an error response through" do
+      context = Test.build_context(%Support.FailingCommand{})
+
+      assert {:error, _reason} = Test.call_handler(Support.FailingCommand, context)
+    end
+
+    test "raises when the success value is not a struct" do
+      context = Test.build_context(%Support.MapReturningCommand{})
+
+      assert_raise Trogon.Dispatcher.InvalidResponseError, fn ->
+        Test.call_handler(Support.MapReturningCommand, context)
+      end
+    end
+  end
+
   describe "call_middleware/3" do
     test "runs init/1 before call/3" do
       context = Test.build_context(%Support.RegisterUser{})
@@ -116,6 +138,22 @@ defmodule Trogon.Dispatcher.TestTest do
       assert reached.assigns.inner == true
       assert reached.private[Support.Stamp] == :stamped
       assert reached.response == :ok
+    end
+
+    test "raises when the middleware does not return a context" do
+      context = Test.build_context(%Support.RegisterUser{})
+
+      assert_raise Trogon.Dispatcher.InvalidContextError, fn ->
+        Test.call_middleware(Support.BadMiddleware, context)
+      end
+    end
+
+    test "raises when the middleware halts without a response" do
+      context = Test.build_context(%Support.RegisterUser{})
+
+      assert_raise Trogon.Dispatcher.InvalidResponseError, fn ->
+        Test.call_middleware(Support.Halting, context)
+      end
     end
   end
 

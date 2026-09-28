@@ -184,4 +184,4 @@ assert Context.get_private(reached, MyApp.RequireTenant) == "acme"
 assert reached.response == :ok
 ```
 
-See `Trogon.Dispatcher.Test` for what `call_middleware/3` does with `init/1` and `:next`.
+See `Trogon.Dispatcher.Test.call_middleware/3` for what it does with `init/1` and `:next`, and the contract it enforces.

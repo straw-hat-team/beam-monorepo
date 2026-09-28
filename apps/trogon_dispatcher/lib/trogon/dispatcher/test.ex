@@ -53,10 +53,30 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc """
+  Runs a handler against a context, the way a dispatch would.
+
+  The handler receives `context.message` and the context itself, and its return value is held to the response
+  contract in `Trogon.Dispatcher.Handler`: anything outside it raises `Trogon.Dispatcher.InvalidResponseError`, just
+  as it would in production. The return value is the handler's response.
+
+  ## Example
+
+      context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
+      assert {:ok, %User{}} = Test.call_handler(MyApp.Accounts.RegisterUser, context)
+  """
+  @spec call_handler(module(), Context.t()) :: Trogon.Dispatcher.response()
+  def call_handler(handler_mod, %Context{} = context) when is_atom(handler_mod) do
+    returned = handler_mod.handle_message(context.message, context)
+    Trogon.Dispatcher.validate_response(returned, handler_mod, context).response
+  end
+
+  @doc """
   Runs a single middleware against a context.
 
   `init/1` runs first, exactly as it would at compile time. The return value is the context the middleware produced,
-  so assert on `context.response`, `context.assigns` or `context.private`.
+  so assert on `context.response`, `context.assigns` or `context.private`. Returning anything other than a context
+  raises `Trogon.Dispatcher.InvalidContextError`, and a response outside the contract in `Trogon.Dispatcher.Handler`
+  raises `Trogon.Dispatcher.InvalidResponseError`, just as they would in production.
 
   ## Options
 
@@ -90,7 +110,9 @@ defmodule Trogon.Dispatcher.Test do
         options
       end
 
-    middleware_mod.call(context, Keyword.fetch!(opts, :next), initialized)
+    context
+    |> middleware_mod.call(Keyword.fetch!(opts, :next), initialized)
+    |> Trogon.Dispatcher.validate(middleware_mod, context)
   end
 
   @doc """
