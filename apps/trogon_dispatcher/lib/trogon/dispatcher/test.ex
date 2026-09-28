@@ -34,7 +34,7 @@ defmodule Trogon.Dispatcher.Test do
   alias Trogon.Dispatcher.Context
   alias Trogon.Dispatcher.DispatchOptions
 
-  @telemetry_tag :trogon_dispatcher_telemetry
+  @telemetry_tag __MODULE__
 
   @doc """
   Builds a `Trogon.Dispatcher.Context` for testing a middleware or a handler in isolation.
@@ -89,7 +89,7 @@ defmodule Trogon.Dispatcher.Test do
   @doc """
   Forwards every dispatch event under `prefix` to the calling process and detaches on test exit.
 
-  Messages arrive as `{:trogon_dispatcher_telemetry, phase, event, measurements, metadata}` where `phase` is
+  Messages arrive as `{Trogon.Dispatcher.Test, phase, event, measurements, metadata}` where `phase` is
   `:start`, `:stop` or `:exception`.
 
   Only events emitted *in the calling process* are forwarded. Dispatch is synchronous and in-process, so this keeps

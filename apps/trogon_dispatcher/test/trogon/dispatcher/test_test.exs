@@ -134,7 +134,7 @@ defmodule Trogon.Dispatcher.TestTest do
 
       assert_dispatch_stop(Support.RegisterUser)
       assert_dispatch_stop(Support.RegisterUser)
-      refute_receive {:trogon_dispatcher_telemetry, :stop, _event, _measurements, _metadata}
+      refute_receive {Trogon.Dispatcher.Test, :stop, _event, _measurements, _metadata}
     end
   end
 

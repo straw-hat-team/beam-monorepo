@@ -74,7 +74,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     test "measures the whole dispatch including middleware" do
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 
-      assert_receive {:trogon_dispatcher_telemetry, :stop, _event, measurements, _metadata}
+      assert_receive {Trogon.Dispatcher.Test, :stop, _event, measurements, _metadata}
       assert measurements.duration > 0
     end
   end
@@ -104,7 +104,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 
-      assert_receive {:trogon_dispatcher_telemetry, :start, [:support, :root, :dispatch, :start], _m, _meta}
+      assert_receive {Trogon.Dispatcher.Test, :start, [:support, :root, :dispatch, :start], _m, _meta}
     end
 
     test "a dispatcher without a configured prefix emits under the default" do
@@ -112,7 +112,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
       Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{})
 
-      assert_receive {:trogon_dispatcher_telemetry, :start, [:trogon_dispatcher, :dispatch, :start], _m, _meta}
+      assert_receive {Trogon.Dispatcher.Test, :start, [:trogon_dispatcher, :dispatch, :start], _m, _meta}
     end
 
     test "only the dispatcher that was called emits" do
@@ -121,8 +121,8 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 
-      assert_receive {:trogon_dispatcher_telemetry, :stop, [:support, :root, :dispatch, :stop], _m, _meta}
-      refute_receive {:trogon_dispatcher_telemetry, _phase, [:trogon_dispatcher, :dispatch, _], _m, _meta}
+      assert_receive {Trogon.Dispatcher.Test, :stop, [:support, :root, :dispatch, :stop], _m, _meta}
+      refute_receive {Trogon.Dispatcher.Test, _phase, [:trogon_dispatcher, :dispatch, _], _m, _meta}
     end
   end
 
