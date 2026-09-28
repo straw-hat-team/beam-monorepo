@@ -5,22 +5,16 @@ works and no vendor is baked in.
 
 ## Events
 
-With a dispatcher declared as:
-
-```elixir
-use Trogon.Dispatcher, telemetry_prefix: [:my_app, :dispatcher]
-```
-
-the events are:
+Every dispatcher emits the same events:
 
 | Event | Measurements | When |
 | --- | --- | --- |
-| `[:my_app, :dispatcher, :dispatch, :start]` | `:system_time`, `:monotonic_time` | before the first middleware |
-| `[:my_app, :dispatcher, :dispatch, :stop]` | `:duration`, `:monotonic_time` | after the pipeline returns |
-| `[:my_app, :dispatcher, :dispatch, :exception]` | `:duration`, `:monotonic_time` | when the pipeline raises, throws or exits |
+| `[:trogon_dispatcher, :dispatch, :start]` | `:system_time`, `:monotonic_time` | before the first middleware |
+| `[:trogon_dispatcher, :dispatch, :stop]` | `:duration`, `:monotonic_time` | after the pipeline returns |
+| `[:trogon_dispatcher, :dispatch, :exception]` | `:duration`, `:monotonic_time` | when the pipeline raises, throws or exits |
 
-The default prefix is `[:trogon_dispatcher]`. The prefix is the one that belongs to the dispatcher the caller invoked,
-so a message reached through a root dispatcher emits under the root's prefix, once.
+A message reached through a root dispatcher emits once, not once per layer. The event names are the same for every
+dispatcher, so tell them apart with the `:dispatcher` and `:registered_by` metadata rather than with the event name.
 
 An unregistered message emits nothing. The catch-all clause returns
 `{:error, %Trogon.Dispatcher.UnregisteredMessageError{}}` before the span opens, so a backend that counts `:stop`
@@ -57,8 +51,8 @@ answers which boundary owns the message, and a dashboard usually wants to group 
 :telemetry.attach_many(
   "my-app-dispatch-logger",
   [
-    [:my_app, :dispatcher, :dispatch, :stop],
-    [:my_app, :dispatcher, :dispatch, :exception]
+    [:trogon_dispatcher, :dispatch, :stop],
+    [:trogon_dispatcher, :dispatch, :exception]
   ],
   &MyApp.Telemetry.handle_event/4,
   nil
@@ -67,7 +61,7 @@ answers which boundary owns the message, and a dashboard usually wants to group 
 defmodule MyApp.Telemetry do
   require Logger
 
-  def handle_event([_, _, :dispatch, :stop], %{duration: duration}, metadata, _config) do
+  def handle_event([:trogon_dispatcher, :dispatch, :stop], %{duration: duration}, metadata, _config) do
     Logger.info("dispatched",
       dispatched_message: inspect(metadata.message),
       kind: metadata.kind,
@@ -77,7 +71,7 @@ defmodule MyApp.Telemetry do
     )
   end
 
-  def handle_event([_, _, :dispatch, :exception], _measurements, metadata, _config) do
+  def handle_event([:trogon_dispatcher, :dispatch, :exception], _measurements, metadata, _config) do
     Logger.error("dispatch raised", dispatched_message: inspect(metadata.message), reason: inspect(metadata.reason))
   end
 end
@@ -100,11 +94,11 @@ OpentelemetryTelemetry.start_telemetry_span(
 Metrics work the same way through `telemetry_metrics`:
 
 ```elixir
-Telemetry.Metrics.counter("my_app.dispatcher.dispatch.stop.duration",
-  tags: [:message, :kind, :registered_by, :result]
+Telemetry.Metrics.counter("trogon_dispatcher.dispatch.stop.duration",
+  tags: [:message, :kind, :dispatcher, :registered_by, :result]
 )
 
-Telemetry.Metrics.distribution("my_app.dispatcher.dispatch.stop.duration",
+Telemetry.Metrics.distribution("trogon_dispatcher.dispatch.stop.duration",
   unit: {:native, :millisecond},
   tags: [:message, :registered_by]
 )
@@ -119,7 +113,7 @@ defmodule MyApp.DispatcherTest do
   import Trogon.Dispatcher.Test
 
   setup do
-    attach_telemetry!([:my_app, :dispatcher])
+    attach_telemetry!()
     :ok
   end
 
@@ -139,7 +133,7 @@ defmodule MyApp.DispatcherTest do
 end
 ```
 
-`attach_telemetry!/1` detaches on test exit and forwards only events emitted in the calling process, so `async: true`
+`attach_telemetry!/0` detaches on test exit and forwards only events emitted in the calling process, so `async: true`
 modules do not see each other's dispatches.
 
 The assertion helpers are macros, so the module must be imported rather than aliased.

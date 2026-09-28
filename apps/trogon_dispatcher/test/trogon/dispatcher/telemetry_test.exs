@@ -8,7 +8,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
   describe "start event" do
     setup do
-      attach_telemetry!([:support, :root])
+      attach_telemetry!()
       :ok
     end
 
@@ -38,7 +38,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
   describe "stop event" do
     setup do
-      attach_telemetry!([:support, :root])
+      attach_telemetry!()
       :ok
     end
 
@@ -81,7 +81,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
   describe "exception event" do
     setup do
-      attach_telemetry!([:support, :root])
+      attach_telemetry!()
       :ok
     end
 
@@ -98,37 +98,24 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     end
   end
 
-  describe "telemetry prefix" do
-    test "a dispatcher emits under its own configured prefix" do
-      attach_telemetry!([:support, :root])
-
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
-
-      assert_receive {Trogon.Dispatcher.Test, :start, [:support, :root, :dispatch, :start], _m, _meta}
-    end
-
-    test "a dispatcher without a configured prefix emits under the default" do
+  describe "events" do
+    test "a dispatch through an importer emits once, naming the entry point and the registering dispatcher" do
       attach_telemetry!()
 
-      Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{})
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 
       assert_receive {Trogon.Dispatcher.Test, :start, [:trogon_dispatcher, :dispatch, :start], _m, _meta}
-    end
 
-    test "only the dispatcher that was called emits" do
-      attach_telemetry!([:support, :root])
-      attach_telemetry!()
+      assert_receive {Trogon.Dispatcher.Test, :stop, [:trogon_dispatcher, :dispatch, :stop], _m,
+                      %{dispatcher: Support.RootDispatcher, registered_by: Support.AccountsDispatcher}}
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
-
-      assert_receive {Trogon.Dispatcher.Test, :stop, [:support, :root, :dispatch, :stop], _m, _meta}
-      refute_receive {Trogon.Dispatcher.Test, _phase, [:trogon_dispatcher, :dispatch, _], _m, _meta}
+      refute_receive {Trogon.Dispatcher.Test, _phase, _event, _m, _meta}
     end
   end
 
   describe "refute_dispatch/1" do
     test "passes when the message was never dispatched" do
-      attach_telemetry!([:support, :root])
+      attach_telemetry!()
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
 

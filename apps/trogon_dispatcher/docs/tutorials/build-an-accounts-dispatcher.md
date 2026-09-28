@@ -140,7 +140,7 @@ defmodule MyApp.Accounts.Dispatcher do
 end
 
 defmodule MyApp.Dispatcher do
-  use Trogon.Dispatcher, telemetry_prefix: [:my_app, :dispatcher]
+  use Trogon.Dispatcher
 
   middleware MyApp.Authorize, policy: MyApp.Policy
   middleware MyApp.RequireMFA

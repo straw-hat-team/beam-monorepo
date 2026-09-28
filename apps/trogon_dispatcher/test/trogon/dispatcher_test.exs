@@ -217,18 +217,13 @@ defmodule Trogon.DispatcherTest do
       assert [Support.AccountsDispatcher, Support.BillingDispatcher] =
                Support.RootDispatcher.__trogon_dispatcher__(:imports)
     end
-
-    test "exposes its telemetry prefix" do
-      assert [:support, :root] = Support.RootDispatcher.__trogon_dispatcher__(:telemetry_prefix)
-      assert [:trogon_dispatcher] = Support.AccountsDispatcher.__trogon_dispatcher__(:telemetry_prefix)
-    end
   end
 
   describe "context" do
     test "carries the dispatcher and the registering dispatcher separately" do
       options = %DispatchOptions{assigns: %{trail: []}}
 
-      attach_telemetry!([:support, :root])
+      attach_telemetry!()
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       metadata = assert_dispatch_stop(Support.RegisterUser)

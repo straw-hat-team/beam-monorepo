@@ -19,7 +19,7 @@ defmodule Trogon.Dispatcher do
       end
 
       defmodule MyApp.Dispatcher do
-        use Trogon.Dispatcher, telemetry_prefix: [:my_app, :dispatcher]
+        use Trogon.Dispatcher
 
         middleware MyApp.Authorize
 
@@ -72,14 +72,14 @@ defmodule Trogon.Dispatcher do
           middleware: [{module(), term()}]
         }
 
-  @default_telemetry_prefix [:trogon_dispatcher]
+  @telemetry_event [:trogon_dispatcher, :dispatch]
 
   defmacro __using__(opts \\ []) do
     quote bind_quoted: [opts: opts] do
       import Trogon.Dispatcher,
         only: [middleware: 1, middleware: 2, register_message: 2, import_dispatcher: 1]
 
-      @trogon_dispatcher_telemetry_prefix Trogon.Dispatcher.__telemetry_prefix__(opts)
+      Trogon.Dispatcher.__validate_options__(opts)
 
       Module.register_attribute(__MODULE__, :trogon_dispatcher_middleware, accumulate: true)
       Module.register_attribute(__MODULE__, :trogon_dispatcher_registrations, accumulate: true)
@@ -175,31 +175,27 @@ defmodule Trogon.Dispatcher do
     registrations =
       resolve_registrations(module, local_middleware, local_registrations ++ imported_registrations)
 
-    telemetry_prefix = Module.get_attribute(module, :trogon_dispatcher_telemetry_prefix)
-    event = telemetry_prefix ++ [:dispatch]
-
     lines = registration_lines(module)
 
     clauses =
       Enum.map(registrations, fn registration ->
-        dispatch_clause(registration, event, options_mod, Map.get(lines, registration.message, env.line))
+        dispatch_clause(registration, options_mod, Map.get(lines, registration.message, env.line))
       end)
 
     quote do
-      unquote(introspection(registrations, local_middleware, imports, telemetry_prefix))
+      unquote(introspection(registrations, local_middleware, imports))
       unquote(entrypoints(options_mod))
       unquote(clauses)
       unquote(fallbacks(options_mod, unregistered_mod))
     end
   end
 
-  defp introspection(registrations, local_middleware, imports, telemetry_prefix) do
+  defp introspection(registrations, local_middleware, imports) do
     quote do
       @doc false
       def __trogon_dispatcher__(:registrations), do: unquote(Macro.escape(registrations))
       def __trogon_dispatcher__(:middleware), do: unquote(Macro.escape(local_middleware))
       def __trogon_dispatcher__(:imports), do: unquote(Macro.escape(imports))
-      def __trogon_dispatcher__(:telemetry_prefix), do: unquote(telemetry_prefix)
     end
   end
 
@@ -267,15 +263,10 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __telemetry_prefix__(opts) do
-    prefix = Keyword.get(opts, :telemetry_prefix, @default_telemetry_prefix)
+  def __validate_options__([]), do: :ok
 
-    if not (is_list(prefix) and prefix != [] and Enum.all?(prefix, &is_atom/1)) do
-      raise ArgumentError,
-            "expected :telemetry_prefix to be a non-empty list of atoms, got: #{inspect(prefix)}"
-    end
-
-    prefix
+  def __validate_options__(opts) do
+    raise ArgumentError, "use Trogon.Dispatcher takes no options, got: #{inspect(opts)}"
   end
 
   @doc false
@@ -447,7 +438,7 @@ defmodule Trogon.Dispatcher do
     end)
   end
 
-  defp dispatch_clause(registration, event, options_mod, line) do
+  defp dispatch_clause(registration, options_mod, line) do
     quote line: line do
       def dispatch_message(%unquote(registration.message){} = message, %unquote(options_mod){} = options) do
         Trogon.Dispatcher.dispatch(
@@ -456,7 +447,6 @@ defmodule Trogon.Dispatcher do
           unquote(registration.kind),
           __MODULE__,
           unquote(registration.registered_by),
-          unquote(event),
           unquote(Macro.escape(registration.middleware)),
           {unquote(registration.handler), &unquote(registration.handler).handle_message(message, &1)}
         )
@@ -465,7 +455,7 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def dispatch(message, options, kind, dispatcher, registered_by, event, middleware, handler) do
+  def dispatch(message, options, kind, dispatcher, registered_by, middleware, handler) do
     context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
 
     metadata = %{
@@ -476,7 +466,7 @@ defmodule Trogon.Dispatcher do
       context: context
     }
 
-    :telemetry.span(event, metadata, fn ->
+    :telemetry.span(@telemetry_event, metadata, fn ->
       final = run(context, middleware, handler)
       {final.response, stop_metadata(metadata, final)}
     end)

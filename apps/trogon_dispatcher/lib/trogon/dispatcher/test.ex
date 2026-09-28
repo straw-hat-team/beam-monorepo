@@ -93,7 +93,7 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc """
-  Forwards every dispatch event under `prefix` to the calling process and detaches on test exit.
+  Forwards every dispatch event to the calling process and detaches on test exit.
 
   Messages arrive as `{Trogon.Dispatcher.Test, phase, event, measurements, metadata}` where `phase` is
   `:start`, `:stop` or `:exception`.
@@ -105,16 +105,16 @@ defmodule Trogon.Dispatcher.Test do
   ## Example
 
       setup do
-        Test.attach_telemetry!([:my_app, :dispatcher])
+        Test.attach_telemetry!()
         :ok
       end
   """
-  @spec attach_telemetry!([atom()]) :: :ok
-  def attach_telemetry!(prefix \\ [:trogon_dispatcher]) do
+  @spec attach_telemetry!() :: :ok
+  def attach_telemetry! do
     test_process = self()
-    handler_id = {__MODULE__, prefix, test_process, System.unique_integer()}
+    handler_id = {__MODULE__, test_process, System.unique_integer()}
 
-    events = for phase <- [:start, :stop, :exception], do: prefix ++ [:dispatch, phase]
+    events = for phase <- [:start, :stop, :exception], do: [:trogon_dispatcher, :dispatch, phase]
 
     :ok =
       :telemetry.attach_many(

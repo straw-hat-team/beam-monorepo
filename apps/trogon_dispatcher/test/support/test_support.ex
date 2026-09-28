@@ -229,7 +229,7 @@ defmodule Trogon.Dispatcher.TestSupport do
 
   defmodule RootDispatcher do
     @moduledoc false
-    use Trogon.Dispatcher, telemetry_prefix: [:support, :root]
+    use Trogon.Dispatcher
 
     middleware Authorize
 

@@ -256,11 +256,11 @@ defmodule Trogon.Dispatcher.CompileTest do
   end
 
   describe "use Trogon.Dispatcher" do
-    test "rejects a telemetry prefix that is not a non-empty list of atoms" do
-      assert_raise ArgumentError, ~r/non-empty list of atoms/, fn ->
+    test "rejects options" do
+      assert_raise ArgumentError, ~r/takes no options/, fn ->
         compile!("""
-        defmodule BadPrefix do
-          use Trogon.Dispatcher, telemetry_prefix: "my_app"
+        defmodule WithOptions do
+          use Trogon.Dispatcher, telemetry_prefix: [:my_app]
         end
         """)
       end

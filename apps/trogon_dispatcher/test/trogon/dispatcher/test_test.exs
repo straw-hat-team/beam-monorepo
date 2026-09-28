@@ -117,9 +117,9 @@ defmodule Trogon.Dispatcher.TestTest do
     end
   end
 
-  describe "attach_telemetry!/1" do
-    test "forwards the events of the given prefix" do
-      Test.attach_telemetry!([:support, :root])
+  describe "attach_telemetry!/0" do
+    test "forwards the dispatch events" do
+      Test.attach_telemetry!()
 
       assert {:ok, _user} = Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
 
@@ -131,8 +131,8 @@ defmodule Trogon.Dispatcher.TestTest do
     end
 
     test "detaches on exit so a later attach does not double up" do
-      Test.attach_telemetry!([:support, :root])
-      Test.attach_telemetry!([:support, :root])
+      Test.attach_telemetry!()
+      Test.attach_telemetry!()
 
       assert {:ok, _user} = Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"})
 

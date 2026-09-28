@@ -37,7 +37,7 @@ runs only its own middleware. You do not have to route everything through a root
 
 ```elixir
 defmodule MyApp.Dispatcher do
-  use Trogon.Dispatcher, telemetry_prefix: [:my_app, :dispatcher]
+  use Trogon.Dispatcher
 
   middleware MyApp.Authorize
 
@@ -100,7 +100,6 @@ path.
 MyApp.Dispatcher.__trogon_dispatcher__(:registrations)
 MyApp.Dispatcher.__trogon_dispatcher__(:middleware)
 MyApp.Dispatcher.__trogon_dispatcher__(:imports)
-MyApp.Dispatcher.__trogon_dispatcher__(:telemetry_prefix)
 ```
 
 `:registrations` returns the flattened list, each entry carrying `:message`, `:handler`, `:kind`, `:registered_by`
