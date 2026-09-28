@@ -122,6 +122,37 @@ could no longer be dispatched.
 `:kind` is the one fact the library does read, so it stays where the library can see it without loading anything:
 on the registration in the router.
 
+## Running once per dispatch
+
+A chain runs every middleware it declares, so the same middleware can run more than once when it is declared at
+several layers. That is what a retry or a timer at more than one layer wants. A middleware with a side effect that
+must happen once, such as counting a request against a rate limit, marks the context and skips itself when the mark
+is already there:
+
+```elixir
+defmodule MyApp.RateLimit do
+  @behaviour Trogon.Dispatcher.Middleware
+
+  alias Trogon.Dispatcher.Context
+
+  @impl true
+  def call(context, next, options) do
+    if Context.get_private(context, __MODULE__) do
+      next.(context)
+    else
+      context
+      |> Context.put_private(__MODULE__, :counted)
+      |> limit(next, options)
+    end
+  end
+
+  defp limit(context, next, _options) do
+    # count the request, then either halt or continue
+    next.(context)
+  end
+end
+```
+
 ## Halting
 
 Not calling `next` halts the pipeline. Put your own response on the context and nothing downstream runs:

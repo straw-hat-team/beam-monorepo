@@ -57,7 +57,8 @@ dispatcher already had:
   touches it.
 
 Composition is additive. An importer can add middleware around what it imports; it can never remove or reorder
-middleware it inherited.
+middleware it inherited. If the importer declares a middleware the imported dispatcher already has, it runs at both
+layers: the importer's copy outside, the imported one inside.
 
 ## Recompilation
 
@@ -85,10 +86,6 @@ defmodule MyApp.Root do
   import_dispatcher MyApp.Right
 end
 ```
-
-The same middleware reaching one message's chain more than once, whether through overlapping import paths or by
-listing it twice on one dispatcher, fails the build. The same module with different options is fine and stays as
-two distinct steps.
 
 Two paths that disagree raise `Trogon.Dispatcher.DuplicateMessageError` at compile time. They disagree when the same
 message resolves to a different handler, a different kind, or a different effective middleware chain. The compiler

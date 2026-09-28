@@ -23,9 +23,10 @@ message struct in its function head; a catch-all head accepts anything.
 A dispatcher's own middleware wraps every message it handles, including the ones it gets through
 `import_dispatcher`. Composition is additive: an importer wraps what it imported and cannot reorder or remove it.
 
-A middleware reaching one message's chain more than once, whether through overlapping import paths or by being
-listed twice on one dispatcher with the same options, fails the build rather than silently collapsing or
-reordering. The same module with different options is fine and stays as two distinct steps.
+The chain is exactly what was declared. A middleware that appears more than once, whether listed twice on one
+dispatcher or declared by both an importer and the dispatcher it imports, runs each time it appears. Nothing is
+collapsed, so a retry or a timer can sit at more than one layer on purpose. A middleware that must run only once per
+dispatch guards itself; see [Write a middleware](../how-to/write-middleware.md).
 
 The same message registered more than once is fine when every registration is identical, and raises
 `Trogon.Dispatcher.DuplicateMessageError` when they disagree.

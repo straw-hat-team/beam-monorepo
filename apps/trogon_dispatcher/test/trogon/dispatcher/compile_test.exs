@@ -157,82 +157,38 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
-    test "raises when a middleware is reached both locally and through an import with the same options" do
-      error =
-        assert_raise ArgumentError, fn ->
-          compile!("""
-          defmodule SharedMiddlewareDispatcher do
-            use Trogon.Dispatcher
-            middleware Trogon.Dispatcher.TestSupport.Authorize
-            register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
-          end
+    test "runs a middleware reached both locally and through an import at each layer" do
+      compile!("""
+      defmodule SharedLeafDispatcher do
+        use Trogon.Dispatcher
+        middleware Trogon.Dispatcher.TestSupport.NoInit, layer: :leaf
+        register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
+      end
 
-          defmodule RepeatedMiddlewareDispatcher do
-            use Trogon.Dispatcher
-            middleware Trogon.Dispatcher.TestSupport.Authorize
-            import_dispatcher SharedMiddlewareDispatcher
-          end
-          """)
-        end
+      defmodule SharedRootDispatcher do
+        use Trogon.Dispatcher
+        middleware Trogon.Dispatcher.TestSupport.NoInit, layer: :leaf
+        import_dispatcher SharedLeafDispatcher
+      end
+      """)
 
-      assert Exception.message(error) =~ "Invalid middleware Trogon.Dispatcher.TestSupport.Authorize"
-      assert Exception.message(error) =~ "inherited through import_dispatcher"
+      assert {:ok, %{trail: [{:no_init, [layer: :leaf]}, {:no_init, [layer: :leaf]}]}} =
+               SharedRootDispatcher.dispatch_message(%Support.BillingCommand{})
     end
 
-    test "does not blame the registering dispatcher for middleware an intermediate importer declared" do
-      error =
-        assert_raise ArgumentError, fn ->
-          compile!("""
-          defmodule PlainLeafDispatcher do
-            use Trogon.Dispatcher
-            register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
-          end
+    test "runs a middleware listed twice with identical options twice, in declaration order" do
+      compile!("""
+      defmodule DoubleListedMiddlewareDispatcher do
+        use Trogon.Dispatcher
+        middleware Trogon.Dispatcher.TestSupport.NoInit, step: :first
+        middleware Trogon.Dispatcher.TestSupport.NoInit, step: :first
+        middleware Trogon.Dispatcher.TestSupport.NoInit, step: :last
+        register_message Trogon.Dispatcher.TestSupport.BillingCommand, kind: :command
+      end
+      """)
 
-          defmodule AuthorizingMiddleDispatcher do
-            use Trogon.Dispatcher
-            middleware Trogon.Dispatcher.TestSupport.Authorize
-            import_dispatcher PlainLeafDispatcher
-          end
-
-          defmodule AuthorizingRootDispatcher do
-            use Trogon.Dispatcher
-            middleware Trogon.Dispatcher.TestSupport.Authorize
-            import_dispatcher AuthorizingMiddleDispatcher
-          end
-          """)
-        end
-
-      assert Exception.message(error) =~ "inherited through import_dispatcher"
-      refute Exception.message(error) =~ "PlainLeafDispatcher"
-    end
-
-    test "raises when a leaf lists the same middleware twice with identical options" do
-      error =
-        assert_raise ArgumentError, fn ->
-          compile!("""
-          defmodule DoubleListedMiddlewareDispatcher do
-            use Trogon.Dispatcher
-            middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "acme"
-            middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "acme"
-            register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
-          end
-          """)
-        end
-
-      assert Exception.message(error) =~ "Invalid middleware Trogon.Dispatcher.TestSupport.RequireTenant"
-      assert Exception.message(error) =~ "declared twice with the same options"
-    end
-
-    test "allows the same middleware module listed twice with different options" do
-      assert :ok =
-               compile!("""
-               defmodule DistinctOptionsMiddlewareDispatcher do
-                 use Trogon.Dispatcher
-                 middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "acme"
-                 middleware Trogon.Dispatcher.TestSupport.RequireTenant, tenant: "other"
-                 register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
-               end
-               """)
+      assert {:ok, %{trail: [{:no_init, [step: :first]}, {:no_init, [step: :first]}, {:no_init, [step: :last]}]}} =
+               DoubleListedMiddlewareDispatcher.dispatch_message(%Support.BillingCommand{})
     end
   end
 
