@@ -34,32 +34,51 @@ Finally, registrations reached more than once are collapsed when they are identi
 ## What gets generated
 
 For each registration, one `dispatch_message/2` clause matching the message struct, plus one private function per
-middleware stage and one for the handler:
+middleware stage and one for the handler. The clause itself only varies by the message module in its pattern, the
+kind, the registered-by module, the telemetry event, and the entry stage; everything else is a runtime function on
+`Trogon.Dispatcher`:
 
 ```elixir
 def dispatch_message(%RegisterUser{} = message, %DispatchOptions{} = options) do
-  context = %Context{message: message, kind: :command, dispatcher: __MODULE__, registered_by: MyApp.Accounts.Dispatcher, ...}
-  metadata = %{message: RegisterUser, kind: :command, dispatcher: __MODULE__, registered_by: MyApp.Accounts.Dispatcher, context: context}
-
-  :telemetry.span([:my_app, :dispatcher, :dispatch], metadata, fn ->
-    final = __trogon_dispatcher_stage_0_0__(context)
-    {final.response, Trogon.Dispatcher.__stop_metadata__(metadata, final)}
-  end)
+  Trogon.Dispatcher.dispatch(
+    message,
+    options,
+    :command,
+    __MODULE__,
+    MyApp.Accounts.Dispatcher,
+    [:my_app, :dispatcher, :dispatch],
+    &__trogon_dispatcher_stage_0_0__/1
+  )
 end
 
 defp __trogon_dispatcher_stage_0_0__(context) do
-  Trogon.Dispatcher.__validate__(MyApp.Authorize.call(context, &__trogon_dispatcher_stage_0_1__/1, []), MyApp.Authorize, context)
+  Trogon.Dispatcher.validate(MyApp.Authorize.call(context, &__trogon_dispatcher_stage_0_1__/1, []), MyApp.Authorize, context)
 end
 
 defp __trogon_dispatcher_stage_0_1__(context) do
-  Trogon.Dispatcher.__validate_response__(MyApp.Accounts.RegisterUser.handle_message(context.message, context), MyApp.Accounts.RegisterUser, context)
+  Trogon.Dispatcher.validate_response(MyApp.Accounts.RegisterUser.handle_message(context.message, context), MyApp.Accounts.RegisterUser, context)
+end
+```
+
+`Trogon.Dispatcher.dispatch/7` builds the context from the message and the options, derives the telemetry metadata
+from that context, and opens the `:telemetry.span/3` around the entry stage:
+
+```elixir
+def dispatch(message, options, kind, dispatcher, registered_by, event, entry) do
+  context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
+  metadata = %{message: message.__struct__, kind: context.kind, dispatcher: context.dispatcher, registered_by: context.registered_by, context: context}
+
+  :telemetry.span(event, metadata, fn ->
+    final = entry.(context)
+    {final.response, Trogon.Dispatcher.stop_metadata(metadata, final)}
+  end)
 end
 ```
 
 Every stage takes a context and returns a context, so the chain is a composition of one function type. The handler
 is the one place the two types meet: it returns a response and the stage that calls it puts that response onto the
-context. `__stop_metadata__/2` therefore sees the context the pipeline finished with, not the one it started from,
-so anything a middleware assigned is on the `:stop` event.
+context. `stop_metadata/2` therefore sees the context the pipeline finished with, not the one it started from, so
+anything a middleware assigned is on the `:stop` event.
 
 Routing is therefore the BEAM's own multi-clause dispatch on the struct's `__struct__` key.
 

@@ -58,41 +58,4 @@ defmodule Trogon.Dispatcher.Middleware do
   @callback call(Context.t(), next(), init_result() | options()) :: Context.t()
 
   @optional_callbacks init: 1
-
-  @doc false
-  @spec __init__!(module(), options(), String.t()) :: init_result() | options()
-  def __init__!(middleware_mod, opts, location \\ "") do
-    if function_exported?(middleware_mod, :init, 1) do
-      case middleware_mod.init(opts) do
-        initialized when is_struct(initialized) ->
-          initialized
-
-        other ->
-          raise ArgumentError, """
-          Invalid middleware #{inspect(middleware_mod)}#{location}
-
-          Expected: #{inspect(middleware_mod)}.init/1 to return a struct
-          Got: #{inspect(other)}
-
-          To fix this, return a struct from init/1:
-
-              defmodule #{inspect(middleware_mod)} do
-                @behaviour Trogon.Dispatcher.Middleware
-
-                defstruct [:max_per_minute]
-
-                @impl true
-                def init(opts), do: %__MODULE__{max_per_minute: Keyword.fetch!(opts, :max_per_minute)}
-
-                @impl true
-                def call(context, next, %__MODULE__{} = options) do
-                  next.(context)
-                end
-              end
-          """
-      end
-    else
-      opts
-    end
-  end
 end

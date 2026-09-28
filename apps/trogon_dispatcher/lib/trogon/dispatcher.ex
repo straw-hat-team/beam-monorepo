@@ -165,31 +165,31 @@ defmodule Trogon.Dispatcher do
     options_mod = DispatchOptions
     unregistered_mod = UnregisteredMessageError
 
-    local_middleware = __accumulated__(module, :trogon_dispatcher_middleware)
-    imports = __accumulated__(module, :trogon_dispatcher_imports)
-    local_registrations = __local_registrations__(module)
-    imported_registrations = __accumulated__(module, :trogon_dispatcher_imported)
+    local_middleware = accumulated(module, :trogon_dispatcher_middleware)
+    imports = accumulated(module, :trogon_dispatcher_imports)
+    local_registrations = local_registrations(module)
+    imported_registrations = accumulated(module, :trogon_dispatcher_imported)
 
     registrations =
-      __resolve_registrations__(module, local_middleware, local_registrations ++ imported_registrations)
+      resolve_registrations(module, local_middleware, local_registrations ++ imported_registrations)
 
     telemetry_prefix = Module.get_attribute(module, :trogon_dispatcher_telemetry_prefix)
     event = telemetry_prefix ++ [:dispatch]
 
     indexed = Enum.with_index(registrations)
-    clauses = Enum.map(indexed, &__dispatch_clause__(&1, event, Context, options_mod))
-    stages = Enum.flat_map(indexed, &__stage_functions__/1)
+    clauses = Enum.map(indexed, &dispatch_clause(&1, event, options_mod))
+    stages = Enum.flat_map(indexed, &stage_functions/1)
 
     quote do
-      unquote(__introspection__(registrations, local_middleware, imports, telemetry_prefix))
-      unquote(__entrypoints__(options_mod))
+      unquote(introspection(registrations, local_middleware, imports, telemetry_prefix))
+      unquote(entrypoints(options_mod))
       unquote(clauses)
-      unquote(__fallbacks__(options_mod, unregistered_mod))
+      unquote(fallbacks(options_mod, unregistered_mod))
       unquote(stages)
     end
   end
 
-  defp __introspection__(registrations, local_middleware, imports, telemetry_prefix) do
+  defp introspection(registrations, local_middleware, imports, telemetry_prefix) do
     quote do
       @doc false
       def __trogon_dispatcher__(:registrations), do: unquote(Macro.escape(registrations))
@@ -199,7 +199,7 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp __entrypoints__(options_mod) do
+  defp entrypoints(options_mod) do
     quote do
       def dispatch_message(message, options \\ %unquote(options_mod){})
       def dispatch_message!(message, options \\ %unquote(options_mod){})
@@ -207,12 +207,12 @@ defmodule Trogon.Dispatcher do
       def dispatch_message!(message, options) do
         message
         |> dispatch_message(options)
-        |> Trogon.Dispatcher.__unwrap__(message, __MODULE__)
+        |> Trogon.Dispatcher.unwrap(message, __MODULE__)
       end
     end
   end
 
-  defp __fallbacks__(options_mod, unregistered_mod) do
+  defp fallbacks(options_mod, unregistered_mod) do
     quote do
       def dispatch_message(message, %unquote(options_mod){}) when is_struct(message) do
         {:error, unquote(unregistered_mod).exception(dispatched_message: message, dispatcher: __MODULE__)}
@@ -230,25 +230,25 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp __accumulated__(module, attribute) do
+  defp accumulated(module, attribute) do
     module |> Module.get_attribute(attribute) |> Enum.reverse()
   end
 
-  defp __local_registrations__(module) do
-    for {message_mod, handler_mod, kind} <- __accumulated__(module, :trogon_dispatcher_registrations) do
+  defp local_registrations(module) do
+    for {message_mod, handler_mod, kind} <- accumulated(module, :trogon_dispatcher_registrations) do
       %{message: message_mod, handler: handler_mod, kind: kind, registered_by: module, middleware: []}
     end
   end
 
   @doc false
-  def __unwrap__(:ok, _message, _dispatcher), do: :ok
-  def __unwrap__({:ok, value}, _message, _dispatcher), do: value
-  def __unwrap__({:error, reason}, message, dispatcher), do: __raise__(reason, message, dispatcher)
+  def unwrap(:ok, _message, _dispatcher), do: :ok
+  def unwrap({:ok, value}, _message, _dispatcher), do: value
+  def unwrap({:error, reason}, message, dispatcher), do: raise_error(reason, message, dispatcher)
 
   @doc false
   def __after_verify__(module) do
     for registration <- module.__trogon_dispatcher__(:registrations) do
-      __verify_handler__(module, registration)
+      verify_handler(module, registration)
     end
 
     :ok
@@ -268,7 +268,7 @@ defmodule Trogon.Dispatcher do
 
   @doc false
   def __middleware__(module, middleware_mod, opts) do
-    __ensure_compiled__!(middleware_mod)
+    ensure_compiled!(middleware_mod)
 
     if not function_exported?(middleware_mod, :call, 3) do
       raise ArgumentError, """
@@ -290,14 +290,52 @@ defmodule Trogon.Dispatcher do
       """
     end
 
-    initialized = Middleware.__init__!(middleware_mod, opts, " in #{inspect(module)}")
+    initialized = initialize_middleware!(middleware_mod, opts, " in #{inspect(module)}")
 
     Module.put_attribute(module, :trogon_dispatcher_middleware, {middleware_mod, initialized})
   end
 
   @doc false
+  @spec initialize_middleware!(module(), Middleware.options(), String.t()) ::
+          Middleware.init_result() | Middleware.options()
+  def initialize_middleware!(middleware_mod, opts, location \\ "") do
+    if function_exported?(middleware_mod, :init, 1) do
+      case middleware_mod.init(opts) do
+        initialized when is_struct(initialized) ->
+          initialized
+
+        other ->
+          raise ArgumentError, """
+          Invalid middleware #{inspect(middleware_mod)}#{location}
+
+          Expected: #{inspect(middleware_mod)}.init/1 to return a struct
+          Got: #{inspect(other)}
+
+          To fix this, return a struct from init/1:
+
+              defmodule #{inspect(middleware_mod)} do
+                @behaviour Trogon.Dispatcher.Middleware
+
+                defstruct [:max_per_minute]
+
+                @impl true
+                def init(opts), do: %__MODULE__{max_per_minute: Keyword.fetch!(opts, :max_per_minute)}
+
+                @impl true
+                def call(context, next, %__MODULE__{} = options) do
+                  next.(context)
+                end
+              end
+          """
+      end
+    else
+      opts
+    end
+  end
+
+  @doc false
   def __register_message__(module, message_mod, opts) do
-    __ensure_compiled__!(message_mod)
+    ensure_compiled!(message_mod)
 
     kind = Keyword.get(opts, :kind)
 
@@ -314,7 +352,7 @@ defmodule Trogon.Dispatcher do
       """
     end
 
-    if not __struct_module__?(message_mod) do
+    if not struct_module?(message_mod) do
       raise ArgumentError, """
       Invalid registration of #{inspect(message_mod)} in #{inspect(module)}
 
@@ -344,9 +382,9 @@ defmodule Trogon.Dispatcher do
             )
     end
 
-    __ensure_compiled__!(dispatcher_mod)
+    ensure_compiled!(dispatcher_mod)
 
-    if not __dispatcher__?(dispatcher_mod) do
+    if not dispatcher?(dispatcher_mod) do
       raise ArgumentError, """
       Invalid dispatcher import in #{inspect(module)}
 
@@ -363,7 +401,7 @@ defmodule Trogon.Dispatcher do
       """
     end
 
-    __check_cycle__!(module, dispatcher_mod)
+    check_cycle!(module, dispatcher_mod)
 
     Module.put_attribute(module, :trogon_dispatcher_imports, dispatcher_mod)
 
@@ -374,8 +412,7 @@ defmodule Trogon.Dispatcher do
     :ok
   end
 
-  @doc false
-  def __resolve_registrations__(module, local_middleware, registrations) do
+  defp resolve_registrations(module, local_middleware, registrations) do
     registrations
     |> Enum.map(fn registration ->
       %{registration | middleware: Enum.uniq(local_middleware ++ registration.middleware)}
@@ -399,52 +436,53 @@ defmodule Trogon.Dispatcher do
     end)
   end
 
-  @doc false
-  def __dispatch_clause__({registration, index}, event, context_mod, options_mod) do
-    entry = __stage_name__(index, 0)
+  defp dispatch_clause({registration, index}, event, options_mod) do
+    entry = capture(stage_name(index, 0))
 
     quote do
       def dispatch_message(%unquote(registration.message){} = message, %unquote(options_mod){} = options) do
-        context = %unquote(context_mod){
-          message: message,
-          kind: unquote(registration.kind),
-          dispatcher: __MODULE__,
-          registered_by: unquote(registration.registered_by),
-          correlation_id: options.correlation_id,
-          causation_id: options.causation_id,
-          actor: options.actor,
-          assigns: options.assigns,
-          private: %{}
-        }
-
-        metadata = %{
-          message: unquote(registration.message),
-          kind: unquote(registration.kind),
-          dispatcher: __MODULE__,
-          registered_by: unquote(registration.registered_by),
-          context: context
-        }
-
-        :telemetry.span(unquote(event), metadata, fn ->
-          final = unquote(entry)(context)
-          {final.response, Trogon.Dispatcher.__stop_metadata__(metadata, final)}
-        end)
+        Trogon.Dispatcher.dispatch(
+          message,
+          options,
+          unquote(registration.kind),
+          __MODULE__,
+          unquote(registration.registered_by),
+          unquote(event),
+          unquote(entry)
+        )
       end
     end
   end
 
   @doc false
-  def __stage_functions__({registration, index}) do
+  def dispatch(message, options, kind, dispatcher, registered_by, event, entry) do
+    context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
+
+    metadata = %{
+      message: message.__struct__,
+      kind: context.kind,
+      dispatcher: context.dispatcher,
+      registered_by: context.registered_by,
+      context: context
+    }
+
+    :telemetry.span(event, metadata, fn ->
+      final = entry.(context)
+      {final.response, stop_metadata(metadata, final)}
+    end)
+  end
+
+  defp stage_functions({registration, index}) do
     middleware_stages =
       registration.middleware
       |> Enum.with_index()
       |> Enum.map(fn {{middleware_mod, options}, step} ->
-        name = __stage_name__(index, step)
-        next = __capture__(__stage_name__(index, step + 1))
+        name = stage_name(index, step)
+        next = capture(stage_name(index, step + 1))
 
         quote do
           defp unquote(name)(context) do
-            Trogon.Dispatcher.__validate__(
+            Trogon.Dispatcher.validate(
               unquote(middleware_mod).call(context, unquote(next), unquote(Macro.escape(options))),
               unquote(middleware_mod),
               context
@@ -455,8 +493,8 @@ defmodule Trogon.Dispatcher do
 
     handler_stage =
       quote do
-        defp unquote(__stage_name__(index, length(registration.middleware)))(context) do
-          Trogon.Dispatcher.__validate_response__(
+        defp unquote(stage_name(index, length(registration.middleware)))(context) do
+          Trogon.Dispatcher.validate_response(
             unquote(registration.handler).handle_message(context.message, context),
             unquote(registration.handler),
             context
@@ -468,11 +506,11 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __validate__(%Context{} = returned, module, _context) do
-    __validate_response__(returned.response, module, returned)
+  def validate(%Context{} = returned, module, _context) do
+    validate_response(returned.response, module, returned)
   end
 
-  def __validate__(returned, module, context) do
+  def validate(returned, module, context) do
     raise InvalidContextError.exception(
             module: module,
             dispatched_message: context.message,
@@ -482,17 +520,17 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __validate_response__(:ok, _module, context), do: %{context | response: :ok}
+  def validate_response(:ok, _module, context), do: %{context | response: :ok}
 
-  def __validate_response__({:ok, value} = response, _module, context) when is_struct(value) do
+  def validate_response({:ok, value} = response, _module, context) when is_struct(value) do
     %{context | response: response}
   end
 
-  def __validate_response__({:error, _reason} = response, _module, context) do
+  def validate_response({:error, _reason} = response, _module, context) do
     %{context | response: response}
   end
 
-  def __validate_response__(response, module, context) do
+  def validate_response(response, module, context) do
     raise InvalidResponseError.exception(
             module: module,
             dispatched_message: context.message,
@@ -502,27 +540,27 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def __stop_metadata__(metadata, %Context{} = context) do
-    metadata |> Map.put(:context, context) |> __result_metadata__(context.response)
+  def stop_metadata(metadata, %Context{} = context) do
+    metadata |> Map.put(:context, context) |> result_metadata(context.response)
   end
 
-  defp __result_metadata__(metadata, :ok), do: Map.put(metadata, :result, :ok)
-  defp __result_metadata__(metadata, {:ok, _value}), do: Map.put(metadata, :result, :ok)
+  defp result_metadata(metadata, :ok), do: Map.put(metadata, :result, :ok)
+  defp result_metadata(metadata, {:ok, _value}), do: Map.put(metadata, :result, :ok)
 
-  defp __result_metadata__(metadata, {:error, reason}) do
+  defp result_metadata(metadata, {:error, reason}) do
     metadata |> Map.put(:result, :error) |> Map.put(:error, reason)
   end
 
   @doc false
-  def __raise__(reason, _message, _dispatcher) when is_exception(reason) do
+  def raise_error(reason, _message, _dispatcher) when is_exception(reason) do
     raise reason
   end
 
-  def __raise__(reason, message, dispatcher) do
+  def raise_error(reason, message, dispatcher) do
     raise DispatchError.exception(reason: reason, dispatched_message: message, dispatcher: dispatcher)
   end
 
-  defp __verify_handler__(module, registration) do
+  defp verify_handler(module, registration) do
     loaded? = Code.ensure_loaded?(registration.handler)
 
     if not (loaded? and function_exported?(registration.handler, :handle_message, 2)) do
@@ -553,8 +591,8 @@ defmodule Trogon.Dispatcher do
   defp missing_reason(true), do: "Module is loaded but does not export handle_message/2"
   defp missing_reason(false), do: "Module could not be loaded"
 
-  defp __check_cycle__!(module, dispatcher_mod) do
-    path = __import_path__(dispatcher_mod, module, [dispatcher_mod], [])
+  defp check_cycle!(module, dispatcher_mod) do
+    path = import_path(dispatcher_mod, module, [dispatcher_mod], [])
 
     if path do
       raise CircularImportError.exception(
@@ -565,7 +603,7 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp __import_path__(current, target, acc, seen) do
+  defp import_path(current, target, acc, seen) do
     cond do
       current == target ->
         Enum.reverse(acc)
@@ -573,31 +611,31 @@ defmodule Trogon.Dispatcher do
       current in seen ->
         nil
 
-      not __dispatcher__?(current) ->
+      not dispatcher?(current) ->
         nil
 
       true ->
         seen = [current | seen]
 
         Enum.find_value(current.__trogon_dispatcher__(:imports), fn imported ->
-          __import_path__(imported, target, [imported | acc], seen)
+          import_path(imported, target, [imported | acc], seen)
         end)
     end
   end
 
-  defp __stage_name__(index, step), do: :"__trogon_dispatcher_stage_#{index}_#{step}__"
+  defp stage_name(index, step), do: :"__trogon_dispatcher_stage_#{index}_#{step}__"
 
-  defp __capture__(name), do: {:&, [], [{:/, [], [{name, [], nil}, 1]}]}
+  defp capture(name), do: {:&, [], [{:/, [], [{name, [], nil}, 1]}]}
 
-  defp __dispatcher__?(module) do
+  defp dispatcher?(module) do
     function_exported?(module, :__trogon_dispatcher__, 1)
   end
 
-  defp __struct_module__?(module) do
+  defp struct_module?(module) do
     function_exported?(module, :__struct__, 0)
   end
 
-  defp __ensure_compiled__!(module) do
+  defp ensure_compiled!(module) do
     case Code.ensure_compiled(module) do
       {:module, _module} ->
         :ok

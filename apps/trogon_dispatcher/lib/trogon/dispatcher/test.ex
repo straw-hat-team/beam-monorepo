@@ -33,7 +33,6 @@ defmodule Trogon.Dispatcher.Test do
 
   alias Trogon.Dispatcher.Context
   alias Trogon.Dispatcher.DispatchOptions
-  alias Trogon.Dispatcher.Middleware
 
   @telemetry_tag :trogon_dispatcher_telemetry
 
@@ -79,7 +78,7 @@ defmodule Trogon.Dispatcher.Test do
       ) do
     initialized =
       if Code.ensure_loaded?(middleware_mod) do
-        Middleware.__init__!(middleware_mod, options)
+        Trogon.Dispatcher.initialize_middleware!(middleware_mod, options)
       else
         options
       end
@@ -115,7 +114,7 @@ defmodule Trogon.Dispatcher.Test do
       :telemetry.attach_many(
         handler_id,
         events,
-        &__MODULE__.__forward__/4,
+        &__MODULE__.forward_telemetry/4,
         test_process
       )
 
@@ -125,7 +124,7 @@ defmodule Trogon.Dispatcher.Test do
   end
 
   @doc false
-  def __forward__(event, measurements, metadata, test_process) do
+  def forward_telemetry(event, measurements, metadata, test_process) do
     if self() == test_process do
       send(test_process, {@telemetry_tag, List.last(event), event, measurements, metadata})
     end
