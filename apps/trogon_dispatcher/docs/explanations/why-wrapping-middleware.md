@@ -58,14 +58,9 @@ Context.put_response(context, {:error, :unauthorized})
 
 ## Why options are a third argument rather than a closure
 
-`init/1` runs at compile time and its result is baked into the generated pipeline as a literal. Passing that result
-as a third argument keeps the middleware a plain module with no state, and keeps the generated code a direct call:
-
-```elixir
-defp stage_3_1(context) do
-  MyApp.RequireTenant.call(context, &stage_3_2/1, "acme")
-end
-```
+`init/1` runs at compile time and its result is baked into the dispatcher as a literal. Passing that result as a
+third argument keeps the middleware a plain module with no state: the dispatcher hands the same literal to every call,
+and a test can pass it directly.
 
 An earlier iteration of the design had `call(context, next)` with options captured in the closure. That reads more
 cleanly in isolation but leaves nowhere for the `init/1` result to go once options are compile-time values, and it
@@ -74,9 +69,8 @@ makes a middleware harder to call directly in a test.
 ## The cost
 
 The wrapping shape builds a call stack as deep as the middleware chain. For an in-process synchronous dispatch that
-is a handful of frames and no allocation beyond the captures, all of which are compile-time literals here. The chain
-is not built at runtime: `import_dispatcher` flattens at compile time, the chain per message is known, and each stage
-is a private function with a statically known successor.
+is a handful of frames and one small `next` closure per middleware. The chain itself is not built at runtime:
+`import_dispatcher` flattens at compile time, and each message's chain is a literal in its dispatch clause.
 
 The real cost is that a middleware that forgets to call `next` silently swallows the dispatch. That failure mode is
 loud in practice, because every stage boundary checks both halves of the contract: a stage that returns something

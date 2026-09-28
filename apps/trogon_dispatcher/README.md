@@ -69,6 +69,10 @@ iex> MyApp.Dispatcher.dispatch_message(%MyApp.Accounts.RegisterUser{email: "a@b.
 
 ## Documentation
 
+### Tutorials
+
+- [Build an accounts dispatcher](build-an-accounts-dispatcher.html)
+
 ### How-to
 
 - [Compose dispatchers](compose-dispatchers.html)
@@ -79,6 +83,7 @@ iex> MyApp.Dispatcher.dispatch_message(%MyApp.Accounts.RegisterUser{email: "a@b.
 ### Explanations
 
 - [Why wrapping middleware](why-wrapping-middleware.html)
+- [Handlers and the context](handlers-and-context.html)
 - [The compile-time model](compile-time-model.html)
 
 ### References

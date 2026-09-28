@@ -105,16 +105,19 @@ defmodule Trogon.Dispatcher.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
+        "docs/tutorials/build-an-accounts-dispatcher.md",
         "docs/how-to/compose-dispatchers.md",
         "docs/how-to/write-middleware.md",
         "docs/how-to/test-with-mox.md",
         "docs/how-to/observe-with-telemetry.md",
         "docs/explanations/why-wrapping-middleware.md",
+        "docs/explanations/handlers-and-context.md",
         "docs/explanations/compile-time-model.md",
         "docs/explanations/prior-art.md",
         "docs/references/response-contract.md"
       ],
       groups_for_extras: [
+        Tutorials: ~r/docs\/tutorials\/.?/,
         "How-to": ~r/docs\/how-to\/.?/,
         Explanations: ~r/docs\/explanations\/.?/,
         References: ~r/docs\/references\/.?/
