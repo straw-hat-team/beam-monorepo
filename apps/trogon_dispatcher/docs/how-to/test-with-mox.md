@@ -22,10 +22,12 @@ config :my_app, :dispatcher, MyApp.DispatcherMock
 
 ```elixir
 defmodule MyAppWeb.UserController do
-  defp dispatcher, do: Application.fetch_env!(:my_app, :dispatcher)
+  @dispatcher Application.compile_env!(:my_app, :dispatcher)
+
+  defdelegate dispatch_message(message, options), to: @dispatcher
 
   def create(conn, params) do
-    case dispatcher().dispatch_message(%RegisterUser{email: params["email"]}) do
+    case dispatch_message(%RegisterUser{email: params["email"]}, %DispatchOptions{}) do
       {:ok, user} -> render(conn, "show.json", user: user)
       {:error, reason} -> render_error(conn, reason)
     end
@@ -44,7 +46,7 @@ defmodule MyAppWeb.UserControllerTest do
   setup :verify_on_exit!
 
   test "creates a user", %{conn: conn} do
-    expect(MyApp.DispatcherMock, :dispatch_message, fn %RegisterUser{email: email} ->
+    expect(MyApp.DispatcherMock, :dispatch_message, fn %RegisterUser{email: email}, %DispatchOptions{} ->
       {:ok, %User{email: email}}
     end)
 
