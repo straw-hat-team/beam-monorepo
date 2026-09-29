@@ -247,7 +247,7 @@ defmodule Trogon.Dispatcher.TestTest do
     test "fails when a different message is dispatched" do
       Test.expect_dispatch(Support.DispatcherMock, Support.RegisterUser)
 
-      assert_raise ExUnit.AssertionError, ~r/to dispatch #{inspect(Support.RegisterUser)}/, fn ->
+      assert_raise ExUnit.AssertionError, ~r/to dispatch Trogon\.Dispatcher\.TestSupport\.RegisterUser,/, fn ->
         Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{})
       end
     end

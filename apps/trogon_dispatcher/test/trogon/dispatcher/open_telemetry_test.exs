@@ -57,21 +57,21 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       assert_receive {:span, span(name: name, kind: kind, attributes: attributes)}, 1000
 
-      assert name == "dispatch #{inspect(Support.RegisterUser)}"
+      assert name == "dispatch Trogon.Dispatcher.TestSupport.RegisterUser"
       assert kind == :consumer
 
       assert :otel_attributes.map(attributes) == %{
                "messaging.system": "trogon_dispatcher",
                "messaging.operation.name": "dispatch",
                "messaging.operation.type": "process",
-               "messaging.destination.name": inspect(Support.RegisterUser),
+               "messaging.destination.name": "Trogon.Dispatcher.TestSupport.RegisterUser",
                "messaging.message.id": "msg-1",
                "messaging.message.conversation_id": "corr-1",
-               "code.function.name": "#{inspect(Support.RegisterUser)}.handle_message",
-               "trogon_dispatcher.message": inspect(Support.RegisterUser),
+               "code.function.name": "Trogon.Dispatcher.TestSupport.RegisterUser.handle_message",
+               "trogon_dispatcher.message": "Trogon.Dispatcher.TestSupport.RegisterUser",
                "trogon_dispatcher.kind": "command",
-               "trogon_dispatcher.dispatcher": inspect(Support.RootDispatcher),
-               "trogon_dispatcher.registered_by": inspect(Support.AccountsDispatcher),
+               "trogon_dispatcher.dispatcher": "Trogon.Dispatcher.TestSupport.RootDispatcher",
+               "trogon_dispatcher.registered_by": "Trogon.Dispatcher.TestSupport.AccountsDispatcher",
                "trogon_dispatcher.correlation_id": "corr-1",
                "trogon_dispatcher.causation_id": "cause-1"
              }
