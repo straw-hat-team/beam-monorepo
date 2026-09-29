@@ -18,7 +18,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
       metadata = Test.assert_dispatch_start(Support.RegisterUser)
 
-      assert metadata.message == Support.RegisterUser
+      assert metadata.message == %Support.RegisterUser{email: "a@b.c"}
       assert metadata.kind == :command
       assert metadata.dispatcher == Support.RootDispatcher
       assert metadata.registered_by == Support.AccountsDispatcher

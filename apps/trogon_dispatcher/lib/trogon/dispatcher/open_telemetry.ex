@@ -155,7 +155,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
     def handle_telemetry_event(event, measurements, metadata, config)
 
     def handle_telemetry_event([:trogon_dispatcher, :dispatch, :start] = event, measurements, metadata, config) do
-      destination_name = inspect(metadata.message)
+      destination_name = inspect(metadata.message.__struct__)
       context = metadata.context
       opt_out_attrs = Keyword.fetch!(config, :opt_out_attrs)
 

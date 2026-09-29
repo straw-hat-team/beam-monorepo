@@ -85,7 +85,7 @@ defmodule Trogon.Dispatcher do
 
   Start metadata:
 
-    * `:message` - the message module
+    * `:message` - the message struct being dispatched
     * `:kind` - `:command` or `:query`
     * `:dispatcher` - the module whose `dispatch_message/2` was called
     * `:registered_by` - the dispatcher that declared the registration
@@ -517,7 +517,7 @@ defmodule Trogon.Dispatcher do
     context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
 
     metadata = %{
-      message: message.__struct__,
+      message: message,
       kind: context.kind,
       dispatcher: context.dispatcher,
       registered_by: context.registered_by,

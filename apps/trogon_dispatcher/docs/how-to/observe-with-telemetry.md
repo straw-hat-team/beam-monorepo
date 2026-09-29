@@ -22,7 +22,7 @@ defmodule MyApp.Telemetry do
 
   def handle_event([:trogon_dispatcher, :dispatch, :stop], %{duration: duration}, metadata, _config) do
     Logger.info("dispatched",
-      dispatched_message: inspect(metadata.message),
+      dispatched_message: inspect(metadata.message.__struct__),
       kind: metadata.kind,
       boundary: inspect(metadata.registered_by),
       result: metadata.result,
@@ -31,7 +31,7 @@ defmodule MyApp.Telemetry do
   end
 
   def handle_event([:trogon_dispatcher, :dispatch, :exception], _measurements, metadata, _config) do
-    Logger.error("dispatch raised", dispatched_message: inspect(metadata.message), reason: inspect(metadata.reason))
+    Logger.error("dispatch raised", dispatched_message: inspect(metadata.message.__struct__), reason: inspect(metadata.reason))
   end
 end
 ```
@@ -44,16 +44,19 @@ span once you add the OpenTelemetry deps.
 
 ## Metrics
 
-Metrics work the same way through `telemetry_metrics`:
+Metrics work the same way through `telemetry_metrics`. `:message` is the dispatched struct, so tag on its module to
+keep one series per message type:
 
 ```elixir
 Telemetry.Metrics.counter("trogon_dispatcher.dispatch.stop.duration",
-  tags: [:message, :kind, :dispatcher, :registered_by, :result]
+  tags: [:message, :kind, :dispatcher, :registered_by, :result],
+  tag_values: &%{&1 | message: &1.message.__struct__}
 )
 
 Telemetry.Metrics.distribution("trogon_dispatcher.dispatch.stop.duration",
   unit: {:native, :millisecond},
-  tags: [:message, :registered_by]
+  tags: [:message, :registered_by],
+  tag_values: &%{&1 | message: &1.message.__struct__}
 )
 ```
 

@@ -279,7 +279,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
                       }},
                      1000
 
-      assert meta.message == Support.RegisterUser
+      assert %Support.RegisterUser{} = meta.message
       assert is_map(measurements)
       assert Keyword.keyword?(config)
       assert span_ctx != :undefined

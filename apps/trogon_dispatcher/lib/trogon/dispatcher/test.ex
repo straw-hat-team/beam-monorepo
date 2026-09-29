@@ -264,7 +264,8 @@ defmodule Trogon.Dispatcher.Test do
   defmacro assert_dispatch_start(message_mod) do
     quote do
       ExUnit.Assertions.assert_receive(
-        {unquote(@telemetry_tag), :start, _event, _measurements, %{message: unquote(message_mod)} = metadata}
+        {unquote(@telemetry_tag), :start, _event, _measurements,
+         %{message: %{__struct__: unquote(message_mod)}} = metadata}
       )
 
       metadata
@@ -285,7 +286,8 @@ defmodule Trogon.Dispatcher.Test do
   defmacro assert_dispatch_stop(message_mod) do
     quote do
       ExUnit.Assertions.assert_receive(
-        {unquote(@telemetry_tag), :stop, _event, _measurements, %{message: unquote(message_mod)} = metadata}
+        {unquote(@telemetry_tag), :stop, _event, _measurements,
+         %{message: %{__struct__: unquote(message_mod)}} = metadata}
       )
 
       metadata
@@ -298,7 +300,8 @@ defmodule Trogon.Dispatcher.Test do
   defmacro assert_dispatch_exception(message_mod) do
     quote do
       ExUnit.Assertions.assert_receive(
-        {unquote(@telemetry_tag), :exception, _event, _measurements, %{message: unquote(message_mod)} = metadata}
+        {unquote(@telemetry_tag), :exception, _event, _measurements,
+         %{message: %{__struct__: unquote(message_mod)}} = metadata}
       )
 
       metadata
@@ -311,7 +314,7 @@ defmodule Trogon.Dispatcher.Test do
   defmacro refute_dispatch(message_mod) do
     quote do
       ExUnit.Assertions.refute_receive(
-        {unquote(@telemetry_tag), :start, _event, _measurements, %{message: unquote(message_mod)}}
+        {unquote(@telemetry_tag), :start, _event, _measurements, %{message: %{__struct__: unquote(message_mod)}}}
       )
     end
   end
