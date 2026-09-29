@@ -11,7 +11,7 @@ defines no struct, a middleware that does not export `call/3`, an `init/1` that 
 of something that is not a dispatcher fails at the line that caused it.
 
 A registered handler that does not export `handle_message/2` also fails the build. That check has to wait until the
-handler module is verified, which is why this package requires Elixir 1.14.
+handler module is verified, so it runs in an `@after_verify` callback.
 
 On Elixir 1.20, a handler whose `handle_message/2` heads cannot match the registered message is a type warning at the
 `register_message` line, and again at each `import_dispatcher` line that brings the registration in, so `to:`

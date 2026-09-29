@@ -3,7 +3,7 @@ defmodule Trogon.Dispatcher.MixProject do
 
   @app :trogon_dispatcher
   @version "0.1.0"
-  @elixir_version "~> 1.14"
+  @elixir_version "~> 1.18"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
   def project do
