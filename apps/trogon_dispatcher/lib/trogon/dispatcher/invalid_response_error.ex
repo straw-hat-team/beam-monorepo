@@ -34,7 +34,7 @@ defmodule Trogon.Dispatcher.InvalidResponseError do
   def message(%__MODULE__{} = exception) do
     """
     Invalid response from #{inspect(exception.module)} while dispatching \
-    #{inspect(message_module(exception.dispatched_message))} in #{inspect(exception.dispatcher)}
+    #{inspect(exception.dispatched_message.__struct__)} in #{inspect(exception.dispatcher)}
 
     Expected: :ok, {:ok, struct} or {:error, term}
     Got: #{inspect(exception.response)}
@@ -60,7 +60,4 @@ defmodule Trogon.Dispatcher.InvalidResponseError do
         {:ok, %MyApp.UserPage{items: users, cursor: cursor}}
     """
   end
-
-  defp message_module(message) when is_struct(message), do: message.__struct__
-  defp message_module(message), do: message
 end

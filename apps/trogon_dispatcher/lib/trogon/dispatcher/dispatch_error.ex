@@ -25,10 +25,7 @@ defmodule Trogon.Dispatcher.DispatchError do
 
   @impl Exception
   def message(%__MODULE__{} = exception) do
-    "Dispatch of #{inspect(message_module(exception.dispatched_message))} in #{inspect(exception.dispatcher)} " <>
+    "Dispatch of #{inspect(exception.dispatched_message.__struct__)} in #{inspect(exception.dispatcher)} " <>
       "failed with #{inspect(exception.reason)}"
   end
-
-  defp message_module(message) when is_struct(message), do: message.__struct__
-  defp message_module(message), do: message
 end

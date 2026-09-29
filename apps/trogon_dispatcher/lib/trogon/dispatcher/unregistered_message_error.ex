@@ -26,14 +26,14 @@ defmodule Trogon.Dispatcher.UnregisteredMessageError do
   @impl Exception
   def message(%__MODULE__{} = exception) do
     """
-    Unregistered message #{inspect(message_module(exception.dispatched_message))} in #{inspect(exception.dispatcher)}
+    Unregistered message #{inspect(exception.dispatched_message.__struct__)} in #{inspect(exception.dispatcher)}
 
     To fix this, register the message in the dispatcher:
 
         defmodule #{inspect(exception.dispatcher)} do
           use Trogon.Dispatcher
 
-          register_message #{inspect(message_module(exception.dispatched_message))}, kind: :command
+          register_message #{inspect(exception.dispatched_message.__struct__)}, kind: :command
         end
 
     Or import a dispatcher that already registers it:
@@ -41,7 +41,4 @@ defmodule Trogon.Dispatcher.UnregisteredMessageError do
         import_dispatcher SomeOther.Dispatcher
     """
   end
-
-  defp message_module(message) when is_struct(message), do: message.__struct__
-  defp message_module(message), do: message
 end

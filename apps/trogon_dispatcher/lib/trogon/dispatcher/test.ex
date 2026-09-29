@@ -108,12 +108,8 @@ defmodule Trogon.Dispatcher.Test do
     opts = Keyword.validate!(opts, options: [], next: &Context.put_response(&1, :ok))
     options = Keyword.fetch!(opts, :options)
 
-    initialized =
-      if Code.ensure_loaded?(middleware_mod) do
-        Trogon.Dispatcher.initialize_middleware!(middleware_mod, options)
-      else
-        options
-      end
+    Code.ensure_loaded(middleware_mod)
+    initialized = Trogon.Dispatcher.initialize_middleware!(middleware_mod, options)
 
     context
     |> middleware_mod.call(Keyword.fetch!(opts, :next), initialized)

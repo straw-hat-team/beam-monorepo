@@ -29,7 +29,7 @@ defmodule Trogon.Dispatcher.InvalidContextError do
   def message(%__MODULE__{} = exception) do
     """
     #{inspect(exception.module)} did not return a context while dispatching \
-    #{inspect(message_module(exception.dispatched_message))} in #{inspect(exception.dispatcher)}
+    #{inspect(exception.dispatched_message.__struct__)} in #{inspect(exception.dispatcher)}
 
     Expected: a %Trogon.Dispatcher.Context{}
     Got: #{inspect(exception.returned)}
@@ -40,7 +40,4 @@ defmodule Trogon.Dispatcher.InvalidContextError do
         Trogon.Dispatcher.Context.put_response(context, {:error, :unauthorized})
     """
   end
-
-  defp message_module(message) when is_struct(message), do: message.__struct__
-  defp message_module(message), do: message
 end

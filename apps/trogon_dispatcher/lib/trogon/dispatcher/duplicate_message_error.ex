@@ -44,7 +44,7 @@ defmodule Trogon.Dispatcher.DuplicateMessageError do
     """
   end
 
-  defp describe(%{} = registration) do
+  defp describe(registration) do
     """
       handler: #{inspect(registration.handler)}
       kind: #{inspect(registration.kind)}
@@ -52,6 +52,4 @@ defmodule Trogon.Dispatcher.DuplicateMessageError do
       middleware: #{inspect(Enum.map(registration.middleware, &elem(&1, 0)))}
     """
   end
-
-  defp describe(other), do: "  #{inspect(other)}\n"
 end
