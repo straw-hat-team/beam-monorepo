@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.4.0...trogon_credo@v0.5.0) (2026-09-29)
+
+
+### Features
+
+* **trogon_credo:** Keep the command handler as the only way to change an aggregate's state ([#490](https://github.com/straw-hat-team/beam-monorepo/issues/490)) ([2de4ccb](https://github.com/straw-hat-team/beam-monorepo/commit/2de4ccbc58c22bd370c196c6e8b8952a71f3d17c))
+
 ## [0.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.3.0...trogon_credo@v0.4.0) (2026-09-24)
 
 
