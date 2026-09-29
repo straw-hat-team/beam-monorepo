@@ -225,10 +225,7 @@ defmodule Trogon.Dispatcher do
 
     lines = registration_lines(module)
 
-    clauses =
-      Enum.map(registrations, fn registration ->
-        dispatch_clause(registration, options_mod, Map.get(lines, registration.message, env.line))
-      end)
+    clauses = Enum.map(registrations, &dispatch_clause(&1, options_mod, lines))
 
     quote do
       unquote(introspection(registrations, local_middleware, imports))
@@ -495,8 +492,8 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp dispatch_clause(registration, options_mod, line) do
-    quote line: line do
+  defp dispatch_clause(registration, options_mod, lines) do
+    quote line: Map.fetch!(lines, registration.message) do
       def dispatch_message(%unquote(registration.message){} = message, %unquote(options_mod){} = options) do
         Trogon.Dispatcher.dispatch(
           message,
