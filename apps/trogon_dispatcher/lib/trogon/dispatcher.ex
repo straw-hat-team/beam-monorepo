@@ -45,10 +45,11 @@ defmodule Trogon.Dispatcher do
 
   ## Generated API
 
-  Each dispatcher gets `dispatch_message/1`, `dispatch_message/2`, `dispatch_message!/1` and `dispatch_message!/2`,
-  declared as callbacks on the dispatcher module itself. That makes every dispatcher a behaviour, so a host injects
-  the module and mocks it with `Mox.defmock(MyApp.DispatcherMock, for: MyApp.Dispatcher)` without a separate
-  behaviour module.
+  Each dispatcher gets `dispatch_message/1`, `dispatch_message/2`, `dispatch_message!/1` and `dispatch_message!/2`.
+  `dispatch_message/2` and `dispatch_message!/2` are declared as callbacks on the dispatcher module itself. That makes
+  every dispatcher a behaviour, so a host injects the module and mocks it with
+  `Mox.defmock(MyApp.DispatcherMock, for: MyApp.Dispatcher)` without a separate behaviour module. The `/1` variants
+  are not callbacks, so code that dispatches through an injected module passes the options explicitly.
 
   `dispatch_message/2` returns the final context's `:response`, per the contract in `Trogon.Dispatcher.Handler`. It
   raises `ArgumentError` when the first argument is not a struct, or the second is not a
@@ -136,10 +137,8 @@ defmodule Trogon.Dispatcher do
       Module.register_attribute(__MODULE__, :trogon_dispatcher_imports, accumulate: true)
       Module.register_attribute(__MODULE__, :trogon_dispatcher_import_lines, accumulate: true)
 
-      @callback dispatch_message(message :: struct()) :: Trogon.Dispatcher.response()
       @callback dispatch_message(message :: struct(), options :: Trogon.Dispatcher.DispatchOptions.t()) ::
                   Trogon.Dispatcher.response()
-      @callback dispatch_message!(message :: struct()) :: :ok | struct()
       @callback dispatch_message!(message :: struct(), options :: Trogon.Dispatcher.DispatchOptions.t()) ::
                   :ok | struct()
 

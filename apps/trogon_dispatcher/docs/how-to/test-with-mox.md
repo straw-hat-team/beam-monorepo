@@ -46,7 +46,7 @@ defmodule MyAppWeb.UserControllerTest do
   setup {Mox, :verify_on_exit!}
 
   test "creates a user", %{conn: conn} do
-    Test.expect_dispatch(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
+    Test.expect_dispatch_message(MyApp.DispatcherMock, RegisterUser, returns: {:ok, %User{email: "a@b.c"}})
 
     conn = post(conn, ~p"/users", %{"email" => "a@b.c"})
 
@@ -56,7 +56,8 @@ defmodule MyAppWeb.UserControllerTest do
 end
 ```
 
-See `Trogon.Dispatcher.Test.expect_dispatch/3` for the options it takes and the contract it enforces, and
+Use `Trogon.Dispatcher.Test.expect_dispatch_message!/3` when the code under test calls `dispatch_message!/2`. See
+`Trogon.Dispatcher.Test.expect_dispatch_message/3` for the options it takes and the contract it enforces, and
 `Trogon.Dispatcher.Test` for why there is no per-message handler stubbing.
 
 ## Test the real dispatcher
