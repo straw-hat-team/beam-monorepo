@@ -236,6 +236,31 @@ defmodule Trogon.DispatcherTest do
       assert metadata.context.registered_by == Support.AccountsDispatcher
     end
 
+    test "Context.new/1 builds a command context with no dispatcher and empty options" do
+      assert %Context{
+               message: %Support.RegisterUser{email: "a@b.c"},
+               kind: :command,
+               dispatcher: nil,
+               registered_by: nil,
+               message_id: nil,
+               correlation_id: nil,
+               causation_id: nil,
+               actor: nil,
+               assigns: %{},
+               private: %{},
+               response: nil
+             } = Context.new(%Support.RegisterUser{email: "a@b.c"})
+    end
+
+    test "Context.new/3 defaults registered_by to the dispatcher" do
+      context =
+        Context.new(%Support.GetUser{id: 1}, %DispatchOptions{}, kind: :query, dispatcher: Support.RootDispatcher)
+
+      assert context.kind == :query
+      assert context.dispatcher == Support.RootDispatcher
+      assert context.registered_by == Support.RootDispatcher
+    end
+
     test "assign/3 writes host space and put_private/3 writes middleware space" do
       context = Test.build_context(%Support.RegisterUser{})
 

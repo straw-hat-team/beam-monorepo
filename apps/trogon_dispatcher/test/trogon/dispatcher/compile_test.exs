@@ -87,6 +87,32 @@ defmodule Trogon.Dispatcher.CompileTest do
                "Expected: Trogon.Dispatcher.TestSupport.ArchiveUser to export handle_message/2"
     end
 
+    test "rejects a message module that does not exist" do
+      assert_raise ArgumentError, ~r/to define a struct/, fn ->
+        compile!("""
+        defmodule RegistersMissingMessage do
+          use Trogon.Dispatcher
+          register_message Trogon.Dispatcher.TestSupport.MissingMessage, kind: :command
+        end
+        """)
+      end
+    end
+
+    test "rejects a handler module that does not exist" do
+      error =
+        assert_compile_exit("""
+        defmodule MissingHandlerModule do
+          use Trogon.Dispatcher
+          register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command, to: Trogon.Dispatcher.TestSupport.MissingHandler
+        end
+        """)
+
+      assert Exception.message(error) =~
+               "Expected: Trogon.Dispatcher.TestSupport.MissingHandler to export handle_message/2"
+
+      assert Exception.message(error) =~ "Problem: Module could not be loaded"
+    end
+
     test "rejects two local registrations of the same message with different handlers" do
       error =
         assert_raise DuplicateMessageError, fn ->
@@ -183,6 +209,59 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
+    test "rejects a middleware module that does not exist" do
+      assert_raise ArgumentError, ~r/to export call\/3/, fn ->
+        compile!("""
+        defmodule MissingMiddlewareModule do
+          use Trogon.Dispatcher
+          middleware Trogon.Dispatcher.TestSupport.MissingMiddleware
+          register_message Trogon.Dispatcher.TestSupport.RegisterUser, kind: :command
+        end
+        """)
+      end
+    end
+
+    @tag :tmp_dir
+    test "fails to compile a middleware that waits on the dispatcher using it", %{tmp_dir: tmp_dir} do
+      unique = System.unique_integer([:positive])
+      dispatcher_name = "WaitingDispatcher#{unique}"
+      middleware_name = "WaitingMiddleware#{unique}"
+      dispatcher = :"Elixir.#{dispatcher_name}"
+      middleware = :"Elixir.#{middleware_name}"
+
+      on_exit(fn ->
+        :code.purge(dispatcher)
+        :code.delete(dispatcher)
+        :code.purge(middleware)
+        :code.delete(middleware)
+      end)
+
+      dispatcher_path = Path.join(tmp_dir, "waiting_dispatcher.ex")
+      middleware_path = Path.join(tmp_dir, "waiting_middleware.ex")
+
+      File.write!(dispatcher_path, """
+      defmodule #{dispatcher_name} do
+        use Trogon.Dispatcher
+        middleware #{middleware_name}
+      end
+      """)
+
+      File.write!(middleware_path, """
+      defmodule #{middleware_name} do
+        require #{dispatcher_name}
+        def call(context, next, _options), do: next.(context)
+      end
+      """)
+
+      {:error, diagnostics, _warnings} =
+        Kernel.ParallelCompiler.compile([dispatcher_path, middleware_path], return_diagnostics: true)
+
+      assert Enum.any?(
+               diagnostics,
+               &(&1.message =~ "could not load module #{middleware_name} due to reason :unavailable")
+             )
+    end
+
     test "rejects a middleware whose init/1 does not return a struct" do
       assert_raise ArgumentError, ~r/to return a struct/, fn ->
         compile!("""
@@ -242,6 +321,35 @@ defmodule Trogon.Dispatcher.CompileTest do
       end
     end
 
+    test "rejects a cycle closed by redefining a dispatcher another one already imports" do
+      compile!("""
+      defmodule RedefinedLeaf do
+        use Trogon.Dispatcher
+      end
+
+      defmodule RedefinedMiddle do
+        use Trogon.Dispatcher
+        import_dispatcher RedefinedLeaf
+      end
+      """)
+
+      {error, _diagnostics} =
+        Code.with_diagnostics(fn ->
+          assert_raise CircularImportError, fn ->
+            compile!("""
+            defmodule RedefinedLeaf do
+              use Trogon.Dispatcher
+              import_dispatcher RedefinedMiddle
+            end
+            """)
+          end
+        end)
+
+      assert error.dispatcher == RedefinedLeaf
+      assert error.imported == RedefinedMiddle
+      assert error.path == [RedefinedLeaf, RedefinedMiddle, RedefinedLeaf]
+    end
+
     @tag :tmp_dir
     test "rejects a cross-file cycle that the parallel compiler cannot resolve", %{tmp_dir: tmp_dir} do
       unique = System.unique_integer([:positive])
@@ -289,6 +397,30 @@ defmodule Trogon.Dispatcher.CompileTest do
         end
         """)
       end
+    end
+
+    test "rejects importing a module that does not exist" do
+      assert_raise ArgumentError, ~r/to be a Trogon.Dispatcher/, fn ->
+        compile!("""
+        defmodule ImportsMissing do
+          use Trogon.Dispatcher
+          import_dispatcher Trogon.Dispatcher.TestSupport.MissingDispatcher
+        end
+        """)
+      end
+    end
+
+    test "importing the same dispatcher twice keeps a single registration" do
+      compile!("""
+      defmodule ImportsBillingTwice do
+        use Trogon.Dispatcher
+        import_dispatcher Trogon.Dispatcher.TestSupport.BillingDispatcher
+        import_dispatcher Trogon.Dispatcher.TestSupport.BillingDispatcher
+      end
+      """)
+
+      assert [%{message: Support.BillingCommand}] = ImportsBillingTwice.__trogon_dispatcher__(:registrations)
+      assert {:ok, %Support.User{}} = ImportsBillingTwice.dispatch_message(%Support.BillingCommand{})
     end
 
     test "rejects two dispatchers registering the same message even when their pipelines match" do

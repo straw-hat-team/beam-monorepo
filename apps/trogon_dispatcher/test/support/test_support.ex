@@ -95,6 +95,20 @@ defmodule Trogon.Dispatcher.TestSupport do
     def handle_message(%__MODULE__{}, _context), do: {:error, %{}}
   end
 
+  defmodule ExceptionError do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context), do: {:error, %ArgumentError{message: "bad input"}}
+  end
+
+  defmodule TextError do
+    @moduledoc false
+    defstruct []
+
+    def handle_message(%__MODULE__{}, _context), do: {:error, "card declined"}
+  end
+
   defmodule Throwing do
     @moduledoc false
     defstruct []
@@ -348,5 +362,13 @@ defmodule Trogon.Dispatcher.TestSupport do
     use Trogon.Dispatcher
 
     register_message UnknownShapeError, kind: :command
+  end
+
+  defmodule ErrorReasonDispatcher do
+    @moduledoc false
+    use Trogon.Dispatcher
+
+    register_message ExceptionError, kind: :command
+    register_message TextError, kind: :command
   end
 end

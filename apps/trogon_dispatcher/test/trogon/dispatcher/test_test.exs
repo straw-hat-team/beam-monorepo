@@ -255,6 +255,14 @@ defmodule Trogon.Dispatcher.TestTest do
         Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, %DispatchOptions{})
       end
     end
+
+    test "raises when the options argument is not a DispatchOptions" do
+      Test.expect_dispatch_message(Support.DispatcherMock, Support.RegisterUser)
+
+      assert_raise ArgumentError,
+                   "expected a %Trogon.Dispatcher.DispatchOptions{} as the second argument, got: [actor: :someone]",
+                   fn -> Support.DispatcherMock.dispatch_message(%Support.RegisterUser{}, actor: :someone) end
+    end
   end
 
   describe "expect_dispatch_message!/3" do

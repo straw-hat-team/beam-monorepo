@@ -94,6 +94,48 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       assert Map.has_key?(attributes_map, :"code.function.name")
     end
 
+    test "reports the kind of a query" do
+      Support.RootDispatcher.dispatch_message(%Support.GetUser{id: 1}, %DispatchOptions{assigns: %{trail: []}})
+
+      assert_receive {:span, span(name: name, attributes: attributes)}, 1000
+
+      assert name == "dispatch Trogon.Dispatcher.TestSupport.GetUser"
+      assert :otel_attributes.map(attributes)[:"trogon_dispatcher.kind"] == "query"
+    end
+
+    test "omits id attributes whose value is not a string, integer, or atom" do
+      options = %DispatchOptions{
+        message_id: {:uuid, "msg-1"},
+        correlation_id: %{id: "corr-1"},
+        causation_id: ["cause-1"],
+        assigns: %{trail: []}
+      }
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+
+      attributes_map = :otel_attributes.map(attributes)
+
+      refute Map.has_key?(attributes_map, :"messaging.message.id")
+      refute Map.has_key?(attributes_map, :"messaging.message.conversation_id")
+      refute Map.has_key?(attributes_map, :"trogon_dispatcher.correlation_id")
+      refute Map.has_key?(attributes_map, :"trogon_dispatcher.causation_id")
+    end
+
+    test "turns integer and atom ids into strings" do
+      options = %DispatchOptions{message_id: 42, correlation_id: :corr, assigns: %{trail: []}}
+
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
+
+      assert_receive {:span, span(attributes: attributes)}, 1000
+
+      attributes_map = :otel_attributes.map(attributes)
+
+      assert attributes_map[:"messaging.message.id"] == "42"
+      assert attributes_map[:"messaging.message.conversation_id"] == "corr"
+    end
+
     test "does not fall back to causation_id for messaging.message.id" do
       options = %DispatchOptions{causation_id: "cause-1", assigns: %{trail: []}}
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -129,6 +171,42 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       assert_receive {:span, span(attributes: attributes)}, 1000
       assert :otel_attributes.map(attributes)[:"error.type"] == "_OTHER"
+    end
+
+    test "describes an exception error term with its message and types it by its module" do
+      assert {:error, %ArgumentError{}} = Support.ErrorReasonDispatcher.dispatch_message(%Support.ExceptionError{})
+
+      assert_receive {:span, span(status: {:status, :error, message}, attributes: attributes)}, 1000
+
+      assert message == "bad input"
+      assert :otel_attributes.map(attributes)[:"error.type"] == "ArgumentError"
+    end
+
+    test "uses a string error term as the status description" do
+      assert {:error, "card declined"} = Support.ErrorReasonDispatcher.dispatch_message(%Support.TextError{})
+
+      assert_receive {:span, span(status: {:status, :error, message}, attributes: attributes)}, 1000
+
+      assert message == "card declined"
+      assert :otel_attributes.map(attributes)[:"error.type"] == "_OTHER"
+    end
+
+    test "emits a warning event when the error term has no known type" do
+      test_pid = self()
+
+      :telemetry.attach(
+        "unknown-error-type-warning-test",
+        [:trogon_dispatcher, :open_telemetry, :warning],
+        fn _event, _measurements, metadata, _config -> send(test_pid, {:warning, metadata}) end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach("unknown-error-type-warning-test") end)
+
+      Support.ErrorReasonDispatcher.dispatch_message(%Support.TextError{})
+
+      assert_receive {:warning, %{message: "Unknown error type encountered, returning _OTHER", error: "card declined"}},
+                     1000
     end
 
     test "counts a middleware short circuit as a returned error" do
