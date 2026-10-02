@@ -38,6 +38,13 @@ defmodule EventStoreDashboard.Params do
         }
 
   @nav_tabs ~w(streams events subscriptions snapshots)
+  @default_nav "streams"
+
+  # LiveDashboard's `live_table` stores search, sort, and limit in URL params shared by
+  # every tab, and `live_dashboard_path/3` carries them over to the new path. Each tab
+  # reads them with its own meaning (a stream prefix on Streams, an event type on
+  # Events), so they must only survive navigation within the same tab.
+  @table_param_keys ~w(search limit sort_by sort_dir)
 
   @spec from_url(map()) :: t()
   def from_url(params) when is_map(params) do
@@ -67,7 +74,7 @@ defmodule EventStoreDashboard.Params do
       |> Map.update!(:eventstore, &eventstore_param/1)
       |> Enum.to_list()
 
-    PageBuilder.live_dashboard_path(socket, page, keyword)
+    PageBuilder.live_dashboard_path(socket, scope_table_params(page, params.nav), keyword)
   end
 
   @spec eventstore_param(String.t() | module() | {module(), keyword()} | nil) :: String.t() | nil
@@ -97,6 +104,17 @@ defmodule EventStoreDashboard.Params do
 
   defp parse_nav(%{"nav" => value}) when value in @nav_tabs, do: value
   defp parse_nav(_), do: nil
+
+  defp scope_table_params(page, target_nav) do
+    if tab(parse_nav(page.params)) == tab(target_nav) do
+      page
+    else
+      %{page | params: Map.drop(page.params, @table_param_keys)}
+    end
+  end
+
+  defp tab(nil), do: @default_nav
+  defp tab(nav), do: nav
 
   defp parse_stream(%{"stream" => ""}), do: "$all"
   defp parse_stream(%{"stream" => value}) when is_binary(value), do: value
