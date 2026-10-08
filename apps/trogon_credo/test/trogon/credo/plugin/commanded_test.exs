@@ -3,6 +3,7 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
 
   alias Trogon.Credo.Check.Commanded.AggregateApplyCall
   alias Trogon.Credo.Check.Commanded.DeterministicCommand
+  alias Trogon.Credo.Check.Commanded.DomainErrorConstruction
   alias Trogon.Credo.Check.Commanded.SwappableNonDeterminism
   alias Trogon.Credo.Plugin.Commanded, as: CommandedPlugin
 
@@ -65,6 +66,14 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
 
     def process(_job) do
       Ecto.UUID.generate()
+    end
+  end
+  """
+
+  @domain_error_user """
+  defmodule Acme.Review.Web.ReviewController do
+    def create(params) do
+      raise Acme.Review.Domain.NotFoundError
     end
   end
   """
@@ -147,6 +156,12 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
     assert [%{check: SwappableNonDeterminism, trigger: "Ecto.UUID.generate"}] = issues
   end
 
+  test "enables DomainErrorConstruction against the default error pattern" do
+    issues = run_credo(config([{CommandedPlugin, []}]), [{"controller.ex", @domain_error_user}])
+
+    assert [%{check: DomainErrorConstruction, trigger: "Acme.Review.Domain.NotFoundError"}] = issues
+  end
+
   test "keeps the project's own entry for a check it enables" do
     checks = "%{enabled: [], disabled: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, []}]}"
 
@@ -154,7 +169,7 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
   end
 
   test "leaves out the checks named in except" do
-    except = [AggregateApplyCall, DeterministicCommand, SwappableNonDeterminism]
+    except = [AggregateApplyCall, DeterministicCommand, SwappableNonDeterminism, DomainErrorConstruction]
 
     assert [] ==
              run_credo(
@@ -191,6 +206,19 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
     """
 
     assert [] == run_credo(config([{CommandedPlugin, []}]), [{"event_handler.ex", source}])
+  end
+
+  test "honors a disable comment naming DomainErrorConstruction" do
+    source = """
+    defmodule Acme.Review.Web.ReviewController do
+      def create(params) do
+        # credo:disable-for-next-line Trogon.Credo.Check.Commanded.DomainErrorConstruction
+        raise Acme.Review.Domain.NotFoundError
+      end
+    end
+    """
+
+    assert [] == run_credo(config([{CommandedPlugin, []}]), [{"controller.ex", source}])
   end
 
   test "raises when except names a check the plugin does not enable" do
