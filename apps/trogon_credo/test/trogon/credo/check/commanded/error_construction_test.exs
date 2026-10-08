@@ -398,4 +398,88 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     |> run_check(ErrorConstruction)
     |> refute_issues()
   end
+
+  test "reports a raise on the right of a match" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        result = raise Acme.Billing.NotFoundError
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
+
+  test "reports a constructor call on the right of a with generator" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        with {:ok, error} <- Acme.Billing.NotFoundError.new(id: 1), do: error
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
+
+  test "reports a struct built as a case clause body" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        case params do
+          nil -> %Acme.Billing.NotFoundError{}
+          _ -> :ok
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
+
+  test "reports a Kernel-qualified raise" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        Kernel.raise(Acme.Billing.NotFoundError, id: 1)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
+
+  test "reports a Kernel-qualified reraise" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        Kernel.reraise(Acme.Billing.NotFoundError, [id: 1], __STACKTRACE__)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
+
+  test "reports a raise inside a cond clause" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        cond do
+          params == nil -> raise Acme.Billing.NotFoundError
+          true -> :ok
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
 end

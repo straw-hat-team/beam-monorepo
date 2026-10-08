@@ -48,7 +48,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
 
       What counts as construction: a struct literal or a struct update, `%Error{}` and
       `%Error{e | ...}` alike, written where it is built rather than matched; `raise` and
-      `reraise` naming the error module directly; a call to one of its constructor
+      `reraise` naming the error module, `Kernel.`-qualified included; a call to one of its constructor
       functions, `exception` and `new` by default, called directly, piped into, or
       captured; and `struct/2` or `struct!/2` given the error module, `Kernel.`-qualified
       included. Everything else that names the module, a type check such as
@@ -91,7 +91,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
   @message "Only the context that defines this error builds or raises it; match on it " <>
              "here, or raise an error this context owns."
 
-  @struct_functions [:struct, :struct!]
+  @kernel_constructions [:raise, :reraise, :struct, :struct!]
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
 
@@ -134,7 +134,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
 
   # `match?/2` compares a value against a pattern, so its first argument is a
   # pattern position even though the call itself is written as an expression.
-  defp traverse({:match?, _meta, [_pattern, value]}, issues, _context), do: {value, issues}
+  defp traverse({:match?, _meta, [_pattern, value]}, issues, _context), do: {[value], issues}
 
   # A struct literal and a struct update share this shape, the fields telling
   # them apart mattering to neither, since both build the struct they name.
@@ -142,20 +142,12 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
     {ast, maybe_report(parts, alias_meta, context, issues)}
   end
 
-  defp traverse({:raise, _meta, [{:__aliases__, alias_meta, parts} | _rest]} = ast, issues, context) do
-    {ast, maybe_report(parts, alias_meta, context, issues)}
-  end
-
-  defp traverse({:reraise, _meta, [{:__aliases__, alias_meta, parts} | _rest]} = ast, issues, context) do
-    {ast, maybe_report(parts, alias_meta, context, issues)}
-  end
-
   defp traverse({kind, _meta, [{:__aliases__, alias_meta, parts} | _rest]} = ast, issues, context)
-       when kind in @struct_functions do
+       when kind in @kernel_constructions do
     {ast, maybe_report(parts, alias_meta, context, issues)}
   end
 
-  # `Kernel.struct/2` and `Kernel.struct!/2` are tried ahead of a qualified
+  # `Kernel.`-qualified forms are tried ahead of a qualified
   # constructor call, which would otherwise claim this same shape and never
   # find the error module, since it is argument here rather than receiver.
   defp traverse(
@@ -164,7 +156,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
          issues,
          context
        )
-       when kind in @struct_functions do
+       when kind in @kernel_constructions do
     {ast, maybe_report(parts, alias_meta, context, issues)}
   end
 
@@ -186,10 +178,16 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
 
   defp traverse(ast, issues, _context) do
     case AstPattern.hide_pattern_position(ast) do
-      {:ok, rewritten} -> {rewritten, issues}
+      {:ok, rewritten} -> {revisit(ast, rewritten), issues}
       :error -> {ast, issues}
     end
   end
+
+  # A prewalk only walks into what a callback returns, never back over it, so a
+  # rewritten expression is wrapped to be visited itself, unless it keeps the
+  # form it was rewritten from, which would rewrite it again forever.
+  defp revisit({form, _meta, _args}, {form, _rewritten_meta, _rewritten_args} = rewritten), do: rewritten
+  defp revisit(_ast, rewritten), do: [rewritten]
 
   defp maybe_report(parts, meta, context, issues) do
     module = ModuleName.resolve(parts, context.aliases)
