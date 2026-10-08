@@ -40,21 +40,6 @@ defmodule Trogon.Credo.Check.Commanded.SwappableNonDeterminismTest do
     end)
   end
 
-  test "reports a qualified call inside a process manager" do
-    """
-    defmodule Acme.Billing.ProcessManager do
-      use Commanded.ProcessManagers.ProcessManager, name: __MODULE__
-
-      def handle(event, _metadata) do
-        Ecto.UUID.generate()
-      end
-    end
-    """
-    |> to_source_file()
-    |> run_check(SwappableNonDeterminism)
-    |> assert_issue(fn issue -> assert issue.trigger == "Ecto.UUID.generate" end)
-  end
-
   test "reports a call through an alias" do
     """
     defmodule Acme.Billing.EventHandler do

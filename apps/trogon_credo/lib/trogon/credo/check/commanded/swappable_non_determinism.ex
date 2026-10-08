@@ -8,15 +8,15 @@ defmodule Trogon.Credo.Check.Commanded.SwappableNonDeterminism do
     base_priority: :high,
     category: :warning,
     param_defaults: [
-      processor_modules: [Commanded.Event.Handler, Commanded.ProcessManagers.ProcessManager],
+      processor_modules: [Commanded.Event.Handler],
       calls: NonDeterministicCalls.calls(),
       hint: nil
     ],
     explanations: [
       check: """
-      A processor, an event handler or a process manager that reacts to what already
-      happened, may depend on wall clock time, randomness, or a generated id, unlike an
-      aggregate or a command handler: nothing about replaying its work has to reach the
+      A processor, an event handler that reacts to what already happened, may depend
+      on wall clock time, randomness, or a generated id, unlike an aggregate or a
+      command handler: nothing about replaying its work has to reach the
       same decision twice. A test still has to replace what it depends on, though, or it
       cannot assert on the value a processor read. Calling `DateTime.utc_now/0` or
       `Ecto.UUID.generate/0` straight from a processor leaves no seam for a test to
@@ -25,8 +25,8 @@ defmodule Trogon.Credo.Check.Commanded.SwappableNonDeterminism do
       generator module, and the processor calls that instead.
 
           # preferred
-          defmodule Acme.Billing.ProcessManager.InvoiceReminder do
-            use Commanded.ProcessManagers.ProcessManager, name: __MODULE__
+          defmodule Acme.Billing.EventHandler.InvoiceReminder do
+            use Commanded.Event.Handler, application: Acme.App, name: __MODULE__
 
             def handle(%InvoiceOverdue{} = event, _metadata) do
               %SendReminder{invoice_id: event.invoice_id, sent_at: Acme.Clock.utc_now()}
@@ -34,8 +34,8 @@ defmodule Trogon.Credo.Check.Commanded.SwappableNonDeterminism do
           end
 
           # NOT preferred
-          defmodule Acme.Billing.ProcessManager.InvoiceReminder do
-            use Commanded.ProcessManagers.ProcessManager, name: __MODULE__
+          defmodule Acme.Billing.EventHandler.InvoiceReminder do
+            use Commanded.Event.Handler, application: Acme.App, name: __MODULE__
 
             def handle(%InvoiceOverdue{} = event, _metadata) do
               %SendReminder{invoice_id: event.invoice_id, sent_at: DateTime.utc_now()}
@@ -59,8 +59,7 @@ defmodule Trogon.Credo.Check.Commanded.SwappableNonDeterminism do
       params: [
         processor_modules: """
         A list of modules that mark a module as a processor when brought in with
-        `use`. Defaults to `Commanded.Event.Handler` and
-        `Commanded.ProcessManagers.ProcessManager`. A project whose processors also
+        `use`. Defaults to `Commanded.Event.Handler`. A project whose processors also
         include job workers adds those here, `Oban.Pro.Worker` for instance.
         """,
         calls: """
