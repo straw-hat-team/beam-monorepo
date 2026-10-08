@@ -25,6 +25,26 @@ defmodule Trogon.Credo.Plugin.EctoTest do
     assert [RepoTransact] = issues |> Enum.map(& &1.check) |> Enum.filter(&(&1 == RepoTransact))
   end
 
+  test "enables its checks when the project lists checks as a plain list" do
+    issues = run_credo(config([{EctoPlugin, []}], "[]"), [{"sample.ex", @source}])
+
+    assert [RepoTransact] = issues |> Enum.map(& &1.check) |> Enum.filter(&(&1 == RepoTransact))
+  end
+
+  test "keeps the project's own extra: entry for a check it enables" do
+    checks = "%{extra: [{Trogon.Credo.Check.Ecto.RepoTransact, [repos: [MyApp.ReadOnlyRepo]]}]}"
+    issues = run_credo(config([{EctoPlugin, []}], checks), [{"sample.ex", @source}])
+
+    assert [%{trigger: "MyApp.ReadOnlyRepo.transact"}] = Enum.filter(issues, &(&1.check == RepoTransact))
+  end
+
+  test "keeps the project's own plain list entry for a check it enables" do
+    checks = "[{Trogon.Credo.Check.Ecto.RepoTransact, [repos: [MyApp.ReadOnlyRepo]]}]"
+    issues = run_credo(config([{EctoPlugin, []}], checks), [{"sample.ex", @source}])
+
+    assert [%{trigger: "MyApp.ReadOnlyRepo.transact"}] = Enum.filter(issues, &(&1.check == RepoTransact))
+  end
+
   test "enables its checks under a config selected with --config-name" do
     issues =
       run_credo(config([{EctoPlugin, []}], "%{enabled: []}", "ci"), [{"sample.ex", @source}], [
