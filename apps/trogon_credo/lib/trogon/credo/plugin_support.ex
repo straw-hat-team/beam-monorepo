@@ -17,7 +17,7 @@ defmodule Trogon.Credo.PluginSupport do
     except = exec |> param(plugin, :except) |> List.wrap()
     validate_except!(plugin, except, checks)
 
-    enabled = Enum.reject(checks, fn {check, _params} -> check in except end)
+    enabled = reject_listed(checks, except)
 
     Credo.Plugin.append_task(
       exec,
@@ -25,6 +25,12 @@ defmodule Trogon.Credo.PluginSupport do
       {Trogon.Credo.PluginSupport.EnableChecks, checks: enabled}
     )
   end
+
+  def reject_listed(checks, listed) do
+    Enum.reject(checks, &listed?(&1, listed))
+  end
+
+  defp listed?({check, _params}, listed), do: check in listed
 
   def param(exec, plugin, name) do
     Execution.get_plugin_param(exec, plugin, name)
@@ -39,7 +45,7 @@ defmodule Trogon.Credo.PluginSupport do
   defp validate_except!(plugin, except, checks) do
     known = Enum.map(checks, &elem(&1, 0))
 
-    case Enum.reject(except, &(&1 in known)) do
+    case Enum.reject(except, &Enum.member?(known, &1)) do
       [] ->
         :ok
 

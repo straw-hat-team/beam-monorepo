@@ -70,9 +70,11 @@ defmodule Trogon.Credo.Check.Ecto.RepoTransact do
     repos = params |> Params.get(:repos, __MODULE__) |> List.wrap()
 
     CheckDelegate.run(source_file, params, __MODULE__, ForbiddenFunctionCall,
-      calls: Enum.map(repos, &{{&1, :transact}, @message}),
+      calls: Enum.map(repos, &forbidden_transact/1),
       except: [],
       hint: Params.get(params, :hint, __MODULE__)
     )
   end
+
+  defp forbidden_transact(repo), do: {{repo, :transact}, @message}
 end

@@ -13,6 +13,8 @@ defmodule Trogon.Credo.CheckDelegate do
   def run(source_file, params, check, generic, generic_params) do
     source_file
     |> generic.run(Keyword.merge(params, generic_params))
-    |> Enum.map(&%{&1 | check: check})
+    |> Enum.map(&retarget(&1, check))
   end
+
+  defp retarget(issue, check), do: %{issue | check: check}
 end
