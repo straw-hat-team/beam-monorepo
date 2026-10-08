@@ -133,8 +133,17 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
   end
 
   # `match?/2` compares a value against a pattern, so its first argument is a
-  # pattern position even though the call itself is written as an expression.
+  # pattern position even though the call itself is written as an expression,
+  # `Kernel.`-qualified or not.
   defp traverse({:match?, _meta, [_pattern, value]}, issues, _context), do: {[value], issues}
+
+  defp traverse(
+         {{:., _dot_meta, [{:__aliases__, _kernel_meta, [:Kernel]}, :match?]}, _call_meta, [_pattern, value]},
+         issues,
+         _context
+       ) do
+    {[value], issues}
+  end
 
   # A struct literal and a struct update share this shape, the fields telling
   # them apart mattering to neither, since both build the struct they name.

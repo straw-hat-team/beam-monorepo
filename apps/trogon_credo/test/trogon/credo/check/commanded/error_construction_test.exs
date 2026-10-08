@@ -508,4 +508,17 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     |> run_check(ErrorConstruction)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
+
+  test "does not report Kernel.match?/2 matching the error as a pattern" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(error) do
+        Kernel.match?(%Acme.Billing.NotFoundError{}, error)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> refute_issues()
+  end
 end
