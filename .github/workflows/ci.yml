@@ -13,6 +13,7 @@ jobs:
     uses: straw-hat-team/github-actions-workflows/.github/workflows/elixir-quality-assurance.yml@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
     with:
       mix-in-umbrella-deps: true
+      testing-enabled: false
 
   compile-cycles:
     name: Compile-time Cycles
@@ -28,3 +29,69 @@ jobs:
       - uses: straw-hat-team/github-actions-workflows/elixir/setup@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
       - name: Check compile-time cycles
         run: mix xref graph --format cycles --label compile-connected --fail-above 0
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      MIX_ENV: test
+      MIX_IN_UMBRELLA_DEPS: true
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      postgres16:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      pgbouncer:
+        image: edoburu/pgbouncer:latest
+        env:
+          DATABASE_URL: postgres://postgres:postgres@postgres:5432/trogon_outbox_test
+          POOL_MODE: transaction
+          AUTH_TYPE: scram-sha-256
+          IGNORE_STARTUP_PARAMETERS: extra_float_digits,synchronous_commit
+        ports:
+          - 6432:5432
+      rabbitmq:
+        image: rabbitmq:4-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: outbox
+          RABBITMQ_DEFAULT_PASS: outbox
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: straw-hat-team/github-actions-workflows/elixir/setup@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
+      - name: Run tests
+        env:
+          TROGON_OUTBOX_PG16_URL: ecto://postgres:postgres@localhost:5433/postgres
+          TROGON_OUTBOX_PGBOUNCER_URL: ecto://postgres:postgres@localhost:6432/trogon_outbox_test
+          TROGON_OUTBOX_RABBITMQ_URL: amqp://outbox:outbox@localhost:5672
+        run: mix test
