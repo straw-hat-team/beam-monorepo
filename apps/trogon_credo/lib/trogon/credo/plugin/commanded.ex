@@ -17,7 +17,7 @@ defmodule Trogon.Credo.Plugin.Commanded do
     * `Trogon.Credo.Check.Commanded.AggregateApplyCall`
     * `Trogon.Credo.Check.Commanded.DeterministicCommand`
     * `Trogon.Credo.Check.Commanded.SwappableNonDeterminism`
-    * `Trogon.Credo.Check.Commanded.DomainErrorConstruction`
+    * `Trogon.Credo.Check.Commanded.ErrorConstruction`
 
   ## Params
 
@@ -54,7 +54,7 @@ defmodule Trogon.Credo.Plugin.Commanded do
 
   alias Trogon.Credo.Check.Commanded.AggregateApplyCall
   alias Trogon.Credo.Check.Commanded.DeterministicCommand
-  alias Trogon.Credo.Check.Commanded.DomainErrorConstruction
+  alias Trogon.Credo.Check.Commanded.ErrorConstruction
   alias Trogon.Credo.Check.Commanded.SwappableNonDeterminism
   alias Trogon.Credo.PluginSupport
 
@@ -75,7 +75,7 @@ defmodule Trogon.Credo.Plugin.Commanded do
          :event_modules
        ])},
       {SwappableNonDeterminism, PluginSupport.check_params(exec, __MODULE__, [:processor_modules])},
-      {DomainErrorConstruction, PluginSupport.check_params(exec, __MODULE__, [])}
+      {ErrorConstruction, PluginSupport.check_params(exec, __MODULE__, [])}
     ])
   end
 end
