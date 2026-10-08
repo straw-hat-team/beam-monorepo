@@ -32,9 +32,10 @@ defmodule Trogon.Credo.Plugin.OpenTelemetry do
   `checks: %{extra: [...]}`, or a plain list, and whichever config `--config-name`
   selects.
 
-  A project that already enables
-  `Trogon.Credo.Check.Warning.OpentelemetryTaskPropagation` drops that entry when it
-  adds this plugin, so a call is not reported twice.
+  The plugin leaves `Trogon.Credo.Check.Warning.OpentelemetryTaskPropagation`
+  alone, since a project may configure it with params of its own. Remove that
+  entry from `.credo.exs` when adding this plugin, otherwise every call is
+  reported under both checks.
   """
 
   alias Trogon.Credo.Check.OpenTelemetry.TaskPropagation
