@@ -3,7 +3,7 @@ defmodule Trogon.Credo.Check.Oban.WorkerNameTest do
 
   alias Trogon.Credo.Check.Oban.WorkerName
 
-  @message "Worker module name must end with `Worker`. If the worker is already deployed, jobs in " <>
+  @message "Worker module `MyApp.SendWelcomeEmail` must end with `Worker`. If the worker is already deployed, jobs in " <>
              "`oban_jobs` store its current name, so keep that name working with `aliases:` on " <>
              "`use Oban.Pro.Worker` when renaming it."
 
@@ -67,7 +67,10 @@ defmodule Trogon.Credo.Check.Oban.WorkerNameTest do
     """
     |> to_source_file()
     |> run_check(WorkerName)
-    |> assert_issue(fn issue -> assert issue.trigger == "SendWelcomeEmail" end)
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "SendWelcomeEmail"
+      assert issue.message =~ "Worker module `MyApp.Mailer.SendWelcomeEmail` must end"
+    end)
   end
 
   test "reports a worker that uses the worker module through an alias" do
@@ -81,6 +84,47 @@ defmodule Trogon.Credo.Check.Oban.WorkerNameTest do
     |> to_source_file()
     |> run_check(WorkerName)
     |> assert_issue()
+  end
+
+  test "resolves a use through the aliases of its own module, not a sibling's" do
+    """
+    defmodule MyApp.Mailer do
+      alias MyApp.Oban
+    end
+
+    defmodule MyApp.SendWelcomeEmail do
+      use Oban.Worker, queue: :mailers
+    end
+    """
+    |> to_source_file()
+    |> run_check(WorkerName)
+    |> assert_issue(fn issue -> assert issue.trigger == "MyApp.SendWelcomeEmail" end)
+  end
+
+  test "resolves a use through an alias written before the module" do
+    """
+    alias Oban.Pro.Worker
+
+    defmodule MyApp.SendWelcomeEmail do
+      use Worker, queue: :mailers
+    end
+    """
+    |> to_source_file()
+    |> run_check(WorkerName)
+    |> assert_issue()
+  end
+
+  test "does not resolve a use through an alias written after it" do
+    """
+    defmodule MyApp.SendWelcomeEmail do
+      use Worker, queue: :mailers
+
+      alias Oban.Pro.Worker
+    end
+    """
+    |> to_source_file()
+    |> run_check(WorkerName)
+    |> refute_issues()
   end
 
   test "does not analyze a module defined inside a quote" do

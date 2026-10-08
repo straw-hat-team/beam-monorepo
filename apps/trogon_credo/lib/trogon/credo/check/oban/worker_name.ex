@@ -39,8 +39,9 @@ defmodule Trogon.Credo.Check.Oban.WorkerName do
       check's `suffixes`.
 
       A nested `defmodule` is named with the namespace of the one enclosing it, a
-      `use` written through an alias is matched under the module it resolves to,
-      and code inside a `quote` block is not analyzed, since a module defined
+      `use` written through an alias is matched under the module it resolves to
+      where it is written, so an alias in a sibling module does not change it, and
+      code inside a `quote` block is not analyzed, since a module defined
       there belongs to wherever the macro expands.
       """,
       params: [
@@ -63,6 +64,7 @@ defmodule Trogon.Credo.Check.Oban.WorkerName do
 
   alias Credo.Code.Name
   alias Trogon.Credo.ModuleDeclaration
+  alias Trogon.Credo.ModuleName
 
   @doc false
   @impl true
@@ -90,7 +92,7 @@ defmodule Trogon.Credo.Check.Oban.WorkerName do
 
   defp issue_for(issue_meta, module, suffix, hint) do
     message =
-      "Worker module name must end with `#{suffix}`. If the worker is already deployed, jobs in " <>
+      "Worker module `#{ModuleName.full(module.namespace)}` must end with `#{suffix}`. If the worker is already deployed, jobs in " <>
         "`oban_jobs` store its current name, so keep that name working with `aliases:` on " <>
         "`use Oban.Pro.Worker` when renaming it."
 

@@ -46,7 +46,7 @@ defmodule Trogon.Credo.Plugin.ObanTest do
              %{
                check: WorkerName,
                trigger: "MyApp.SendReceipt",
-               message: "Worker module name must end with `Job`." <> _
+               message: "Worker module `MyApp.SendReceipt` must end with `Job`." <> _
              },
              %{check: WorkerQueue, trigger: "MyApp.Worker"},
              %{check: ForbiddenDecorator}
