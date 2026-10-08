@@ -32,7 +32,7 @@ defmodule Trogon.Credo.PluginSupport do
 
   defp listed?({check, _params}, listed), do: check in listed
 
-  def param(exec, plugin, name) do
+  defp param(exec, plugin, name) do
     Execution.get_plugin_param(exec, plugin, name)
   end
 
