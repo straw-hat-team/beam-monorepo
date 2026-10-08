@@ -21,18 +21,30 @@ defmodule Trogon.Credo.Check.Ecto.RepoTransact do
       This check reports every call to `transact` on a repo, whatever its arity.
 
           # preferred
+          def register(%Ecto.Multi{} = multi, changeset) do
+            multi
+            |> Ecto.Multi.insert(:user, changeset)
+            |> Ecto.Multi.run(:welcome_email, &send_welcome_email/2)
+          end
+
           Ecto.Multi.new()
-          |> Ecto.Multi.insert(:user, changeset)
-          |> Ecto.Multi.run(:welcome_email, &send_welcome_email/2)
+          |> MyApp.Accounts.register(changeset)
           |> MyApp.Repo.transaction()
 
           # NOT preferred
-          MyApp.Repo.transact(fn ->
-            with {:ok, user} <- MyApp.Repo.insert(changeset),
-                 {:ok, _email} <- send_welcome_email(user) do
-              {:ok, user}
-            end
-          end)
+          def register(changeset) do
+            MyApp.Repo.transact(fn ->
+              with {:ok, user} <- MyApp.Repo.insert(changeset),
+                   {:ok, _email} <- send_welcome_email(user) do
+                {:ok, user}
+              end
+            end)
+          end
+
+      A function that must run inside a transaction takes the `Ecto.Multi` as an
+      argument of its own, matched as `%Ecto.Multi{} = multi`, rather than through
+      its options, so a caller cannot reach it without one. A function that may run
+      either way reads it from `opts[:multi]` instead.
 
       `Repo.transaction/1` and `Repo.transaction/2` are left alone, even though they
       accept a function as well as an `Ecto.Multi`: the argument is only known at
