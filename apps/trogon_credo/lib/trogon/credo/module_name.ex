@@ -57,38 +57,37 @@ defmodule Trogon.Credo.ModuleName do
 
   def resolve(parts, _aliases), do: Name.full(parts)
 
-  defp traverse({:alias, _meta, [{:__aliases__, _, parts}, opts]}, aliases)
-       when is_list(opts) do
+  # The names an `alias` directive binds, as `{name, fully qualified target}`
+  # pairs, or none for anything else.
+  def alias_bindings({:alias, _meta, [{:__aliases__, _, parts}, opts]}) when is_list(opts) do
     case Keyword.fetch(opts, :as) do
-      {:ok, {:__aliases__, _, as_parts}} ->
-        {[], put_alias(aliases, full(as_parts), full(parts))}
-
-      _ ->
-        {[], put_default(aliases, parts)}
+      {:ok, {:__aliases__, _, as_parts}} -> [{full(as_parts), full(parts)}]
+      _ -> [default_binding(parts)]
     end
   end
 
-  defp traverse({:alias, _meta, [module, opts]}, aliases)
-       when is_atom(module) and is_list(opts) do
+  def alias_bindings({:alias, _meta, [module, opts]}) when is_atom(module) and is_list(opts) do
     case Keyword.fetch(opts, :as) do
-      {:ok, {:__aliases__, _, as_parts}} ->
-        {[], put_alias(aliases, full(as_parts), full(module))}
-
-      _ ->
-        {[], aliases}
+      {:ok, {:__aliases__, _, as_parts}} -> [{full(as_parts), full(module)}]
+      _ -> []
     end
   end
 
-  defp traverse({:alias, _meta, [{{:., _, [base, :{}]}, _, alias_nodes} | _opts]}, aliases) do
+  def alias_bindings({:alias, _meta, [{{:., _, [base, :{}]}, _, alias_nodes} | _opts]}) do
     base_parts = base_parts(base)
 
-    new_aliases = Enum.reduce(alias_nodes, aliases, &put_member(&1, &2, base_parts))
-
-    {[], new_aliases}
+    Enum.flat_map(alias_nodes, &member_bindings(&1, base_parts))
   end
 
-  defp traverse({:alias, _meta, [{:__aliases__, _, parts}]}, aliases) do
-    {[], put_default(aliases, parts)}
+  def alias_bindings({:alias, _meta, [{:__aliases__, _, parts}]}), do: [default_binding(parts)]
+
+  def alias_bindings(_ast), do: []
+
+  defp traverse({:alias, _meta, args} = ast, aliases) when is_list(args) do
+    case alias_bindings(ast) do
+      [] -> {ast, aliases}
+      bindings -> {[], Enum.reduce(bindings, aliases, &put_alias/2)}
+    end
   end
 
   defp traverse({:quote, _meta, _args}, aliases), do: {[], aliases}
@@ -98,17 +97,15 @@ defmodule Trogon.Credo.ModuleName do
   defp base_parts({:__aliases__, _meta, parts}), do: parts
   defp base_parts(base), do: [base]
 
-  defp put_member({:__aliases__, _meta, member_parts}, aliases, base_parts) do
-    put_default(aliases, base_parts ++ member_parts)
+  defp member_bindings({:__aliases__, _meta, member_parts}, base_parts) do
+    [default_binding(base_parts ++ member_parts)]
   end
 
-  defp put_member(_member, aliases, _base_parts), do: aliases
+  defp member_bindings(_member, _base_parts), do: []
 
-  defp put_default(aliases, parts) do
-    put_alias(aliases, Name.last(parts), full(parts))
-  end
+  defp default_binding(parts), do: {Name.last(parts), full(parts)}
 
-  defp put_alias(aliases, name, target) do
+  defp put_alias({name, target}, aliases) do
     Map.update(aliases, name, target, &merge_target(&1, target))
   end
 

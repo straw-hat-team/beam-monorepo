@@ -64,94 +64,35 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
 
   alias Credo.Code.Name
   alias Credo.Issue
-  alias Trogon.Credo.ModuleName
+  alias Trogon.Credo.ModuleDeclaration
 
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     issue_meta = IssueMeta.for(source_file, params)
-    for_use = params |> Params.get(:for_use, __MODULE__) |> Enum.map(&ModuleName.full/1)
+    for_use = Params.get(params, :for_use, __MODULE__)
     suffixes = Params.get(params, :suffixes, __MODULE__)
     hint = Params.get(params, :hint, __MODULE__)
 
-    aliases = ModuleName.collect_aliases(source_file)
-    {modules, uses} = Credo.Code.prewalk(source_file, &traverse(&1, &2, aliases), {[], []})
-
-    modules
-    |> Enum.reverse()
-    |> Enum.filter(&applies_to?(&1, uses, for_use))
+    source_file
+    |> ModuleDeclaration.collect_module_declarations(using: for_use)
     |> issues_for(issue_meta, suffixes, hint)
-  end
-
-  defp traverse({:defmodule, _meta, [{:__aliases__, meta, parts} | rest]}, acc, aliases) do
-    {[], walk(rest, parts, put_module(acc, parts, parts, meta), aliases)}
-  end
-
-  defp traverse({:defmodule, _meta, [name | rest]}, acc, aliases) do
-    {[], walk(rest, [name], acc, aliases)}
-  end
-
-  defp traverse({:quote, _meta, _args}, acc, _aliases), do: {[], acc}
-
-  defp traverse(ast, acc, _aliases), do: {ast, acc}
-
-  # Manual recursion (mirroring `traverse/3` above) so that a nested
-  # `defmodule` extends the namespace of the enclosing one and a `use` site is
-  # attributed to its enclosing module's fully qualified name.
-  defp walk({:defmodule, _meta, [{:__aliases__, meta, parts} | rest]}, namespace, acc, aliases) do
-    full_namespace = namespace ++ parts
-
-    walk(rest, full_namespace, put_module(acc, full_namespace, parts, meta), aliases)
-  end
-
-  defp walk({:defmodule, _meta, [name | rest]}, _namespace, acc, aliases) do
-    walk(rest, [name], acc, aliases)
-  end
-
-  defp walk({:use, _meta, [{:__aliases__, _, used_parts} | _]}, namespace, {modules, uses}, aliases) do
-    {modules, [{namespace, ModuleName.resolve(used_parts, aliases)} | uses]}
-  end
-
-  defp walk({:quote, _meta, _args}, _namespace, acc, _aliases), do: acc
-
-  defp walk({_, _, args}, namespace, acc, aliases) when is_list(args) do
-    walk(args, namespace, acc, aliases)
-  end
-
-  defp walk({left, right}, namespace, acc, aliases) do
-    walk(right, namespace, walk(left, namespace, acc, aliases), aliases)
-  end
-
-  defp walk(list, namespace, acc, aliases) when is_list(list) do
-    Enum.reduce(list, acc, &walk(&1, namespace, &2, aliases))
-  end
-
-  defp walk(_ast, _namespace, acc, _aliases), do: acc
-
-  defp put_module({modules, uses}, namespace, parts, meta) do
-    {[%{namespace: namespace, parts: parts, meta: meta} | modules], uses}
-  end
-
-  defp applies_to?(_module, _uses, []), do: true
-
-  defp applies_to?(module, uses, for_use) do
-    Enum.any?(uses, fn {namespace, used} ->
-      namespace == module.namespace and used in for_use
-    end)
   end
 
   defp issues_for(modules, issue_meta, suffixes, hint) do
     {issues, well_named_meta} =
-      Enum.reduce(modules, {[], nil}, fn module, {issues, well_named_meta} ->
-        last_segment = module.parts |> List.last() |> to_string()
-
-        case Enum.find(suffixes, &String.ends_with?(last_segment, &1)) do
-          nil -> {issues, well_named_meta || module.meta}
-          suffix -> {[module_name_issue(issue_meta, module, suffix, hint) | issues], well_named_meta}
-        end
-      end)
+      Enum.reduce(modules, {[], nil}, &collect_module(&1, &2, issue_meta, suffixes, hint))
 
     issues ++ file_name_issues(issue_meta, suffixes, well_named_meta, hint)
+  end
+
+  defp collect_module(module, {issues, well_named_meta}, issue_meta, suffixes, hint) do
+    last_segment = module.parts |> List.last() |> to_string()
+
+    case Enum.find(suffixes, &String.ends_with?(last_segment, &1)) do
+      nil -> {issues, well_named_meta || module.meta}
+      suffix -> {[module_name_issue(issue_meta, module, suffix, hint) | issues], well_named_meta}
+    end
   end
 
   defp file_name_issues(_issue_meta, _suffixes, nil, _hint), do: []

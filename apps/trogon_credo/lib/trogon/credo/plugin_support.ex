@@ -37,10 +37,18 @@ defmodule Trogon.Credo.PluginSupport do
   end
 
   # Keeps only the params a project set, so a check's own default applies to
-  # anything the plugin leaves out.
+  # anything the plugin leaves out. A `{plugin_param, check_param}` pair forwards
+  # a plugin param under the name the check gives it.
   def check_params(exec, plugin, names) do
-    for name <- names, value = param(exec, plugin, name), value != nil, do: {name, value}
+    for name <- names,
+        {plugin_param, check_param} = param_names(name),
+        value = param(exec, plugin, plugin_param),
+        value != nil,
+        do: {check_param, value}
   end
+
+  defp param_names({plugin_param, check_param}), do: {plugin_param, check_param}
+  defp param_names(name), do: {name, name}
 
   defp validate_except!(plugin, except, checks) do
     known = Enum.map(checks, &elem(&1, 0))
