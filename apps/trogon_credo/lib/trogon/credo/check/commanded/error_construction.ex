@@ -48,14 +48,14 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
 
       What counts as construction: a struct literal or a struct update, `%Error{}` and
       `%Error{e | ...}` alike, written where it is built rather than matched; `raise` and
-      `reraise` naming the error module, `Kernel.`-qualified included; a call to one of its constructor
-      functions, `exception` and `new` by default, called directly, piped into, or
-      captured; and `struct/2` or `struct!/2` given the error module, `Kernel.`-qualified
-      included. Everything else that names the module, a type check such as
-      `is_exception/2`, any other function called on it, the module passed around as a
-      plain value, an `alias`, a typespec, and a pattern anywhere a pattern may be written, a
-      function head, a `case` or `with` clause, a `rescue` clause, a guard, is left alone,
-      since none of those build or raise the error.
+      `reraise` naming the error module, `Kernel.`-qualified included; a call to one of
+      its constructor functions, `exception` and `new` by default, called directly,
+      piped into, or captured; and `struct/2` or `struct!/2` given the error module,
+      `Kernel.`-qualified included. Everything else that names the module, a type check
+      such as `is_exception/2`, any other function called on it, the module passed
+      around as a plain value, an `alias`, a typespec, and a pattern anywhere a pattern
+      may be written, a function head, a `case` or `with` clause, a `rescue` clause, a
+      guard, is left alone, since none of those build or raise the error.
       """,
       params: [
         errors: """
@@ -147,9 +147,9 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
     {ast, maybe_report(parts, alias_meta, context, issues)}
   end
 
-  # `Kernel.`-qualified forms are tried ahead of a qualified
-  # constructor call, which would otherwise claim this same shape and never
-  # find the error module, since it is argument here rather than receiver.
+  # `Kernel.`-qualified forms are tried ahead of a qualified constructor call,
+  # which would otherwise claim this same shape and never find the error
+  # module, since it is argument here rather than receiver.
   defp traverse(
          {{:., _dot_meta, [{:__aliases__, _kernel_meta, [:Kernel]}, kind]}, _call_meta,
           [{:__aliases__, alias_meta, parts} | _rest]} = ast,
