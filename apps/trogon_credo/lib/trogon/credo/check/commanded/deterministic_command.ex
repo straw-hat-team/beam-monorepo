@@ -31,17 +31,38 @@ defmodule Trogon.Credo.Check.Commanded.DeterministicCommand do
       aggregate only ever reads it back.
 
           # preferred
-          defmodule Acme.Billing.Command.RegisterInvoice do
-            defstruct [:invoice_id, :issued_at]
-          end
+          defmodule Acme.Billing.RegisterInvoice do
+            use Trogon.Commanded.Command, aggregate_identifier: :invoice_id
+            use Trogon.Commanded.CommandHandler
 
-          def handle(%Acme.Billing.Domain.Invoice{} = invoice, %RegisterInvoice{} = command) do
-            Acme.Billing.Domain.Invoice.register(invoice, command.invoice_id, command.issued_at)
+            embedded_schema do
+              field :issued_at, :utc_datetime_usec
+            end
+
+            @impl Commanded.Commands.Handler
+            def handle(%Acme.Billing.Invoice{invoice_id: nil}, %__MODULE__{} = command) do
+              %Acme.Billing.InvoiceRegistered{
+                invoice_id: command.invoice_id,
+                issued_at: command.issued_at
+              }
+            end
           end
 
           # NOT preferred
-          def handle(%Acme.Billing.Domain.Invoice{} = invoice, %RegisterInvoice{} = command) do
-            Acme.Billing.Domain.Invoice.register(invoice, Ecto.UUID.generate(), DateTime.utc_now())
+          defmodule Acme.Billing.RegisterInvoice do
+            use Trogon.Commanded.Command, aggregate_identifier: :invoice_id
+            use Trogon.Commanded.CommandHandler
+
+            embedded_schema do
+            end
+
+            @impl Commanded.Commands.Handler
+            def handle(%Acme.Billing.Invoice{invoice_id: nil}, %__MODULE__{} = command) do
+              %Acme.Billing.InvoiceRegistered{
+                invoice_id: command.invoice_id,
+                issued_at: DateTime.utc_now()
+              }
+            end
           end
 
       This check runs `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` with a default
