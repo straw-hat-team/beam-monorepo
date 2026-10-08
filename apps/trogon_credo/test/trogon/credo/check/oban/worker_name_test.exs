@@ -101,6 +101,21 @@ defmodule Trogon.Credo.Check.Oban.WorkerNameTest do
     |> assert_issue(fn issue -> assert issue.trigger == "MyApp.SendWelcomeEmail" end)
   end
 
+  test "resolves a use in a nested module through an alias of the enclosing one" do
+    """
+    defmodule MyApp.Mailer do
+      alias Oban.Pro.Worker
+
+      defmodule SendWelcomeEmail do
+        use Worker, queue: :mailers
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(WorkerName)
+    |> assert_issue(fn issue -> assert issue.trigger == "SendWelcomeEmail" end)
+  end
+
   test "resolves a use through an alias written before the module" do
     """
     alias Oban.Pro.Worker
