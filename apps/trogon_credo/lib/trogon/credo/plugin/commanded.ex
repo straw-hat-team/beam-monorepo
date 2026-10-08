@@ -15,18 +15,25 @@ defmodule Trogon.Credo.Plugin.Commanded do
   It enables:
 
     * `Trogon.Credo.Check.Commanded.AggregateApplyCall`
+    * `Trogon.Credo.Check.Commanded.DeterministicCommand`
+    * `Trogon.Credo.Check.Commanded.SwappableNonDeterminism`
 
   ## Params
 
     * `aggregate_modules` - forwarded to
-      `Trogon.Credo.Check.Commanded.AggregateApplyCall`. Left out, the check's own
+      `Trogon.Credo.Check.Commanded.AggregateApplyCall` and
+      `Trogon.Credo.Check.Commanded.DeterministicCommand`. Left out, each check's own
       default applies.
     * `command_handler_modules` - forwarded to
-      `Trogon.Credo.Check.Commanded.AggregateApplyCall`. Left out, the check's own
+      `Trogon.Credo.Check.Commanded.AggregateApplyCall` and
+      `Trogon.Credo.Check.Commanded.DeterministicCommand`. Left out, each check's own
       default applies.
     * `command_handler_case` - forwarded to
       `Trogon.Credo.Check.Commanded.AggregateApplyCall`. Left out, the check's own
       default applies.
+    * `processor_modules` - forwarded to
+      `Trogon.Credo.Check.Commanded.SwappableNonDeterminism`. Left out, the check's
+      own default applies.
     * `except` - a list of the checks above to leave disabled.
 
   A check the project configures in its own `.credo.exs` keeps that entry, params
@@ -39,6 +46,8 @@ defmodule Trogon.Credo.Plugin.Commanded do
   """
 
   alias Trogon.Credo.Check.Commanded.AggregateApplyCall
+  alias Trogon.Credo.Check.Commanded.DeterministicCommand
+  alias Trogon.Credo.Check.Commanded.SwappableNonDeterminism
   alias Trogon.Credo.PluginSupport
 
   @doc false
@@ -49,7 +58,10 @@ defmodule Trogon.Credo.Plugin.Commanded do
          :aggregate_modules,
          :command_handler_modules,
          :command_handler_case
-       ])}
+       ])},
+      {DeterministicCommand,
+       PluginSupport.check_params(exec, __MODULE__, [:aggregate_modules, :command_handler_modules])},
+      {SwappableNonDeterminism, PluginSupport.check_params(exec, __MODULE__, [:processor_modules])}
     ])
   end
 end
