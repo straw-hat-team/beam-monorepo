@@ -25,7 +25,7 @@ defmodule Trogon.Credo.AstPattern do
   def hide_pattern_position({:->, _meta, [_pattern, body]}), do: {:ok, body}
 
   def hide_pattern_position({operator, _meta, [_pattern, value]}) when operator in [:=, :<-] do
-    {:ok, value}
+    {:ok, matched_value(value)}
   end
 
   def hide_pattern_position({kind, _meta, [{:when, _meta2, [_head, _guard]} | rest]})
@@ -38,6 +38,11 @@ defmodule Trogon.Credo.AstPattern do
   end
 
   def hide_pattern_position(_ast), do: :error
+
+  # Every left side of a chained match is a pattern, so only the rightmost
+  # side is a value.
+  defp matched_value({:=, _meta, [_pattern, value]}), do: matched_value(value)
+  defp matched_value(value), do: value
 
   defp expose_clauses(blocks, key) do
     Enum.map(blocks, &expose_block(&1, key))

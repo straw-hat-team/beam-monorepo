@@ -482,4 +482,30 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     |> run_check(ErrorConstruction)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
+
+  test "does not report a struct pattern inside a chained match" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        error = %Acme.Billing.NotFoundError{} = params
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> refute_issues()
+  end
+
+  test "reports a raise at the end of a chained match" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(params) do
+        result = other = raise Acme.Billing.NotFoundError
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
 end
