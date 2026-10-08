@@ -8,14 +8,17 @@ defmodule Trogon.Credo.Check.Ecto.RepoTransact do
     ],
     explanations: [
       check: """
-      Ecto offers more than one way to run several operations in a transaction. A
-      project that settles on composing them with `Ecto.Multi` and running the result
-      with `Repo.transaction/2` wants every transaction written that way, so the steps
-      are named, inspectable before they run, and reported by name when one fails,
-      instead of being buried in a function that `Repo.transact` happens to call.
+      `Repo.transact` lets any function open a transaction from the inside, so a
+      caller cannot tell whether what it calls is transactional, or already runs
+      inside a transaction of its own, without reading through it. A function that
+      returns an `Ecto.Multi` says so in what it returns: the transaction is a value
+      the caller composes and runs with `Repo.transaction/2`, and where it starts and
+      ends is written at the call site.
 
-      This check reports every call to `transact` on a repo, whatever its arity, so a
-      project keeps a single way to write a transaction.
+      Composing an `Ecto.Multi` takes more ceremony than wrapping a function, and
+      that cost is the point: a project that prefers transactionality to be
+      explicit, over being convenient, keeps a single way to write a transaction.
+      This check reports every call to `transact` on a repo, whatever its arity.
 
           # preferred
           Ecto.Multi.new()
