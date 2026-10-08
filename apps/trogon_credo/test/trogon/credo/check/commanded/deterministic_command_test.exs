@@ -3,9 +3,9 @@ defmodule Trogon.Credo.Check.Commanded.DeterministicCommandTest do
 
   alias Trogon.Credo.Check.Commanded.DeterministicCommand
 
-  @message "Put the value on the command instead of drawing it inside the aggregate or " <>
-             "command handler, since a command is decided from the aggregate state and " <>
-             "the command alone."
+  @message "Put the value on the command instead of drawing it here, since a command " <>
+             "and the events it produces are decided from the aggregate state and the " <>
+             "command alone."
 
   test "does not report anything when no module uses an aggregate or command handler module" do
     """
@@ -195,6 +195,68 @@ defmodule Trogon.Credo.Check.Commanded.DeterministicCommandTest do
     """
     |> to_source_file()
     |> run_check(DeterministicCommand, command_handler_modules: [Acme.CommandHandler])
+    |> assert_issue(fn issue -> assert issue.trigger == "DateTime.utc_now" end)
+  end
+
+  test "reports a call inside a command module" do
+    """
+    defmodule Acme.Billing.Command.RegisterInvoice do
+      use Trogon.Commanded.Command
+
+      def new(attrs) do
+        Map.put(attrs, :issued_at, DateTime.utc_now())
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DeterministicCommand)
+    |> assert_issue(fn issue ->
+      assert issue.check == DeterministicCommand
+      assert issue.trigger == "DateTime.utc_now"
+    end)
+  end
+
+  test "reports a call inside an event module" do
+    """
+    defmodule Acme.Billing.Event.InvoiceRegistered do
+      use Trogon.Commanded.Event
+
+      def new(attrs) do
+        Map.put(attrs, :event_id, Ecto.UUID.generate())
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DeterministicCommand)
+    |> assert_issue(fn issue ->
+      assert issue.check == DeterministicCommand
+      assert issue.trigger == "Ecto.UUID.generate"
+    end)
+  end
+
+  test "accepts custom command_modules" do
+    """
+    defmodule Acme.Billing.Command.RegisterInvoice do
+      use Acme.Command
+
+      def new(attrs), do: Map.put(attrs, :id, Ecto.UUID.generate())
+    end
+    """
+    |> to_source_file()
+    |> run_check(DeterministicCommand, command_modules: [Acme.Command])
+    |> assert_issue(fn issue -> assert issue.trigger == "Ecto.UUID.generate" end)
+  end
+
+  test "accepts custom event_modules" do
+    """
+    defmodule Acme.Billing.Event.InvoiceRegistered do
+      use Acme.Event
+
+      def new(attrs), do: Map.put(attrs, :at, DateTime.utc_now())
+    end
+    """
+    |> to_source_file()
+    |> run_check(DeterministicCommand, event_modules: [Acme.Event])
     |> assert_issue(fn issue -> assert issue.trigger == "DateTime.utc_now" end)
   end
 end

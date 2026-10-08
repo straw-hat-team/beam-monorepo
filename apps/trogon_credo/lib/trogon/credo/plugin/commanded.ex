@@ -28,6 +28,12 @@ defmodule Trogon.Credo.Plugin.Commanded do
       `Trogon.Credo.Check.Commanded.AggregateApplyCall` and
       `Trogon.Credo.Check.Commanded.DeterministicCommand`. Left out, each check's own
       default applies.
+    * `command_modules` - forwarded to
+      `Trogon.Credo.Check.Commanded.DeterministicCommand`. Left out, the check's own
+      default applies.
+    * `event_modules` - forwarded to
+      `Trogon.Credo.Check.Commanded.DeterministicCommand`. Left out, the check's own
+      default applies.
     * `command_handler_case` - forwarded to
       `Trogon.Credo.Check.Commanded.AggregateApplyCall`. Left out, the check's own
       default applies.
@@ -60,7 +66,12 @@ defmodule Trogon.Credo.Plugin.Commanded do
          :command_handler_case
        ])},
       {DeterministicCommand,
-       PluginSupport.check_params(exec, __MODULE__, [:aggregate_modules, :command_handler_modules])},
+       PluginSupport.check_params(exec, __MODULE__, [
+         :aggregate_modules,
+         :command_handler_modules,
+         :command_modules,
+         :event_modules
+       ])},
       {SwappableNonDeterminism, PluginSupport.check_params(exec, __MODULE__, [:processor_modules])}
     ])
   end

@@ -115,6 +115,20 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
     assert [%{check: DeterministicCommand, trigger: "DateTime.utc_now"}] = issues
   end
 
+  test "forwards command_modules and event_modules to DeterministicCommand" do
+    sources = [
+      {"command.ex",
+       "defmodule Acme.Order.Command.Place do\n  use Acme.Command\n  def new, do: DateTime.utc_now()\nend\n"},
+      {"event.ex", "defmodule Acme.Order.Event.Placed do\n  use Acme.Event\n  def new, do: Ecto.UUID.generate()\nend\n"}
+    ]
+
+    issues =
+      run_credo(config([{CommandedPlugin, [command_modules: [Acme.Command], event_modules: [Acme.Event]]}]), sources)
+
+    assert [%{check: DeterministicCommand}, %{check: DeterministicCommand}] = issues
+    assert issues |> Enum.map(& &1.trigger) |> Enum.sort() == ["DateTime.utc_now", "Ecto.UUID.generate"]
+  end
+
   test "forwards processor_modules to SwappableNonDeterminism" do
     issues = run_credo(config([{CommandedPlugin, [processor_modules: [Oban.Pro.Worker]]}]), [{"worker.ex", @worker}])
 
