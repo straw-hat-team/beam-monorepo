@@ -1,19 +1,21 @@
-defmodule Trogon.Credo.UsingModules do
+defmodule Trogon.Credo.ModuleDeclaration do
   @moduledoc false
 
   alias Trogon.Credo.ModuleName
 
-  # The modules a source file defines, in source order, as maps of the fully
-  # qualified `namespace` parts, the `parts` written in the `defmodule`, and its
-  # `meta`. A nested `defmodule` extends the namespace of the enclosing one.
+  defstruct [:namespace, :parts, :meta]
+
+  # The `defmodule` declarations of a source file, in source order. `namespace`
+  # holds the fully qualified parts, `parts` the ones written in the `defmodule`.
+  # A nested `defmodule` extends the namespace of the enclosing one.
   #
-  # Given a non empty `for_use`, only the modules that `use` one of those modules
-  # are kept, with the `use` resolved through the file's aliases.
+  # Given a non empty `using:`, only the declarations that `use` one of those
+  # modules are kept, with the `use` resolved through the file's aliases.
   #
-  # Code inside a `quote` block is skipped, since a module defined there, or a
+  # Code inside a `quote` block is skipped, since a module declared there, or a
   # `use` written there, belongs to wherever the macro expands.
-  def collect(source_file, for_use) do
-    for_use = Enum.map(for_use, &ModuleName.full/1)
+  def collect_module_declarations(source_file, opts) do
+    for_use = opts |> Keyword.get(:using, []) |> Enum.map(&ModuleName.full/1)
     aliases = ModuleName.collect_aliases(source_file)
     {modules, uses} = Credo.Code.prewalk(source_file, &traverse(&1, &2, aliases), {[], []})
 
@@ -68,7 +70,7 @@ defmodule Trogon.Credo.UsingModules do
   defp walk(_ast, _namespace, acc, _aliases), do: acc
 
   defp put_module({modules, uses}, namespace, parts, meta) do
-    {[%{namespace: namespace, parts: parts, meta: meta} | modules], uses}
+    {[%__MODULE__{namespace: namespace, parts: parts, meta: meta} | modules], uses}
   end
 
   defp applies_to?(_module, _uses, []), do: true
@@ -77,7 +79,7 @@ defmodule Trogon.Credo.UsingModules do
     Enum.any?(uses, &uses?(&1, module, for_use))
   end
 
-  defp uses?({namespace, used}, module, for_use) do
+  defp uses?({namespace, used}, %__MODULE__{} = module, for_use) do
     namespace == module.namespace and used in for_use
   end
 end

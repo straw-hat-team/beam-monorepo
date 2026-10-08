@@ -64,7 +64,7 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
 
   alias Credo.Code.Name
   alias Credo.Issue
-  alias Trogon.Credo.UsingModules
+  alias Trogon.Credo.ModuleDeclaration
 
   @doc false
   @impl true
@@ -75,7 +75,7 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     hint = Params.get(params, :hint, __MODULE__)
 
     source_file
-    |> UsingModules.collect(for_use)
+    |> ModuleDeclaration.collect_module_declarations(using: for_use)
     |> issues_for(issue_meta, suffixes, hint)
   end
 
