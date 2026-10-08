@@ -45,6 +45,47 @@ defmodule Trogon.Credo.ModulePattern do
   def display(<<first, _rest::binary>> = module) when first in ?a..?z, do: ":" <> module
   def display(module), do: module
 
+  # A regex compiled from a pattern whose parenthesized prefix names an owning
+  # namespace, the remainder naming what that namespace keeps to itself. The
+  # regex captures the owner, matched against a fully qualified module name,
+  # anchored at both ends. A pattern that is only the parenthesized prefix makes
+  # the namespace private to itself, the module and everything under it.
+  # `:error` for anything that is not such a pattern, including a plain module
+  # name given as an atom, since an owner pattern is always written as a string.
+  def compile_owner_pattern(pattern) when is_binary(pattern) do
+    case Regex.run(~r/^\(([^()]+)\)(.*)$/, pattern) do
+      [_full, owner, ""] ->
+        {:ok, Regex.compile!("^(#{source(owner)})(?:\\..+)?$")}
+
+      [_full, owner, "." <> _ = private] ->
+        {:ok, Regex.compile!("^(#{source(owner)})#{source(private)}$")}
+
+      _other ->
+        :error
+    end
+  end
+
+  def compile_owner_pattern(_pattern), do: :error
+
+  # The owner an owner pattern's compiled regex binds a module to, or `nil`
+  # when the module does not match the pattern at all.
+  def find_owner(module, regex) do
+    case Regex.run(regex, module) do
+      [_full, owner] -> owner
+      nil -> nil
+    end
+  end
+
+  # Whether the given module, read as a file's own outermost module name, sits
+  # inside the given owning namespace, the namespace itself or anything under
+  # it. A file whose own module cannot be read is always treated as inside,
+  # since the check that asks has no namespace to compare the owner against.
+  def owner_includes?(nil, _owner), do: true
+
+  def owner_includes?(own_module, owner) do
+    own_module == owner or String.starts_with?(own_module, owner <> ".")
+  end
+
   defp to_regex(pattern) do
     Regex.compile!("^#{source(pattern)}$")
   end

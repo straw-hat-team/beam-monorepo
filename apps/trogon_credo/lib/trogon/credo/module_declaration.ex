@@ -25,6 +25,40 @@ defmodule Trogon.Credo.ModuleDeclaration do
     |> Enum.filter(&applies_to?(&1, uses, for_use))
   end
 
+  # The fully qualified name of a file's outermost module, read from its first
+  # `defmodule`, nested ones left out. `nil` when the file has no `defmodule`,
+  # or when that outermost one is not written as an alias, `__MODULE__.Child`
+  # for instance, since what it names is only known at compile time.
+  #
+  # Code inside a `quote` block is skipped, since a module declared there
+  # belongs to wherever the macro expands rather than to the file that writes
+  # it.
+  def outermost_module_name(source_file) do
+    source_file
+    |> Credo.Code.prewalk(&outermost/2, {false, nil})
+    |> elem(1)
+  end
+
+  defp outermost({:quote, _meta, _args}, acc), do: {[], acc}
+
+  defp outermost({:defmodule, _meta, _args}, {true, name}), do: {[], {true, name}}
+
+  defp outermost({:defmodule, _meta, [{:__aliases__, _alias_meta, parts} | _]}, {false, _name}) do
+    {[], {true, readable_name(parts)}}
+  end
+
+  defp outermost({:defmodule, _meta, _args}, {false, _name}), do: {[], {true, nil}}
+
+  defp outermost(ast, acc), do: {ast, acc}
+
+  defp readable_name(parts) do
+    if Enum.all?(parts, &is_atom/1) do
+      ModuleName.full(parts)
+    else
+      nil
+    end
+  end
+
   # Returns the accumulator along with the aliases in effect after the node, so
   # an `alias` reaches the expressions after it in the same block and nothing
   # outside of it, the way Elixir scopes one lexically.
