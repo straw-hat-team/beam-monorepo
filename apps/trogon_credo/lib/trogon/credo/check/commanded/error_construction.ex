@@ -53,7 +53,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
       captured; and `struct/2` or `struct!/2` given the error module, `Kernel.`-qualified
       included. Everything else that names the module, a type check such as
       `is_exception/2`, any other function called on it, the module passed around as a
-      plain value, an `alias`, and a pattern anywhere a pattern may be written, a
+      plain value, an `alias`, a typespec, and a pattern anywhere a pattern may be written, a
       function head, a `case` or `with` clause, a `rescue` clause, a guard, is left alone,
       since none of those build or raise the error.
       """,
@@ -93,6 +93,8 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
 
   @struct_functions [:struct, :struct!]
 
+  @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
+
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
@@ -124,6 +126,11 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
   end
 
   defp traverse({:quote, _meta, _args}, issues, _context), do: {[], issues}
+
+  defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _context)
+       when attribute in @typespec_attributes do
+    {[], issues}
+  end
 
   # `match?/2` compares a value against a pattern, so its first argument is a
   # pattern position even though the call itself is written as an expression.

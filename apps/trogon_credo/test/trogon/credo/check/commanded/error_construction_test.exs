@@ -385,4 +385,17 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     |> run_check(ErrorConstruction, constructors: [:build])
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
+
+  test "does not report an error named in a typespec outside the owning context" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      @type failure :: %Acme.Billing.NotFoundError{}
+      @spec create(map()) :: {:error, %Acme.Billing.NotFoundError{}}
+      def create(params), do: Acme.Billing.register_invoice(params)
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorConstruction)
+    |> refute_issues()
+  end
 end
