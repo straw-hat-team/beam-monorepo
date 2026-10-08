@@ -74,8 +74,10 @@ defmodule Trogon.Credo.UsingModules do
   defp applies_to?(_module, _uses, []), do: true
 
   defp applies_to?(module, uses, for_use) do
-    Enum.any?(uses, fn {namespace, used} ->
-      namespace == module.namespace and used in for_use
-    end)
+    Enum.any?(uses, &uses?(&1, module, for_use))
+  end
+
+  defp uses?({namespace, used}, module, for_use) do
+    namespace == module.namespace and used in for_use
   end
 end

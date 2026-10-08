@@ -81,16 +81,18 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
 
   defp issues_for(modules, issue_meta, suffixes, hint) do
     {issues, well_named_meta} =
-      Enum.reduce(modules, {[], nil}, fn module, {issues, well_named_meta} ->
-        last_segment = module.parts |> List.last() |> to_string()
-
-        case Enum.find(suffixes, &String.ends_with?(last_segment, &1)) do
-          nil -> {issues, well_named_meta || module.meta}
-          suffix -> {[module_name_issue(issue_meta, module, suffix, hint) | issues], well_named_meta}
-        end
-      end)
+      Enum.reduce(modules, {[], nil}, &collect_module(&1, &2, issue_meta, suffixes, hint))
 
     issues ++ file_name_issues(issue_meta, suffixes, well_named_meta, hint)
+  end
+
+  defp collect_module(module, {issues, well_named_meta}, issue_meta, suffixes, hint) do
+    last_segment = module.parts |> List.last() |> to_string()
+
+    case Enum.find(suffixes, &String.ends_with?(last_segment, &1)) do
+      nil -> {issues, well_named_meta || module.meta}
+      suffix -> {[module_name_issue(issue_meta, module, suffix, hint) | issues], well_named_meta}
+    end
   end
 
   defp file_name_issues(_issue_meta, _suffixes, nil, _hint), do: []

@@ -80,8 +80,12 @@ defmodule Trogon.Credo.Check.Oban.WorkerName do
 
     source_file
     |> UsingModules.collect(for_use)
-    |> Enum.reject(&(&1.parts |> List.last() |> to_string() |> String.ends_with?(suffix)))
+    |> Enum.reject(&suffixed?(&1, suffix))
     |> Enum.map(&issue_for(issue_meta, &1, suffix, hint))
+  end
+
+  defp suffixed?(module, suffix) do
+    module.parts |> List.last() |> to_string() |> String.ends_with?(suffix)
   end
 
   defp issue_for(issue_meta, module, suffix, hint) do
