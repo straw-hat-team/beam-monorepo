@@ -38,6 +38,8 @@ defmodule Trogon.Dispatcher.Context do
     response: nil
   ]
 
+  @dispatch_fields [:message, :kind, :dispatcher, :registered_by]
+
   @type kind :: :command | :query
 
   @type t :: %__MODULE__{
@@ -143,11 +145,32 @@ defmodule Trogon.Dispatcher.Context do
   """
   @spec to_dispatch_options(t()) :: DispatchOptions.t()
   def to_dispatch_options(%__MODULE__{} = context) do
-    DispatchOptions.new!(
+    %DispatchOptions{
       correlation_id: context.correlation_id,
       causation_id: context.message_id,
       actor: context.actor,
       assigns: context.assigns
-    )
+    }
+  end
+
+  @doc false
+  @spec verify(t(), t()) :: :ok | {:error, atom(), Trogon.Dispatcher.InvalidContextError.reason()}
+  def verify(%__MODULE__{} = returned, %__MODULE__{} = received) do
+    cond do
+      changed_field = Enum.find(@dispatch_fields, &(Map.fetch!(returned, &1) != Map.fetch!(received, &1))) ->
+        {:error, changed_field, :changed}
+
+      not is_map(returned.assigns) ->
+        {:error, :assigns, :not_a_map}
+
+      not Enum.all?(Map.keys(returned.assigns), &is_atom/1) ->
+        {:error, :assigns, :non_atom_key}
+
+      not is_map(returned.private) ->
+        {:error, :private, :not_a_map}
+
+      true ->
+        :ok
+    end
   end
 end

@@ -538,8 +538,21 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def validate(%Context{} = returned, module, _context) do
-    validate_response(returned.response, module, returned)
+  def validate(%Context{} = returned, module, context) do
+    case Context.verify(returned, context) do
+      :ok ->
+        validate_response(returned.response, module, returned)
+
+      {:error, field, reason} ->
+        raise InvalidContextError.exception(
+                module: module,
+                dispatched_message: context.message,
+                dispatcher: context.dispatcher,
+                returned: Map.fetch!(returned, field),
+                field: field,
+                reason: reason
+              )
+    end
   end
 
   def validate(returned, module, context) do

@@ -44,7 +44,8 @@ defmodule Trogon.Dispatcher.Middleware do
   Returning anything other than a struct from `init/1` raises `ArgumentError` at compile time.
 
   Returning anything other than a `Trogon.Dispatcher.Context` raises `Trogon.Dispatcher.InvalidContextError` naming
-  the middleware. The context's `response` is held to the same contract described in `Trogon.Dispatcher.Handler`,
+  the middleware. So does returning a context that breaks its invariants: changing `message`, `kind`, `dispatcher` or
+  `registered_by`, or leaving `assigns` or `private` as something other than a map, with atom keys for `assigns`. The context's `response` is held to the same contract described in `Trogon.Dispatcher.Handler`,
   so a middleware that halts without putting a response raises `Trogon.Dispatcher.InvalidResponseError`.
   """
 
