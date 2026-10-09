@@ -27,7 +27,7 @@ defmodule MyAppWeb.UserController do
   defdelegate dispatch_message(message, options), to: @dispatcher
 
   def create(conn, params) do
-    case dispatch_message(%RegisterUser{email: params["email"]}, %DispatchOptions{}) do
+    case dispatch_message(%RegisterUser{email: params["email"]}, DispatchOptions.new!()) do
       {:ok, user} -> render(conn, "show.json", user: user)
       {:error, reason} -> render_error(conn, reason)
     end
@@ -73,7 +73,7 @@ To exercise a handler or a middleware without a dispatcher at all, build a conte
 ```elixir
 alias Trogon.Dispatcher.Test
 
-context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
+context = Test.build_context(%RegisterUser{email: "a@b.c"}, DispatchOptions.new!(actor: actor), kind: :command)
 
 assert {:ok, %User{}} = Test.call_handler(MyApp.Accounts.RegisterUser, context)
 ```

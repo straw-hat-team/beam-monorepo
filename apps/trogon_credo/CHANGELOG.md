@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.5.0...trogon_credo@v0.6.0) (2026-10-09)
+
+
+### Features
+
+* **trogon_credo:** Keep commands deterministic and processors' non-determinism swappable ([#503](https://github.com/straw-hat-team/beam-monorepo/issues/503)) ([bb8effb](https://github.com/straw-hat-team/beam-monorepo/commit/bb8effb29c4dbef5ca357be0a910f06432adcbf1))
+* **trogon_credo:** Keep errors built only by the context that owns them ([#504](https://github.com/straw-hat-team/beam-monorepo/issues/504)) ([2960252](https://github.com/straw-hat-team/beam-monorepo/commit/296025237f8ebecf29e9d201cd5ff91864f1eb99))
+* **trogon_credo:** Share Commanded and OpenTelemetry conventions through Credo plugins ([#500](https://github.com/straw-hat-team/beam-monorepo/issues/500)) ([e9a5c40](https://github.com/straw-hat-team/beam-monorepo/commit/e9a5c4098c78c63a9500b0d32e3f4af5f1b55abb))
+* **trogon_credo:** Share Ecto conventions through a Credo plugin ([#498](https://github.com/straw-hat-team/beam-monorepo/issues/498)) ([cd1dd88](https://github.com/straw-hat-team/beam-monorepo/commit/cd1dd884b13c2a72a8948a071109f3cda71a9396))
+* **trogon_credo:** Share Oban worker conventions through a Credo plugin ([#499](https://github.com/straw-hat-team/beam-monorepo/issues/499)) ([474646a](https://github.com/straw-hat-team/beam-monorepo/commit/474646a71c8edfb98fec20e83be01bd40bd4b2d2))
+
 ## [0.5.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.4.0...trogon_credo@v0.5.0) (2026-09-29)
 
 

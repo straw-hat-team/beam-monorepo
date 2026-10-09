@@ -21,13 +21,14 @@ defmodule Trogon.Dispatcher.TestTest do
     end
 
     test "carries the dispatch options" do
-      options = %DispatchOptions{
-        message_id: "msg-1",
-        correlation_id: "corr-1",
-        causation_id: "cause-1",
-        actor: :root,
-        assigns: %{locale: "en"}
-      }
+      options =
+        DispatchOptions.new!(
+          message_id: "msg-1",
+          correlation_id: "corr-1",
+          causation_id: "cause-1",
+          actor: :root,
+          assigns: %{locale: "en"}
+        )
 
       context = Test.build_context(%Support.GetUser{id: 1}, options, kind: :query)
 
@@ -41,7 +42,7 @@ defmodule Trogon.Dispatcher.TestTest do
 
     test "accepts overrides for the attribution fields" do
       context =
-        Test.build_context(%Support.RegisterUser{}, %DispatchOptions{},
+        Test.build_context(%Support.RegisterUser{}, DispatchOptions.new!(),
           dispatcher: Support.RootDispatcher,
           registered_by: Support.AccountsDispatcher,
           private: %{seeded: true}
@@ -55,7 +56,7 @@ defmodule Trogon.Dispatcher.TestTest do
 
   describe "call_handler/2" do
     test "hands the handler the context's message and returns its response" do
-      context = Test.build_context(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: :alice})
+      context = Test.build_context(%Support.RegisterUser{email: "a@b.c"}, DispatchOptions.new!(actor: :alice))
 
       assert {:ok, %Support.User{email: "a@b.c", actor: :alice}} = Test.call_handler(Support.RegisterUser, context)
     end
@@ -95,7 +96,7 @@ defmodule Trogon.Dispatcher.TestTest do
     end
 
     test "a halting middleware never reaches next" do
-      context = Test.build_context(%Support.RegisterUser{}, %DispatchOptions{actor: :forbidden})
+      context = Test.build_context(%Support.RegisterUser{}, DispatchOptions.new!(actor: :forbidden))
 
       halted =
         Test.call_middleware(Support.Authorize, context,
@@ -184,7 +185,7 @@ defmodule Trogon.Dispatcher.TestTest do
     test "defaults the response to :ok" do
       Test.expect_dispatch_message(Support.DispatcherMock, Support.ArchiveUser)
 
-      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 1}, %DispatchOptions{})
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 1}, DispatchOptions.new!())
       Test.assert_dispatched(%Support.ArchiveUser{id: 1})
     end
 
@@ -194,9 +195,10 @@ defmodule Trogon.Dispatcher.TestTest do
       )
 
       assert {:ok, %Support.User{email: "a@b.c"}} =
-               Support.DispatcherMock.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-                 actor: :alice
-               })
+               Support.DispatcherMock.dispatch_message(
+                 %Support.RegisterUser{email: "a@b.c"},
+                 DispatchOptions.new!(actor: :alice)
+               )
 
       Test.assert_dispatched(%Support.RegisterUser{email: email}, %DispatchOptions{actor: :alice})
       assert email == "a@b.c"
@@ -208,14 +210,14 @@ defmodule Trogon.Dispatcher.TestTest do
       )
 
       assert {:ok, %Support.User{email: "a@b.c"}} =
-               Support.DispatcherMock.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{})
+               Support.DispatcherMock.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, DispatchOptions.new!())
     end
 
     test "expects the given number of dispatches" do
       Test.expect_dispatch_message(Support.DispatcherMock, Support.ArchiveUser, times: 2)
 
-      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 1}, %DispatchOptions{})
-      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 2}, %DispatchOptions{})
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 1}, DispatchOptions.new!())
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{id: 2}, DispatchOptions.new!())
       Test.assert_dispatched(%Support.ArchiveUser{id: 1})
       Test.assert_dispatched(%Support.ArchiveUser{id: 2})
     end
@@ -223,10 +225,10 @@ defmodule Trogon.Dispatcher.TestTest do
     test "fails a dispatch beyond the expected count" do
       Test.expect_dispatch_message(Support.DispatcherMock, Support.ArchiveUser)
 
-      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, %DispatchOptions{})
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, DispatchOptions.new!())
 
       assert_raise Mox.UnexpectedCallError, fn ->
-        Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, %DispatchOptions{})
+        Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, DispatchOptions.new!())
       end
     end
 
@@ -234,17 +236,17 @@ defmodule Trogon.Dispatcher.TestTest do
       Test.expect_dispatch_message(Support.DispatcherMock, Support.ArchiveUser)
 
       assert_raise Mox.UnexpectedCallError, fn ->
-        Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, %DispatchOptions{})
+        Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, DispatchOptions.new!())
       end
 
-      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, %DispatchOptions{})
+      assert :ok = Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, DispatchOptions.new!())
     end
 
     test "raises when the mocked response breaks the contract" do
       Test.expect_dispatch_message(Support.DispatcherMock, Support.RegisterUser, returns: {:ok, %{email: "a@b.c"}})
 
       assert_raise Trogon.Dispatcher.InvalidResponseError, fn ->
-        Support.DispatcherMock.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{})
+        Support.DispatcherMock.dispatch_message(%Support.RegisterUser{}, DispatchOptions.new!())
       end
     end
 
@@ -252,7 +254,7 @@ defmodule Trogon.Dispatcher.TestTest do
       Test.expect_dispatch_message(Support.DispatcherMock, Support.RegisterUser)
 
       assert_raise ExUnit.AssertionError, ~r/to dispatch Trogon\.Dispatcher\.TestSupport\.RegisterUser,/, fn ->
-        Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, %DispatchOptions{})
+        Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, DispatchOptions.new!())
       end
     end
 
@@ -272,7 +274,7 @@ defmodule Trogon.Dispatcher.TestTest do
       )
 
       assert %Support.User{email: "a@b.c"} =
-               Support.DispatcherMock.dispatch_message!(%Support.RegisterUser{}, %DispatchOptions{})
+               Support.DispatcherMock.dispatch_message!(%Support.RegisterUser{}, DispatchOptions.new!())
 
       Test.assert_dispatched(%Support.RegisterUser{})
     end
@@ -280,14 +282,14 @@ defmodule Trogon.Dispatcher.TestTest do
     test "defaults the response to :ok" do
       Test.expect_dispatch_message!(Support.DispatcherMock, Support.ArchiveUser)
 
-      assert :ok = Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, %DispatchOptions{})
+      assert :ok = Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, DispatchOptions.new!())
     end
 
     test "raises on an error response like a real dispatcher" do
       Test.expect_dispatch_message!(Support.DispatcherMock, Support.ArchiveUser, returns: {:error, :gone})
 
       assert_raise Trogon.Dispatcher.DispatchError, fn ->
-        Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, %DispatchOptions{})
+        Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, DispatchOptions.new!())
       end
     end
 
@@ -295,10 +297,10 @@ defmodule Trogon.Dispatcher.TestTest do
       Test.expect_dispatch_message!(Support.DispatcherMock, Support.ArchiveUser)
 
       assert_raise Mox.UnexpectedCallError, fn ->
-        Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, %DispatchOptions{})
+        Support.DispatcherMock.dispatch_message(%Support.ArchiveUser{}, DispatchOptions.new!())
       end
 
-      assert :ok = Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, %DispatchOptions{})
+      assert :ok = Support.DispatcherMock.dispatch_message!(%Support.ArchiveUser{}, DispatchOptions.new!())
     end
   end
 end

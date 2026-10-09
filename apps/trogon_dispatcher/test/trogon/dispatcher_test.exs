@@ -27,7 +27,7 @@ defmodule Trogon.DispatcherTest do
     end
 
     test "passes caller options through to the context" do
-      options = %DispatchOptions{actor: :someone, assigns: %{trail: []}}
+      options = DispatchOptions.new!(actor: :someone, assigns: %{trail: []})
 
       assert {:ok, %Support.User{actor: :someone}} =
                Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -150,28 +150,28 @@ defmodule Trogon.DispatcherTest do
 
   describe "middleware composition" do
     test "the importer's middleware wraps the imported dispatcher's" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [:authorize, :require_tenant]}} =
                Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "imported middleware stays attached to its own registrations" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [:authorize]}} =
                Support.RootDispatcher.dispatch_message(%Support.BillingCommand{}, options)
     end
 
     test "a leaf dispatcher is a first-class entry point and runs only its own middleware" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [:require_tenant]}} =
                Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "not calling next halts the pipeline" do
-      options = %DispatchOptions{actor: :forbidden}
+      options = DispatchOptions.new!(actor: :forbidden)
 
       assert {:error, :unauthorized} =
                Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -183,7 +183,7 @@ defmodule Trogon.DispatcherTest do
     end
 
     test "a middleware without init/1 receives its options unchanged" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [{:no_init, [some: :option]}]}} =
                Support.NoInitDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -225,7 +225,7 @@ defmodule Trogon.DispatcherTest do
 
   describe "context" do
     test "carries the dispatcher and the registering dispatcher separately" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       Test.attach_telemetry!()
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -236,12 +236,12 @@ defmodule Trogon.DispatcherTest do
       assert metadata.context.registered_by == Support.AccountsDispatcher
     end
 
-    test "Context.new/1 builds a command context with no dispatcher and empty options" do
+    test "Context.new/3 builds a command context with empty options by default" do
       assert %Context{
                message: %Support.RegisterUser{email: "a@b.c"},
                kind: :command,
-               dispatcher: nil,
-               registered_by: nil,
+               dispatcher: Support.RootDispatcher,
+               registered_by: Support.RootDispatcher,
                message_id: nil,
                correlation_id: nil,
                causation_id: nil,
@@ -249,12 +249,35 @@ defmodule Trogon.DispatcherTest do
                assigns: %{},
                private: %{},
                response: nil
-             } = Context.new(%Support.RegisterUser{email: "a@b.c"})
+             } =
+               Context.new(%Support.RegisterUser{email: "a@b.c"}, DispatchOptions.new!(),
+                 dispatcher: Support.RootDispatcher
+               )
+    end
+
+    test "Context.new/3 requires a dispatcher" do
+      assert_raise KeyError, fn -> Context.new(%Support.RegisterUser{}, DispatchOptions.new!(), []) end
+    end
+
+    test "Context.new/3 rejects an unknown override" do
+      assert_raise ArgumentError, ~r/unknown keys \[:actor\]/, fn ->
+        Context.new(%Support.RegisterUser{}, DispatchOptions.new!(), dispatcher: Support.RootDispatcher, actor: :a)
+      end
+    end
+
+    test "Context.new/3 rejects a repeated override" do
+      assert_raise ArgumentError, ~r/duplicate keys \[:kind\]/, fn ->
+        Context.new(%Support.RegisterUser{}, DispatchOptions.new!(),
+          dispatcher: Support.RootDispatcher,
+          kind: :command,
+          kind: :query
+        )
+      end
     end
 
     test "Context.new/3 defaults registered_by to the dispatcher" do
       context =
-        Context.new(%Support.GetUser{id: 1}, %DispatchOptions{}, kind: :query, dispatcher: Support.RootDispatcher)
+        Context.new(%Support.GetUser{id: 1}, DispatchOptions.new!(), kind: :query, dispatcher: Support.RootDispatcher)
 
       assert context.kind == :query
       assert context.dispatcher == Support.RootDispatcher
@@ -271,18 +294,36 @@ defmodule Trogon.DispatcherTest do
       assert Context.get_private(context, Support.RequireTenant) == "tenant"
       assert Context.get_private(context, Unknown, :default) == :default
     end
+
+    test "merge_assigns/2 merges a keyword list or a map into host space" do
+      context = Test.build_context(%Support.RegisterUser{}, DispatchOptions.new!(assigns: %{trail: []}))
+
+      context = Context.merge_assigns(context, tenant: "t-1")
+      context = Context.merge_assigns(context, %{trail: [:seen]})
+
+      assert context.assigns == %{tenant: "t-1", trail: [:seen]}
+    end
+
+    test "merge_assigns/2 rejects a non-atom key" do
+      context = Test.build_context(%Support.RegisterUser{})
+
+      assert_raise FunctionClauseError, fn -> Context.merge_assigns(context, %{"tenant" => "t-1"}) end
+    end
   end
 
   describe "Context.to_dispatch_options/1" do
     test "carries correlation and actor forward, sets causation to the current message_id, and drops message_id" do
       context =
-        Test.build_context(%Support.RegisterUser{}, %DispatchOptions{
-          message_id: "msg-1",
-          correlation_id: "corr",
-          causation_id: "cause",
-          actor: :someone,
-          assigns: %{thing: 1}
-        })
+        Test.build_context(
+          %Support.RegisterUser{},
+          DispatchOptions.new!(
+            message_id: "msg-1",
+            correlation_id: "corr",
+            causation_id: "cause",
+            actor: :someone,
+            assigns: %{thing: 1}
+          )
+        )
 
       assert %DispatchOptions{
                message_id: nil,

@@ -297,8 +297,7 @@ if Code.ensure_loaded?(OpentelemetryTelemetry) and Code.ensure_loaded?(NimbleOpt
     end
 
     defp id_attribute(nil), do: nil
-    defp id_attribute(id) when is_binary(id) or is_integer(id) or is_atom(id), do: to_string(id)
-    defp id_attribute(_id), do: nil
+    defp id_attribute(id), do: to_string(id)
 
     defp error_type(error) when is_struct(error), do: inspect(error.__struct__)
     defp error_type(error) when is_atom(error), do: inspect(error)

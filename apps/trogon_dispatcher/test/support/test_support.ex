@@ -8,6 +8,15 @@ defmodule Trogon.Dispatcher.TestSupport do
     def wrap(term), do: Process.get(:__trogon_dispatcher_opaque__, term)
   end
 
+  defmodule MessageId do
+    @moduledoc false
+    defstruct [:value]
+
+    defimpl String.Chars do
+      def to_string(%{value: value}), do: "msg_" <> value
+    end
+  end
+
   defmodule User do
     @moduledoc false
     defstruct [:email, :tenant, :actor, :trail]

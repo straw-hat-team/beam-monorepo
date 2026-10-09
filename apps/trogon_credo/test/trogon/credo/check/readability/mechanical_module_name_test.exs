@@ -24,7 +24,7 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleNameTest do
     |> assert_issue()
   end
 
-  for suffix <- ~w(Worker Job Manager Helper Util Utils) do
+  for suffix <- ~w(Worker Processor Job Manager Helper Util Utils) do
     test "reports a module name ending in the default suffix #{suffix}" do
       """
       defmodule MyApp.SendWelcomeEmail#{unquote(suffix)} do
