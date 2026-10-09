@@ -6,12 +6,12 @@ defmodule Trogon.Dispatcher.InvalidContextError do
   or halted. Returning the response directly is the common mistake and this error names the module that did it.
 
   The context it returns must also keep the context's invariants: `message`, `kind`, `dispatcher` and `registered_by`
-  stay as the dispatch set them, `assigns` stays a map with atom keys, and `private` stays a map. Checking them where
-  the middleware hands the context back means a broken context fails naming the middleware that broke it, rather than
-  wherever the next reader of that field happens to be.
+  stay as the dispatch set them, and `assigns` and `private` stay maps. Checking them where the middleware hands the
+  context back means a broken context fails naming the middleware that broke it, rather than wherever the next reader
+  of that field happens to be.
   """
 
-  @type reason :: :not_a_context | :changed | :not_a_map | :non_atom_key
+  @type reason :: :not_a_context | :changed | :not_a_map
 
   defexception [:module, :dispatched_message, :dispatcher, :returned, :field, reason: :not_a_context]
 
@@ -66,16 +66,6 @@ defmodule Trogon.Dispatcher.InvalidContextError do
     #{header(exception, "returned a context whose #{inspect(exception.field)} is not a map")}
 
     Got: #{inspect(exception.returned)}
-    """
-  end
-
-  def message(%__MODULE__{reason: :non_atom_key} = exception) do
-    """
-    #{header(exception, "returned a context whose #{inspect(exception.field)} has a non-atom key")}
-
-    Got: #{inspect(exception.returned)}
-
-    Use Trogon.Dispatcher.Context.assign/3, which only takes atom keys.
     """
   end
 

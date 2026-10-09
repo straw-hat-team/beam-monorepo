@@ -31,6 +31,11 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
       assert options.assigns == %{trail: []}
     end
 
+    test "accepts a repeated key and keeps its first value, as Keyword does" do
+      assert {:ok, options} = DispatchOptions.new(actor: :first, actor: :second)
+      assert options.actor == :first
+    end
+
     test "rejects options that are not a keyword list" do
       assert {:error, %InvalidDispatchOptionsError{reason: :not_a_keyword}} = DispatchOptions.new(%{actor: :someone})
     end

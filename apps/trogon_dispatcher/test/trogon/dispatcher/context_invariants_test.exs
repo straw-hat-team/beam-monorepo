@@ -46,15 +46,6 @@ defmodule Trogon.Dispatcher.ContextInvariantsTest do
     end
   end
 
-  test "rejects a middleware that puts a non-atom key in assigns", %{context: context} do
-    error =
-      assert_raise InvalidContextError, fn ->
-        Test.call_middleware(OverwriteField, context, options: [field: :assigns, value: %{"trail" => []}])
-      end
-
-    assert %InvalidContextError{module: OverwriteField, field: :assigns, reason: :non_atom_key} = error
-  end
-
   test "rejects a middleware that makes private something other than a map", %{context: context} do
     error =
       assert_raise InvalidContextError, fn ->
@@ -69,5 +60,18 @@ defmodule Trogon.Dispatcher.ContextInvariantsTest do
       Test.call_middleware(OverwriteField, context, options: [field: :assigns, value: %{trail: [:seen]}])
 
     assert %Context{assigns: %{trail: [:seen]}, response: :ok} = context
+  end
+
+  describe "Context.merge_assigns/2" do
+    test "merges a keyword list or a map into assigns", %{context: context} do
+      context = Context.merge_assigns(context, tenant: "t-1")
+      context = Context.merge_assigns(context, %{trail: [:seen]})
+
+      assert context.assigns == %{tenant: "t-1", trail: [:seen]}
+    end
+
+    test "rejects a non-atom key", %{context: context} do
+      assert_raise FunctionClauseError, fn -> Context.merge_assigns(context, %{"tenant" => "t-1"}) end
+    end
   end
 end

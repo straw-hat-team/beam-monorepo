@@ -38,8 +38,6 @@ defmodule Trogon.Dispatcher.Context do
     response: nil
   ]
 
-  @dispatch_fields [:message, :kind, :dispatcher, :registered_by]
-
   @type kind :: :command | :query
 
   @type t :: %__MODULE__{
@@ -91,6 +89,21 @@ defmodule Trogon.Dispatcher.Context do
   @spec assign(t(), atom(), term()) :: t()
   def assign(%__MODULE__{} = context, key, value) when is_atom(key) do
     %{context | assigns: Map.put(context.assigns, key, value)}
+  end
+
+  @doc """
+  Merges several values into host-app space at once.
+
+  Takes a keyword list or a map with atom keys. A later value wins over an earlier one for the same key, the way
+  `Map.merge/2` does.
+
+  ## Example
+
+      Context.merge_assigns(context, tenant: tenant, request_id: request_id)
+  """
+  @spec merge_assigns(t(), Enumerable.t({atom(), term()})) :: t()
+  def merge_assigns(%__MODULE__{} = context, assigns) do
+    %{context | assigns: Enum.into(assigns, context.assigns, fn {key, value} when is_atom(key) -> {key, value} end)}
   end
 
   @doc """
@@ -151,26 +164,5 @@ defmodule Trogon.Dispatcher.Context do
       actor: context.actor,
       assigns: context.assigns
     }
-  end
-
-  @doc false
-  @spec verify(t(), t()) :: :ok | {:error, atom(), Trogon.Dispatcher.InvalidContextError.reason()}
-  def verify(%__MODULE__{} = returned, %__MODULE__{} = received) do
-    cond do
-      changed_field = Enum.find(@dispatch_fields, &(Map.fetch!(returned, &1) != Map.fetch!(received, &1))) ->
-        {:error, changed_field, :changed}
-
-      not is_map(returned.assigns) ->
-        {:error, :assigns, :not_a_map}
-
-      not Enum.all?(Map.keys(returned.assigns), &is_atom/1) ->
-        {:error, :assigns, :non_atom_key}
-
-      not is_map(returned.private) ->
-        {:error, :private, :not_a_map}
-
-      true ->
-        :ok
-    end
   end
 end

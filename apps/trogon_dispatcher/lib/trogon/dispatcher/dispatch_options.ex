@@ -94,7 +94,7 @@ defmodule Trogon.Dispatcher.DispatchOptions do
   end
 
   defp validate_keys(opts) do
-    case Keyword.keys(opts) -- @keys do
+    case Enum.reject(Keyword.keys(opts), &(&1 in @keys)) do
       [] ->
         :ok
 
