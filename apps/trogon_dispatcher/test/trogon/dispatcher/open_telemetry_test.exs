@@ -105,25 +105,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       assert :otel_attributes.map(attributes)[:"trogon_dispatcher.kind"] == "query"
     end
 
-    test "omits id attributes whose value is not a string, integer, or atom" do
-      options =
-        DispatchOptions.new!(
-          message_id: {:uuid, "msg-1"},
-          correlation_id: %{id: "corr-1"},
-          causation_id: ["cause-1"],
-          assigns: %{trail: []}
-        )
+    test "renders an id struct through String.Chars" do
+      options = DispatchOptions.new!(message_id: %Support.MessageId{value: "1"}, assigns: %{trail: []})
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       assert_receive {:span, span(attributes: attributes)}, 1000
-
-      attributes_map = :otel_attributes.map(attributes)
-
-      refute Map.has_key?(attributes_map, :"messaging.message.id")
-      refute Map.has_key?(attributes_map, :"messaging.message.conversation_id")
-      refute Map.has_key?(attributes_map, :"trogon_dispatcher.correlation_id")
-      refute Map.has_key?(attributes_map, :"trogon_dispatcher.causation_id")
+      assert :otel_attributes.map(attributes)[:"messaging.message.id"] == "msg_1"
     end
 
     test "turns integer and atom ids into strings" do
