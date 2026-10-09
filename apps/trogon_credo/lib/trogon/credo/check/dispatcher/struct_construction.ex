@@ -23,7 +23,7 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstruction do
 
           # preferred
           {:ok, options} = DispatchOptions.new(actor: actor, assigns: %{request_id: id})
-          context = Context.new(message, options)
+          context = Context.new(message, options, dispatcher: MyApp.Dispatcher)
 
           # NOT preferred
           options = %DispatchOptions{actor: actor, assigns: %{request_id: id}}
