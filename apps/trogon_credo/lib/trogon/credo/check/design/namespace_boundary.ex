@@ -196,11 +196,12 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     ]
 
   alias Credo.Code.Name
+  alias Trogon.Credo.AstPattern
+  alias Trogon.Credo.ModuleDeclaration
   alias Trogon.Credo.ModuleName
   alias Trogon.Credo.ModulePattern
 
   @typespec_attributes [:callback, :macrocallback, :opaque, :spec, :type, :typep]
-  @definition_kinds [:def, :defp, :defmacro, :defmacrop, :defguard, :defguardp, :defdelegate]
 
   @erlang_module ~S<:(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[\p{L}\p{Nl}_][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}@]*[?!]?)>
   @before_dot ~r/#{@erlang_module}$/u
@@ -265,31 +266,7 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     raise ArgumentError, "invalid in_patterns #{inspect(in_patterns)}: expected a boolean"
   end
 
-  defp own_module(source_file) do
-    source_file
-    |> Credo.Code.prewalk(&outermost/2, {false, nil})
-    |> elem(1)
-  end
-
-  defp outermost({:quote, _meta, _args}, acc), do: {[], acc}
-
-  defp outermost({:defmodule, _meta, _args}, {true, name}), do: {[], {true, name}}
-
-  defp outermost({:defmodule, _meta, [{:__aliases__, _alias_meta, parts} | _]}, {false, _name}) do
-    {[], {true, readable_name(parts)}}
-  end
-
-  defp outermost({:defmodule, _meta, _args}, {false, _name}), do: {[], {true, nil}}
-
-  defp outermost(ast, acc), do: {ast, acc}
-
-  defp readable_name(parts) do
-    if Enum.all?(parts, &is_atom/1) do
-      ModuleName.full(parts)
-    else
-      nil
-    end
-  end
+  defp own_module(source_file), do: ModuleDeclaration.outermost_module_name(source_file)
 
   defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _context)
        when attribute in @typespec_attributes do
@@ -315,33 +292,6 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     {{:defmodule, meta, [nil | rest]}, issues}
   end
 
-  defp traverse({:cond, meta, [blocks]}, issues, %{in_patterns: false}) when is_list(blocks) do
-    {{:cond, meta, [expose_clauses(blocks, :do)]}, issues}
-  end
-
-  defp traverse({:receive, meta, [blocks]}, issues, %{in_patterns: false}) when is_list(blocks) do
-    {{:receive, meta, [expose_clauses(blocks, :after)]}, issues}
-  end
-
-  defp traverse({:->, _meta, [_pattern, body]}, issues, %{in_patterns: false}) do
-    {body, issues}
-  end
-
-  defp traverse({operator, _meta, [_pattern, value]}, issues, %{in_patterns: false})
-       when operator in [:=, :<-] do
-    {value, issues}
-  end
-
-  defp traverse({kind, _meta, [{:when, _meta2, [_head, _guard]} | rest]}, issues, %{in_patterns: false})
-       when kind in @definition_kinds do
-    {rest, issues}
-  end
-
-  defp traverse({kind, _meta, [_head | rest]}, issues, %{in_patterns: false})
-       when kind in @definition_kinds do
-    {rest, issues}
-  end
-
   # An Erlang module is written as a plain atom, which is only distinguishable
   # from any other atom where the source says the atom is a module: the target of
   # a qualified call, or of a directive.
@@ -364,6 +314,13 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     module = ModuleName.resolve(parts, context.aliases)
 
     {ast, maybe_report(module, meta, Name.full(parts), issues, context)}
+  end
+
+  defp traverse(ast, issues, %{in_patterns: false}) do
+    case AstPattern.hide_pattern_position(ast) do
+      {:ok, rewritten} -> {rewritten, issues}
+      :error -> {ast, issues}
+    end
   end
 
   defp traverse(ast, issues, _context), do: {ast, issues}
@@ -419,22 +376,6 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
   defp line_text(_line, _context), do: nil
 
-  # A `cond` writes its conditions, and a `receive` its `after` timeout, on the
-  # left of a `->`, where every other construct writes a pattern, so both sides
-  # of those clauses are exposed as expressions.
-  defp expose_clauses(blocks, key) do
-    Enum.map(blocks, &expose_block(&1, key))
-  end
-
-  defp expose_block({key, clauses}, key) when is_list(clauses) do
-    {key, Enum.map(clauses, &expose_clause/1)}
-  end
-
-  defp expose_block(block, _key), do: block
-
-  defp expose_clause({:->, meta, args}), do: {:__block__, meta, args}
-  defp expose_clause(clause), do: clause
-
   defp maybe_report(nil, _meta, _trigger, issues, _context), do: issues
 
   defp maybe_report(module, meta, trigger, issues, context) do
@@ -457,33 +398,29 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
 
   defp forbidden_violation(module, forbidden) do
     forbidden
-    |> Enum.find(fn {regex, _message} -> Regex.match?(regex, module) end)
+    |> Enum.find(&matches_forbidden?(&1, module))
     |> forbidden_message(module)
   end
+
+  defp matches_forbidden?({regex, _message}, module), do: Regex.match?(regex, module)
 
   defp private_violation(module, context) do
     Enum.find_value(context.private_to, &private_message(&1, module, context.own_module))
   end
 
   defp private_message({regex, message}, module, own_module) do
-    case Regex.run(regex, module) do
-      [_full, owner] -> owner_message(owner, module, message, own_module)
+    case ModulePattern.find_owner(module, regex) do
       nil -> nil
+      owner -> owner_message(owner, module, message, own_module)
     end
   end
 
   defp owner_message(owner, module, message, own_module) do
-    if inside_owner?(own_module, owner) do
+    if ModulePattern.owner_includes?(own_module, owner) do
       nil
     else
       message || "The module `#{ModulePattern.display(module)}` is private to `#{owner}`."
     end
-  end
-
-  defp inside_owner?(nil, _owner), do: true
-
-  defp inside_owner?(own_module, owner) do
-    own_module == owner or String.starts_with?(own_module, owner <> ".")
   end
 
   defp excepted?(module, except), do: Enum.any?(except, &Regex.match?(&1, module))
@@ -545,21 +482,11 @@ defmodule Trogon.Credo.Check.Design.NamespaceBoundary do
     {compile_private_pattern(pattern), nil}
   end
 
-  defp compile_private_pattern(pattern) when is_binary(pattern) do
-    case Regex.run(~r/^\(([^()]+)\)(.*)$/, pattern) do
-      [_full, owner, ""] ->
-        Regex.compile!("^(#{ModulePattern.source(owner)})(?:\\..+)?$")
-
-      [_full, owner, "." <> _ = private] ->
-        Regex.compile!("^(#{ModulePattern.source(owner)})#{ModulePattern.source(private)}$")
-
-      _other ->
-        raise ArgumentError, invalid_private_pattern(pattern)
-    end
-  end
-
   defp compile_private_pattern(pattern) do
-    raise ArgumentError, invalid_private_pattern(pattern)
+    case ModulePattern.compile_owner_pattern(pattern) do
+      {:ok, regex} -> regex
+      :error -> raise ArgumentError, invalid_private_pattern(pattern)
+    end
   end
 
   defp invalid_private_pattern(pattern) do
