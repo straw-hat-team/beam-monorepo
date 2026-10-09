@@ -162,6 +162,13 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
     assert [%{check: ErrorOwnership, trigger: "Acme.Review.Domain.NotFoundError"}] = issues
   end
 
+  test "forwards shared to ErrorOwnership" do
+    issues =
+      run_credo(config([{CommandedPlugin, [shared: ["Acme.Review"]]}]), [{"controller.ex", @foreign_error_raise}])
+
+    assert [] == issues
+  end
+
   test "keeps the project's own entry for a check it enables" do
     checks = "%{enabled: [], disabled: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, []}]}"
 

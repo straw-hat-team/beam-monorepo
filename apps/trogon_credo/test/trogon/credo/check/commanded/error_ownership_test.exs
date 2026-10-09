@@ -521,4 +521,110 @@ defmodule Trogon.Credo.Check.Commanded.ErrorOwnershipTest do
     |> run_check(ErrorOwnership)
     |> refute_issues()
   end
+
+  test "does not report a test file building the owner's error with a struct literal" do
+    """
+    defmodule Acme.Web.InvoiceControllerTest do
+      test "returns the invoice the billing context could not find" do
+        Mox.expect(Acme.BillingMock, :find_invoice, fn _id ->
+          {:error, %Acme.Billing.NotFoundError{}}
+        end)
+      end
+    end
+    """
+    |> to_source_file("invoice_controller_test.exs")
+    |> run_check(ErrorOwnership)
+    |> refute_issues()
+  end
+
+  test "does not report a test file building the owner's error with a new/1 constructor" do
+    """
+    defmodule Acme.Web.InvoiceControllerTest do
+      test "returns the invoice the billing context could not find" do
+        Mox.expect(Acme.BillingMock, :find_invoice, fn id ->
+          {:error, Acme.Billing.NotFoundError.new(id)}
+        end)
+      end
+    end
+    """
+    |> to_source_file("invoice_controller_test.exs")
+    |> run_check(ErrorOwnership)
+    |> refute_issues()
+  end
+
+  test "does not report a test file building the owner's error with raise" do
+    """
+    defmodule Acme.Web.InvoiceControllerTest do
+      test "raises the error the billing context would raise" do
+        raise Acme.Billing.NotFoundError
+      end
+    end
+    """
+    |> to_source_file("invoice_controller_test.exs")
+    |> run_check(ErrorOwnership)
+    |> refute_issues()
+  end
+
+  test "does not report a file under test/support building the owner's error" do
+    """
+    defmodule Acme.Test.Support.BillingFixtures do
+      def not_found_error(id), do: Acme.Billing.NotFoundError.new(id)
+    end
+    """
+    |> to_source_file("test/support/billing_fixtures.ex")
+    |> run_check(ErrorOwnership)
+    |> refute_issues()
+  end
+
+  test "still reports a non-test file building the same error" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def create(id) do
+        Acme.Billing.NotFoundError.new(id)
+      end
+    end
+    """
+    |> to_source_file("invoice_controller.ex")
+    |> run_check(ErrorOwnership)
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
+
+  test "does not report an owner matched exactly in shared" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def show(conn, %{"id" => id}) do
+        raise Acme.Platform.NotFoundError, id: id
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorOwnership, shared: ["Acme.Platform"])
+    |> refute_issues()
+  end
+
+  test "does not report an owner matched through a wildcard in shared" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def show(conn, %{"id" => id}) do
+        raise Acme.Platform.Shared.NotFoundError, id: id
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorOwnership, errors: ["(Acme.*.*).**Error"], shared: ["Acme.*.Shared"])
+    |> refute_issues()
+  end
+
+  test "still reports an owner that does not match any shared entry" do
+    """
+    defmodule Acme.Web.InvoiceController do
+      def show(conn, %{"id" => id}) do
+        raise Acme.Billing.NotFoundError, id: id
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ErrorOwnership, shared: ["Acme.Platform"])
+    |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
+  end
 end
