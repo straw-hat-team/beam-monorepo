@@ -49,10 +49,10 @@ defmodule Trogon.Dispatcher.Test do
 
   ## Example
 
-      context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
+      context = Test.build_context(%RegisterUser{email: "a@b.c"}, DispatchOptions.new!(actor: actor), kind: :command)
   """
   @spec build_context(struct(), DispatchOptions.t(), keyword()) :: Context.t()
-  def build_context(message, options \\ %DispatchOptions{}, overrides \\ []) do
+  def build_context(message, options \\ DispatchOptions.new!(), overrides \\ []) do
     overrides = Keyword.put_new(overrides, :dispatcher, __MODULE__)
     Context.new(message, options, overrides)
   end
@@ -66,7 +66,7 @@ defmodule Trogon.Dispatcher.Test do
 
   ## Example
 
-      context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
+      context = Test.build_context(%RegisterUser{email: "a@b.c"}, DispatchOptions.new!(actor: actor), kind: :command)
       assert {:ok, %User{}} = Test.call_handler(MyApp.Accounts.RegisterUser, context)
   """
   @spec call_handler(module(), Context.t()) :: Trogon.Dispatcher.response()

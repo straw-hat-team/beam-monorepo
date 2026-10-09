@@ -212,8 +212,6 @@ defmodule Trogon.Dispatcher do
 
   defmacro __before_compile__(env) do
     module = env.module
-    options_mod = DispatchOptions
-    unregistered_mod = UnregisteredMessageError
 
     local_middleware = accumulated(module, :trogon_dispatcher_middleware)
     imports = accumulated(module, :trogon_dispatcher_imports)
@@ -225,13 +223,13 @@ defmodule Trogon.Dispatcher do
 
     lines = registration_lines(module)
 
-    clauses = Enum.map(registrations, &dispatch_clause(&1, options_mod, lines))
+    clauses = Enum.map(registrations, &dispatch_clause(&1, lines))
 
     quote do
       unquote(introspection(registrations, local_middleware, imports))
-      unquote(entrypoints(options_mod))
+      unquote(entrypoints())
       unquote(clauses)
-      unquote(fallbacks(options_mod, unregistered_mod))
+      unquote(fallbacks())
     end
   end
 
@@ -244,10 +242,10 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp entrypoints(options_mod) do
+  defp entrypoints do
     quote do
-      def dispatch_message(message, options \\ %unquote(options_mod){})
-      def dispatch_message!(message, options \\ %unquote(options_mod){})
+      def dispatch_message(message, options \\ DispatchOptions.new!())
+      def dispatch_message!(message, options \\ DispatchOptions.new!())
 
       def dispatch_message!(message, options) do
         message
@@ -257,20 +255,19 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp fallbacks(options_mod, unregistered_mod) do
+  defp fallbacks do
     quote do
-      def dispatch_message(message, %unquote(options_mod){}) when is_struct(message) do
-        {:error, unquote(unregistered_mod).exception(dispatched_message: message, dispatcher: __MODULE__)}
+      def dispatch_message(message, %DispatchOptions{}) when is_struct(message) do
+        {:error, UnregisteredMessageError.exception(dispatched_message: message, dispatcher: __MODULE__)}
       end
 
-      def dispatch_message(message, %unquote(options_mod){}) do
-        raise ArgumentError,
-              "expected a struct as the first argument, got: #{inspect(message)}"
+      def dispatch_message(message, %DispatchOptions{}) do
+        raise ArgumentError, "expected a struct as the first argument, got: #{inspect(message)}"
       end
 
       def dispatch_message(_message, options) do
         raise ArgumentError,
-              "expected a %#{inspect(unquote(options_mod))}{} as the second argument, got: #{inspect(options)}"
+              "expected a %#{inspect(DispatchOptions)}{} as the second argument, got: #{inspect(options)}"
       end
     end
   end
@@ -492,9 +489,9 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp dispatch_clause(registration, options_mod, lines) do
+  defp dispatch_clause(registration, lines) do
     quote line: Map.fetch!(lines, registration.message) do
-      def dispatch_message(%unquote(registration.message){} = message, %unquote(options_mod){} = options) do
+      def dispatch_message(%unquote(registration.message){} = message, %DispatchOptions{} = options) do
         Trogon.Dispatcher.dispatch(
           message,
           options,
