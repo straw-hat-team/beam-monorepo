@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.6.0...trogon_credo@v0.7.0) (2026-10-09)
+
+
+### Features
+
+* **trogon_credo:** Enforce the dispatcher's contracts at lint time ([#508](https://github.com/straw-hat-team/beam-monorepo/issues/508)) ([7590c80](https://github.com/straw-hat-team/beam-monorepo/commit/7590c8065258861f840451e66b7b8b9e57aca55e))
+* **trogon_credo:** Name Oban workers after the action they perform instead of the mechanism running them ([#509](https://github.com/straw-hat-team/beam-monorepo/issues/509)) ([3ffd6b4](https://github.com/straw-hat-team/beam-monorepo/commit/3ffd6b41d2ffc6dff0daec17b68c759a1654d781))
+
 ## [0.6.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.5.0...trogon_credo@v0.6.0) (2026-10-09)
 
 
