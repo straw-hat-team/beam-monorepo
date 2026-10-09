@@ -36,33 +36,16 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
       assert options.actor == :first
     end
 
-    test "rejects options that are not a keyword list" do
-      assert {:error, %InvalidDispatchOptionsError{reason: :not_a_keyword}} = DispatchOptions.new(%{actor: :someone})
-    end
-
     test "rejects an unknown key" do
-      assert {:error, %InvalidDispatchOptionsError{field: :private, reason: :unknown_key}} =
+      assert {:error, %InvalidDispatchOptionsError{field: :private, validation: :unknown_key}} =
                DispatchOptions.new(private: %{})
-    end
-
-    test "rejects assigns that are not a map" do
-      assert {:error, %InvalidDispatchOptionsError{field: :assigns, reason: :not_a_map}} =
-               DispatchOptions.new(assigns: [trail: []])
-
-      assert {:error, %InvalidDispatchOptionsError{field: :assigns, reason: :not_a_map}} =
-               DispatchOptions.new(assigns: nil)
-    end
-
-    test "rejects assigns with a non-atom key" do
-      assert {:error, %InvalidDispatchOptionsError{field: :assigns, reason: :non_atom_key}} =
-               DispatchOptions.new(assigns: %{"trail" => []})
     end
   end
 
   describe "new!/1" do
-    test "raises when an invariant does not hold" do
-      assert_raise InvalidDispatchOptionsError, "expected dispatch option :assigns to be a map, got: nil", fn ->
-        DispatchOptions.new!(assigns: nil)
+    test "raises on an unknown key" do
+      assert_raise InvalidDispatchOptionsError, ~r/unknown dispatch option :private/, fn ->
+        DispatchOptions.new!(private: %{})
       end
     end
   end

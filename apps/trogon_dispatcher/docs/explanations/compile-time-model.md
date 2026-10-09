@@ -45,6 +45,14 @@ on the struct.
   `ArgumentError`. Both are call-site bugs, not domain outcomes, so returning an error value for them would dress a
   type error up as a routing result.
 
+## Types are checked before runtime, not during it
+
+The dispatch path does not re-check the shape of what it is handed. `Trogon.Dispatcher.DispatchOptions` rejects an
+unknown key when it is built, and nothing more: whether `assigns` is a map with atom keys is stated by its type, and
+caught before runtime by the Elixir type checker where it can see the value, and by `Trogon.Credo.Plugin.Dispatcher`
+for literals and direct context updates the type checker cannot follow across modules. A value that slips past both is
+a bug at the call site, and checking for it on every dispatch would charge every caller for it.
+
 ## Middleware options are fixed at compile time
 
 `init/1` runs once, while the dispatcher compiles, and its result is baked into the code. Anything it reads, such as
