@@ -8,11 +8,11 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
   describe "new/1" do
     test "defaults every field" do
       assert {:ok, options} = DispatchOptions.new()
-      assert DispatchOptions.message_id(options) == nil
-      assert DispatchOptions.correlation_id(options) == nil
-      assert DispatchOptions.causation_id(options) == nil
-      assert DispatchOptions.actor(options) == nil
-      assert DispatchOptions.assigns(options) == %{}
+      assert options.message_id == nil
+      assert options.correlation_id == nil
+      assert options.causation_id == nil
+      assert options.actor == nil
+      assert options.assigns == %{}
     end
 
     test "keeps the given fields" do
@@ -25,11 +25,11 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
                  assigns: %{trail: []}
                )
 
-      assert DispatchOptions.message_id(options) == "msg-1"
-      assert DispatchOptions.correlation_id(options) == "corr-1"
-      assert DispatchOptions.causation_id(options) == "cause-1"
-      assert DispatchOptions.actor(options) == :someone
-      assert DispatchOptions.assigns(options) == %{trail: []}
+      assert options.message_id == "msg-1"
+      assert options.correlation_id == "corr-1"
+      assert options.causation_id == "cause-1"
+      assert options.actor == :someone
+      assert options.assigns == %{trail: []}
     end
 
     test "rejects options that are not a keyword list" do

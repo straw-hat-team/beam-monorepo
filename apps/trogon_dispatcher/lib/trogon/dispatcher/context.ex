@@ -74,11 +74,11 @@ defmodule Trogon.Dispatcher.Context do
       kind: Keyword.get(overrides, :kind, :command),
       dispatcher: dispatcher,
       registered_by: Keyword.get(overrides, :registered_by, dispatcher),
-      message_id: DispatchOptions.message_id(options),
-      correlation_id: DispatchOptions.correlation_id(options),
-      causation_id: DispatchOptions.causation_id(options),
-      actor: DispatchOptions.actor(options),
-      assigns: DispatchOptions.assigns(options),
+      message_id: options.message_id,
+      correlation_id: options.correlation_id,
+      causation_id: options.causation_id,
+      actor: options.actor,
+      assigns: options.assigns,
       private: Keyword.get(overrides, :private, %{})
     }
   end
