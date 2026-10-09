@@ -14,20 +14,32 @@ defmodule Trogon.Credo.Plugin.Dispatcher do
   It enables:
 
     * `Trogon.Credo.Check.Dispatcher.ContextMutation`
+    * `Trogon.Credo.Check.Dispatcher.StructConstruction`
+    * `Trogon.Credo.Check.Dispatcher.PrivateOwnership`
+    * `Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys`
 
   ## Params
 
     * `middleware_modules` - forwarded to
-      `Trogon.Credo.Check.Dispatcher.ContextMutation`. Left out, the check's own
+      `Trogon.Credo.Check.Dispatcher.ContextMutation` and
+      `Trogon.Credo.Check.Dispatcher.PrivateOwnership`. Left out, each check's own
       default applies.
     * `handler_modules` - forwarded to
       `Trogon.Credo.Check.Dispatcher.ContextMutation`. Left out, the check's own
       default applies.
     * `context_modules` - forwarded to
-      `Trogon.Credo.Check.Dispatcher.ContextMutation`. Left out, the check's own
+      `Trogon.Credo.Check.Dispatcher.ContextMutation`,
+      `Trogon.Credo.Check.Dispatcher.StructConstruction` and
+      `Trogon.Credo.Check.Dispatcher.PrivateOwnership`. Left out, each check's own
       default applies.
-    * `except_in` - forwarded to `Trogon.Credo.Check.Dispatcher.ContextMutation`.
-      Left out, the check's own default applies.
+    * `dispatch_options_modules` - forwarded to
+      `Trogon.Credo.Check.Dispatcher.StructConstruction` and
+      `Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys`. Left out, each check's
+      own default applies.
+    * `except_in` - forwarded to every check above. Left out, each check's own
+      default applies.
+    * `hint` - forwarded to every check above. Left out, each check's own default
+      applies.
     * `except` - a list of the checks above to leave disabled.
 
   A check the project configures in its own `.credo.exs` keeps that entry, params
@@ -40,6 +52,9 @@ defmodule Trogon.Credo.Plugin.Dispatcher do
   """
 
   alias Trogon.Credo.Check.Dispatcher.ContextMutation
+  alias Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys
+  alias Trogon.Credo.Check.Dispatcher.PrivateOwnership
+  alias Trogon.Credo.Check.Dispatcher.StructConstruction
   alias Trogon.Credo.PluginSupport
 
   @doc false
@@ -50,7 +65,28 @@ defmodule Trogon.Credo.Plugin.Dispatcher do
          :middleware_modules,
          :handler_modules,
          :context_modules,
-         :except_in
+         :except_in,
+         :hint
+       ])},
+      {StructConstruction,
+       PluginSupport.check_params(exec, __MODULE__, [
+         :dispatch_options_modules,
+         :context_modules,
+         :except_in,
+         :hint
+       ])},
+      {PrivateOwnership,
+       PluginSupport.check_params(exec, __MODULE__, [
+         :middleware_modules,
+         :context_modules,
+         :except_in,
+         :hint
+       ])},
+      {DispatchOptionsKeys,
+       PluginSupport.check_params(exec, __MODULE__, [
+         :dispatch_options_modules,
+         :except_in,
+         :hint
        ])}
     ])
   end
