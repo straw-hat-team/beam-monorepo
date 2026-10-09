@@ -49,7 +49,9 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutation do
 
       Not reported: anywhere outside a module that implements one of `middleware_modules`
       or `handler_modules`, a pattern match such as `%Context{assigns: assigns} = context`,
-      which reads rather than writes, and the writer functions on `Trogon.Dispatcher.Context`
+      which reads rather than writes, `struct/2` or `struct!/2` given a module other than one
+      of `context_modules`, such as `struct!(MyApp.Rejected, message: message)` or
+      `struct(__MODULE__, ...)`, which builds a struct of its own, and the writer functions on `Trogon.Dispatcher.Context`
       itself, together with anything under `except_in`, since that is the dispatcher's own
       namespace and the one place these invariants are implemented.
       """,
@@ -276,13 +278,21 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutation do
 
   defp visit_struct!(subject, fields, trigger, meta, scope, ctx, issues) do
     issues =
-      case literal_pairs(fields) do
-        {:ok, pairs} -> report_fields(scope, ctx, pairs, trigger, meta, issues)
-        :error -> issues
+      case {builds_other_struct?(subject, ctx), literal_pairs(fields)} do
+        {false, {:ok, pairs}} -> report_fields(scope, ctx, pairs, trigger, meta, issues)
+        _skip -> issues
       end
 
     visit([subject, fields], scope, ctx, issues)
   end
+
+  # `struct!(MyApp.Events.Rejected, message: msg)` builds a struct of its own, so its fields
+  # say nothing about the context.
+  defp builds_other_struct?({:__aliases__, _meta, parts}, ctx),
+    do: not MapSet.member?(ctx.context_modules, ModuleName.resolve(parts, ctx.aliases))
+
+  defp builds_other_struct?({:__MODULE__, _meta, context}, _ctx) when is_atom(context), do: true
+  defp builds_other_struct?(subject, _ctx), do: is_atom(subject)
 
   defp literal_pairs(pairs) when is_list(pairs), do: {:ok, pairs}
   defp literal_pairs({:%{}, _meta, pairs}) when is_list(pairs), do: {:ok, pairs}

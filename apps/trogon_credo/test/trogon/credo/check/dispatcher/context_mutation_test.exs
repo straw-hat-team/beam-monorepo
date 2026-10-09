@@ -197,6 +197,67 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutationTest do
     |> assert_issue(fn issue -> assert issue.trigger == "struct!" end)
   end
 
+  test "does not report struct construction of another module's struct inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+
+      def call(context, next, _options) do
+        next.(struct!(MyApp.Events.Rejected, message: context.message))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> refute_issues()
+  end
+
+  test "does not report struct construction of the own module's struct inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+
+      def call(context, next, _options) do
+        next.(struct(__MODULE__, message: context.message))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> refute_issues()
+  end
+
+  test "does not report struct construction of an atom module name inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+
+      def call(context, next, _options) do
+        next.(Kernel.struct!(:"Elixir.MyApp.Events.Rejected", message: context.message))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> refute_issues()
+  end
+
+  test "reports struct!/2 naming the context module inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+      alias Trogon.Dispatcher.Context
+
+      def call(context, next, _options) do
+        next.(struct!(Context, assigns: %{}))
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> assert_issue(fn issue -> assert issue.trigger == "struct!" end)
+  end
+
   test "reports Kernel.struct!/2 naming a restricted field inside a middleware" do
     """
     defmodule MyApp.Authorize do
