@@ -53,9 +53,7 @@ defmodule Trogon.Dispatcher do
 
   `dispatch_message/2` returns the final context's `:response`, per the contract in `Trogon.Dispatcher.Handler`. It
   raises `ArgumentError` when the first argument is not a struct, or the second is not a
-  `Trogon.Dispatcher.DispatchOptions.t()`, and raises `Trogon.Dispatcher.InvalidDispatchOptionsError` when the options
-  break an invariant `Trogon.Dispatcher.DispatchOptions.new/1` would have rejected. The bang variants unwrap that
-  response:
+  `Trogon.Dispatcher.DispatchOptions.t()`. The bang variants unwrap that response:
 
   | `:response` | `dispatch_message!` returns or raises |
   | --- | --- |
@@ -259,8 +257,17 @@ defmodule Trogon.Dispatcher do
 
   defp fallbacks do
     quote do
-      def dispatch_message(message, options) do
-        Trogon.Dispatcher.unregistered(message, options, __MODULE__)
+      def dispatch_message(message, %DispatchOptions{}) when is_struct(message) do
+        {:error, UnregisteredMessageError.exception(dispatched_message: message, dispatcher: __MODULE__)}
+      end
+
+      def dispatch_message(message, %DispatchOptions{}) do
+        raise ArgumentError, "expected a struct as the first argument, got: #{inspect(message)}"
+      end
+
+      def dispatch_message(_message, options) do
+        raise ArgumentError,
+              "expected a %#{inspect(DispatchOptions)}{} as the second argument, got: #{inspect(options)}"
       end
     end
   end
@@ -484,7 +491,7 @@ defmodule Trogon.Dispatcher do
 
   defp dispatch_clause(registration, lines) do
     quote line: Map.fetch!(lines, registration.message) do
-      def dispatch_message(%unquote(registration.message){} = message, options) do
+      def dispatch_message(%unquote(registration.message){} = message, %DispatchOptions{} = options) do
         Trogon.Dispatcher.dispatch(
           message,
           options,
@@ -499,19 +506,7 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def unregistered(message, options, dispatcher) do
-    DispatchOptions.validate!(options)
-
-    if is_struct(message) do
-      {:error, UnregisteredMessageError.exception(dispatched_message: message, dispatcher: dispatcher)}
-    else
-      raise ArgumentError, "expected a struct as the first argument, got: #{inspect(message)}"
-    end
-  end
-
-  @doc false
   def dispatch(message, options, kind, dispatcher, registered_by, middleware, {handler_mod, _handle} = handler) do
-    options = DispatchOptions.validate!(options)
     context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
 
     metadata = %{

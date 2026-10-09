@@ -169,7 +169,7 @@ defmodule Trogon.Dispatcher.Test do
       test_process = self()
 
       Mox.expect(mock, function_name, Keyword.fetch!(opts, :times), fn message, options ->
-        options = verify_dispatch!(mock, message_mod, message, options)
+        verify_dispatch!(mock, message_mod, message, options)
         send(test_process, {@telemetry_tag, :dispatched, mock, message, options})
 
         message
@@ -189,7 +189,10 @@ defmodule Trogon.Dispatcher.Test do
         """)
       end
 
-      DispatchOptions.validate!(options)
+      if not is_struct(options, DispatchOptions) do
+        raise ArgumentError,
+              "expected a %#{inspect(DispatchOptions)}{} as the second argument, got: #{inspect(options)}"
+      end
     end
 
     defp mocked_response(message, options, returns) when is_function(returns, 2), do: returns.(message, options)

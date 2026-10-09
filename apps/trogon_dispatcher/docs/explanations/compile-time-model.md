@@ -44,9 +44,6 @@ on the struct.
 - A message that is not a struct, or options that are not a `Trogon.Dispatcher.DispatchOptions`, raise
   `ArgumentError`. Both are call-site bugs, not domain outcomes, so returning an error value for them would dress a
   type error up as a routing result.
-- Options built as a struct literal that break an invariant `Trogon.Dispatcher.DispatchOptions.new/1` enforces raise
-  `Trogon.Dispatcher.InvalidDispatchOptionsError` before any middleware runs, so the bad value fails at the caller
-  instead of inside whichever middleware first reads it.
 
 ## Middleware options are fixed at compile time
 

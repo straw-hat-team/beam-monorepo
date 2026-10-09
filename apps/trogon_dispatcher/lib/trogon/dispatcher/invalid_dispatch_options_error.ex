@@ -2,8 +2,8 @@ defmodule Trogon.Dispatcher.InvalidDispatchOptionsError do
   @moduledoc """
   Raised, or returned by `Trogon.Dispatcher.DispatchOptions.new/1`, when dispatch options break an invariant.
 
-  Options are checked where they are built and again when a dispatch starts, so a bad value fails at the caller rather
-  than inside whichever middleware first touches it.
+  Options are checked where they are built, so a bad value fails at the caller rather than inside whichever middleware
+  first touches it.
   """
 
   @type reason :: :not_a_keyword | :unknown_key | :not_a_map | :non_atom_key

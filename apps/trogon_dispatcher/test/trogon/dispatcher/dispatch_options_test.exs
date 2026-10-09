@@ -3,7 +3,6 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
 
   alias Trogon.Dispatcher.DispatchOptions
   alias Trogon.Dispatcher.InvalidDispatchOptionsError
-  alias Trogon.Dispatcher.TestSupport, as: Support
 
   describe "new/1" do
     test "defaults every field" do
@@ -59,20 +58,6 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
     test "raises when an invariant does not hold" do
       assert_raise InvalidDispatchOptionsError, "expected dispatch option :assigns to be a map, got: nil", fn ->
         DispatchOptions.new!(assigns: nil)
-      end
-    end
-  end
-
-  describe "dispatching a struct literal that skipped new/1" do
-    test "raises at the dispatcher boundary for a registered message" do
-      assert_raise InvalidDispatchOptionsError, fn ->
-        Support.AccountsDispatcher.dispatch_message(%Support.ArchiveUser{id: 1}, %DispatchOptions{assigns: nil})
-      end
-    end
-
-    test "raises at the dispatcher boundary for an unregistered message" do
-      assert_raise InvalidDispatchOptionsError, fn ->
-        Support.AccountsDispatcher.dispatch_message(%Support.NotRegistered{}, %DispatchOptions{assigns: nil})
       end
     end
   end
