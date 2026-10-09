@@ -41,6 +41,8 @@ defmodule Trogon.Credo.Plugin.Commanded do
     * `processor_modules` - forwarded to
       `Trogon.Credo.Check.Commanded.SwappableNonDeterminism`. Left out, the check's
       own default applies.
+    * `shared` - forwarded to `Trogon.Credo.Check.Commanded.ErrorOwnership`. Left
+      out, the check's own default applies.
     * `except` - a list of the checks above to leave disabled.
 
   A check the project configures in its own `.credo.exs` keeps that entry, params
@@ -75,7 +77,7 @@ defmodule Trogon.Credo.Plugin.Commanded do
          :event_modules
        ])},
       {SwappableNonDeterminism, PluginSupport.check_params(exec, __MODULE__, [:processor_modules])},
-      {ErrorOwnership, PluginSupport.check_params(exec, __MODULE__, [])}
+      {ErrorOwnership, PluginSupport.check_params(exec, __MODULE__, [:shared])}
     ])
   end
 end
