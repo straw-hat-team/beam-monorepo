@@ -31,6 +31,18 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
       assert options.assigns == %{trail: []}
     end
 
+    test "accepts a map" do
+      assert {:ok, options} = DispatchOptions.new(%{actor: :someone, assigns: %{trail: []}})
+      assert options.actor == :someone
+      assert options.assigns == %{trail: []}
+      assert options.message_id == nil
+    end
+
+    test "rejects an unknown key in a map" do
+      assert {:error, %InvalidDispatchOptionsError{field: :private, validation: :unknown_key}} =
+               DispatchOptions.new(%{private: %{}})
+    end
+
     test "rejects a repeated key" do
       assert {:error, %InvalidDispatchOptionsError{} = error} = DispatchOptions.new(actor: :first, actor: :second)
       assert error.field == :actor
@@ -49,6 +61,10 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
       assert_raise InvalidDispatchOptionsError, ~r/unknown dispatch option :private/, fn ->
         DispatchOptions.new!(private: %{})
       end
+    end
+
+    test "accepts a map" do
+      assert %DispatchOptions{actor: :someone} = DispatchOptions.new!(%{actor: :someone})
     end
 
     test "raises on a repeated key" do
