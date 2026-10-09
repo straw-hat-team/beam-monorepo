@@ -7,11 +7,11 @@ defmodule Trogon.Credo.Plugin.ObanTest do
   alias Trogon.Credo.Plugin.Oban, as: ObanPlugin
 
   @source """
-  defmodule MyApp.SendWelcomeEmail do
+  defmodule MyApp.Mailer.WelcomeEmailSenderWorker do
     use Oban.Worker
   end
 
-  defmodule MyApp.SendReceipt do
+  defmodule MyApp.Billing.InvoiceReminder do
     use MyApp.Worker
   end
 
@@ -24,7 +24,7 @@ defmodule Trogon.Credo.Plugin.ObanTest do
     issues = run_credo(config([{ObanPlugin, []}]), [{"sample.ex", @source}])
 
     assert [
-             %{check: WorkerName, trigger: "MyApp.SendWelcomeEmail"},
+             %{check: WorkerName, trigger: "MyApp.Mailer.WelcomeEmailSenderWorker"},
              %{check: WorkerQueue, trigger: "Oban.Worker"},
              %{check: ForbiddenDecorator}
            ] = issues
@@ -38,15 +38,15 @@ defmodule Trogon.Credo.Plugin.ObanTest do
              issues |> Enum.map(& &1.check) |> Enum.filter(&(&1 in [WorkerName, WorkerQueue, ForbiddenDecorator]))
   end
 
-  test "forwards workers and suffix to the worker checks" do
-    plugins = [{ObanPlugin, [workers: [MyApp.Worker], suffix: "Job"]}]
+  test "forwards workers and suffixes to the worker checks" do
+    plugins = [{ObanPlugin, [workers: [MyApp.Worker], suffixes: ["Reminder"]]}]
     issues = run_credo(config(plugins), [{"sample.ex", @source}])
 
     assert [
              %{
                check: WorkerName,
-               trigger: "MyApp.SendReceipt",
-               message: "Worker module `MyApp.SendReceipt` must end with `Job`." <> _
+               trigger: "MyApp.Billing.InvoiceReminder",
+               message: "Worker module `MyApp.Billing.InvoiceReminder` ends with `Reminder`," <> _
              },
              %{check: WorkerQueue, trigger: "MyApp.Worker"},
              %{check: ForbiddenDecorator}
