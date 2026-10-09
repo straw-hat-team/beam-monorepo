@@ -77,14 +77,16 @@ defmodule Trogon.Dispatcher.DispatchOptions do
   end
 
   defp invalid_key(opts, key) do
-    if Keyword.has_key?(@defaults, key) do
-      InvalidDispatchOptionsError.exception(
-        field: key,
-        value: Keyword.get_values(opts, key),
-        validation: :duplicate_key
-      )
-    else
-      InvalidDispatchOptionsError.exception(field: key, value: Keyword.get(opts, key), validation: :unknown_key)
+    case Keyword.fetch(@defaults, key) do
+      {:ok, _default} ->
+        InvalidDispatchOptionsError.exception(
+          field: key,
+          value: Keyword.get_values(opts, key),
+          validation: :duplicate_key
+        )
+
+      :error ->
+        InvalidDispatchOptionsError.exception(field: key, value: Keyword.get(opts, key), validation: :unknown_key)
     end
   end
 end
