@@ -27,7 +27,7 @@ defmodule Trogon.DispatcherTest do
     end
 
     test "passes caller options through to the context" do
-      options = %DispatchOptions{actor: :someone, assigns: %{trail: []}}
+      options = DispatchOptions.new!(actor: :someone, assigns: %{trail: []})
 
       assert {:ok, %Support.User{actor: :someone}} =
                Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -150,28 +150,28 @@ defmodule Trogon.DispatcherTest do
 
   describe "middleware composition" do
     test "the importer's middleware wraps the imported dispatcher's" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [:authorize, :require_tenant]}} =
                Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "imported middleware stays attached to its own registrations" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [:authorize]}} =
                Support.RootDispatcher.dispatch_message(%Support.BillingCommand{}, options)
     end
 
     test "a leaf dispatcher is a first-class entry point and runs only its own middleware" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [:require_tenant]}} =
                Support.AccountsDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
     end
 
     test "not calling next halts the pipeline" do
-      options = %DispatchOptions{actor: :forbidden}
+      options = DispatchOptions.new!(actor: :forbidden)
 
       assert {:error, :unauthorized} =
                Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -183,7 +183,7 @@ defmodule Trogon.DispatcherTest do
     end
 
     test "a middleware without init/1 receives its options unchanged" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       assert {:ok, %Support.User{trail: [{:no_init, [some: :option]}]}} =
                Support.NoInitDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -225,7 +225,7 @@ defmodule Trogon.DispatcherTest do
 
   describe "context" do
     test "carries the dispatcher and the registering dispatcher separately" do
-      options = %DispatchOptions{assigns: %{trail: []}}
+      options = DispatchOptions.new!(assigns: %{trail: []})
 
       Test.attach_telemetry!()
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
@@ -254,7 +254,7 @@ defmodule Trogon.DispatcherTest do
 
     test "Context.new/3 defaults registered_by to the dispatcher" do
       context =
-        Context.new(%Support.GetUser{id: 1}, %DispatchOptions{}, kind: :query, dispatcher: Support.RootDispatcher)
+        Context.new(%Support.GetUser{id: 1}, DispatchOptions.new!(), kind: :query, dispatcher: Support.RootDispatcher)
 
       assert context.kind == :query
       assert context.dispatcher == Support.RootDispatcher
@@ -276,13 +276,16 @@ defmodule Trogon.DispatcherTest do
   describe "Context.to_dispatch_options/1" do
     test "carries correlation and actor forward, sets causation to the current message_id, and drops message_id" do
       context =
-        Test.build_context(%Support.RegisterUser{}, %DispatchOptions{
-          message_id: "msg-1",
-          correlation_id: "corr",
-          causation_id: "cause",
-          actor: :someone,
-          assigns: %{thing: 1}
-        })
+        Test.build_context(
+          %Support.RegisterUser{},
+          DispatchOptions.new!(
+            message_id: "msg-1",
+            correlation_id: "corr",
+            causation_id: "cause",
+            actor: :someone,
+            assigns: %{thing: 1}
+          )
+        )
 
       assert %DispatchOptions{
                message_id: nil,

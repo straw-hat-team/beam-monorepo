@@ -46,12 +46,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
   describe "successful dispatch" do
     test "starts a span named after the operation and destination, kind consumer, with messaging and code attributes" do
-      options = %DispatchOptions{
-        message_id: "msg-1",
-        correlation_id: "corr-1",
-        causation_id: "cause-1",
-        assigns: %{trail: []}
-      }
+      options =
+        DispatchOptions.new!(
+          message_id: "msg-1",
+          correlation_id: "corr-1",
+          causation_id: "cause-1",
+          assigns: %{trail: []}
+        )
 
       assert {:ok, _user} = Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
@@ -79,9 +80,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
     test "omits correlation, causation, and messaging id attributes when absent" do
       assert {:ok, _user} =
-               Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-                 assigns: %{trail: []}
-               })
+               Support.RootDispatcher.dispatch_message(
+                 %Support.RegisterUser{email: "a@b.c"},
+                 DispatchOptions.new!(assigns: %{trail: []})
+               )
 
       assert_receive {:span, span(attributes: attributes)}, 1000
 
@@ -95,7 +97,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     end
 
     test "reports the kind of a query" do
-      Support.RootDispatcher.dispatch_message(%Support.GetUser{id: 1}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.GetUser{id: 1}, DispatchOptions.new!(assigns: %{trail: []}))
 
       assert_receive {:span, span(name: name, attributes: attributes)}, 1000
 
@@ -104,12 +106,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     end
 
     test "omits id attributes whose value is not a string, integer, or atom" do
-      options = %DispatchOptions{
-        message_id: {:uuid, "msg-1"},
-        correlation_id: %{id: "corr-1"},
-        causation_id: ["cause-1"],
-        assigns: %{trail: []}
-      }
+      options =
+        DispatchOptions.new!(
+          message_id: {:uuid, "msg-1"},
+          correlation_id: %{id: "corr-1"},
+          causation_id: ["cause-1"],
+          assigns: %{trail: []}
+        )
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
@@ -124,7 +127,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     end
 
     test "turns integer and atom ids into strings" do
-      options = %DispatchOptions{message_id: 42, correlation_id: :corr, assigns: %{trail: []}}
+      options = DispatchOptions.new!(message_id: 42, correlation_id: :corr, assigns: %{trail: []})
 
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
@@ -137,7 +140,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     end
 
     test "does not fall back to causation_id for messaging.message.id" do
-      options = %DispatchOptions{causation_id: "cause-1", assigns: %{trail: []}}
+      options = DispatchOptions.new!(causation_id: "cause-1", assigns: %{trail: []})
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       assert_receive {:span, span(attributes: attributes)}, 1000
@@ -151,7 +154,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
   describe "returned error" do
     test "sets an error status and the error.type attribute" do
-      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, DispatchOptions.new!(assigns: %{trail: []}))
 
       assert_receive {:span, span(status: {:status, :error, message}, attributes: attributes)}, 1000
 
@@ -210,9 +213,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     end
 
     test "counts a middleware short circuit as a returned error" do
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        actor: :forbidden
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(actor: :forbidden)
+      )
 
       assert_receive {:span, span(status: {:status, :error, message}, attributes: attributes)}, 1000
 
@@ -224,7 +228,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
   describe "exceptions" do
     test "records the exception, sets error.type and an error status" do
       assert_raise RuntimeError, "boom", fn ->
-        Support.RootDispatcher.dispatch_message(%Support.ExplodingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+        Support.RootDispatcher.dispatch_message(
+          %Support.ExplodingCommand{},
+          DispatchOptions.new!(assigns: %{trail: []})
+        )
       end
 
       assert_receive {:span,
@@ -270,7 +277,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       OpenTelemetryCase.detach_handlers()
       DispatcherOpenTelemetry.setup(opt_out_attrs: [:"messaging.message.id"])
 
-      options = %DispatchOptions{message_id: "msg-1", assigns: %{trail: []}}
+      options = DispatchOptions.new!(message_id: "msg-1", assigns: %{trail: []})
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       assert_receive {:span, span(attributes: attributes)}, 1000
@@ -281,7 +288,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       OpenTelemetryCase.detach_handlers()
       DispatcherOpenTelemetry.setup(opt_out_attrs: [:"messaging.message.conversation_id"])
 
-      options = %DispatchOptions{correlation_id: "corr-1", assigns: %{trail: []}}
+      options = DispatchOptions.new!(correlation_id: "corr-1", assigns: %{trail: []})
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       assert_receive {:span, span(attributes: attributes)}, 1000
@@ -292,9 +299,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       OpenTelemetryCase.detach_handlers()
       DispatcherOpenTelemetry.setup(opt_out_attrs: [:"code.function.name"])
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       assert_receive {:span, span(attributes: attributes)}, 1000
       refute Map.has_key?(:otel_attributes.map(attributes), :"code.function.name")
@@ -306,9 +314,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       OpenTelemetryCase.detach_handlers()
       DispatcherOpenTelemetry.setup(extra_attrs: %{"deployment.environment.name": "test"})
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       assert_receive {:span, span(attributes: attributes)}, 1000
       assert :otel_attributes.map(attributes)[:"deployment.environment.name"] == "test"
@@ -318,9 +327,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       OpenTelemetryCase.detach_handlers()
       DispatcherOpenTelemetry.setup(extra_attrs: %{"messaging.system": "overridden"})
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       assert_receive {:span, span(attributes: attributes)}, 1000
       assert :otel_attributes.map(attributes)[:"messaging.system"] == "trogon_dispatcher"
@@ -342,9 +352,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
         end
       )
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       assert_receive {:hook,
                       %{
@@ -372,9 +383,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       DispatcherOpenTelemetry.setup(hook: fn context -> send(test_pid, {:hook, context}) end)
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       assert_receive {:hook, %{phase: :start}}, 1000
       assert_receive {:hook, %{event: [:trogon_dispatcher, :dispatch, :stop], phase: :stop, meta: meta}}, 1000
@@ -395,7 +407,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
         end
       )
 
-      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, DispatchOptions.new!(assigns: %{trail: []}))
 
       assert_receive {:span, span(status: status)}, 1000
       assert status == {:status, :ok, ""}
@@ -414,7 +426,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
         end
       )
 
-      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, DispatchOptions.new!(assigns: %{trail: []}))
 
       assert_receive {:span, span(status: {:status, :error, "custom description"})}, 1000
     end
@@ -426,7 +438,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       DispatcherOpenTelemetry.setup(hook: fn context -> send(test_pid, {:hook, context}) end)
 
       assert_raise RuntimeError, "boom", fn ->
-        Support.RootDispatcher.dispatch_message(%Support.ExplodingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+        Support.RootDispatcher.dispatch_message(
+          %Support.ExplodingCommand{},
+          DispatchOptions.new!(assigns: %{trail: []})
+        )
       end
 
       assert_receive {:hook, %{phase: :start}}, 1000
@@ -458,16 +473,18 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
 
       DispatcherOpenTelemetry.setup(hook: fn _context -> raise "boom from hook" end)
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       assert_receive {:warning, %{message: "hook raised, ignoring", kind: :error, reason: %RuntimeError{}}}, 1000
       assert_receive {:span, _span}, 1000
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       assert_receive {:span, _span}, 1000
     end
@@ -481,9 +498,10 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
           parent_trace_id = :otel_span.trace_id(ctx)
           parent_span_id = :otel_span.span_id(ctx)
 
-          Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-            assigns: %{trail: []}
-          })
+          Support.RootDispatcher.dispatch_message(
+            %Support.RegisterUser{email: "a@b.c"},
+            DispatchOptions.new!(assigns: %{trail: []})
+          )
 
           {parent_trace_id, parent_span_id}
         end

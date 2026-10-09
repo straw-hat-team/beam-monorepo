@@ -53,7 +53,9 @@ defmodule Trogon.Dispatcher do
 
   `dispatch_message/2` returns the final context's `:response`, per the contract in `Trogon.Dispatcher.Handler`. It
   raises `ArgumentError` when the first argument is not a struct, or the second is not a
-  `Trogon.Dispatcher.DispatchOptions.t()`. The bang variants unwrap that response:
+  `Trogon.Dispatcher.DispatchOptions.t()`, and raises `Trogon.Dispatcher.InvalidDispatchOptionsError` when the options
+  break an invariant `Trogon.Dispatcher.DispatchOptions.new/1` would have rejected. The bang variants unwrap that
+  response:
 
   | `:response` | `dispatch_message!` returns or raises |
   | --- | --- |
@@ -213,7 +215,6 @@ defmodule Trogon.Dispatcher do
   defmacro __before_compile__(env) do
     module = env.module
     options_mod = DispatchOptions
-    unregistered_mod = UnregisteredMessageError
 
     local_middleware = accumulated(module, :trogon_dispatcher_middleware)
     imports = accumulated(module, :trogon_dispatcher_imports)
@@ -225,13 +226,13 @@ defmodule Trogon.Dispatcher do
 
     lines = registration_lines(module)
 
-    clauses = Enum.map(registrations, &dispatch_clause(&1, options_mod, lines))
+    clauses = Enum.map(registrations, &dispatch_clause(&1, lines))
 
     quote do
       unquote(introspection(registrations, local_middleware, imports))
       unquote(entrypoints(options_mod))
       unquote(clauses)
-      unquote(fallbacks(options_mod, unregistered_mod))
+      unquote(fallbacks())
     end
   end
 
@@ -246,8 +247,8 @@ defmodule Trogon.Dispatcher do
 
   defp entrypoints(options_mod) do
     quote do
-      def dispatch_message(message, options \\ %unquote(options_mod){})
-      def dispatch_message!(message, options \\ %unquote(options_mod){})
+      def dispatch_message(message, options \\ unquote(options_mod).new!())
+      def dispatch_message!(message, options \\ unquote(options_mod).new!())
 
       def dispatch_message!(message, options) do
         message
@@ -257,20 +258,10 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp fallbacks(options_mod, unregistered_mod) do
+  defp fallbacks do
     quote do
-      def dispatch_message(message, %unquote(options_mod){}) when is_struct(message) do
-        {:error, unquote(unregistered_mod).exception(dispatched_message: message, dispatcher: __MODULE__)}
-      end
-
-      def dispatch_message(message, %unquote(options_mod){}) do
-        raise ArgumentError,
-              "expected a struct as the first argument, got: #{inspect(message)}"
-      end
-
-      def dispatch_message(_message, options) do
-        raise ArgumentError,
-              "expected a %#{inspect(unquote(options_mod))}{} as the second argument, got: #{inspect(options)}"
+      def dispatch_message(message, options) do
+        Trogon.Dispatcher.unregistered(message, options, __MODULE__)
       end
     end
   end
@@ -492,9 +483,9 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp dispatch_clause(registration, options_mod, lines) do
+  defp dispatch_clause(registration, lines) do
     quote line: Map.fetch!(lines, registration.message) do
-      def dispatch_message(%unquote(registration.message){} = message, %unquote(options_mod){} = options) do
+      def dispatch_message(%unquote(registration.message){} = message, options) do
         Trogon.Dispatcher.dispatch(
           message,
           options,
@@ -505,6 +496,17 @@ defmodule Trogon.Dispatcher do
           {unquote(registration.handler), &unquote(registration.handler).handle_message(message, &1)}
         )
       end
+    end
+  end
+
+  @doc false
+  def unregistered(message, options, dispatcher) do
+    DispatchOptions.validate!(options)
+
+    if is_struct(message) do
+      {:error, UnregisteredMessageError.exception(dispatched_message: message, dispatcher: dispatcher)}
+    else
+      raise ArgumentError, "expected a struct as the first argument, got: #{inspect(message)}"
     end
   end
 

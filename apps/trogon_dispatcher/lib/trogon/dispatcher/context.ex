@@ -65,8 +65,8 @@ defmodule Trogon.Dispatcher.Context do
   `overrides` accepts `:kind`, `:dispatcher` and `:registered_by`.
   """
   @spec new(struct(), DispatchOptions.t(), keyword()) :: t()
-  def new(message, %DispatchOptions{} = options \\ %DispatchOptions{}, overrides \\ [])
-      when is_struct(message) do
+  def new(message, options \\ DispatchOptions.new!(), overrides \\ []) when is_struct(message) do
+    options = DispatchOptions.validate!(options)
     dispatcher = Keyword.get(overrides, :dispatcher)
 
     %__MODULE__{
@@ -74,11 +74,11 @@ defmodule Trogon.Dispatcher.Context do
       kind: Keyword.get(overrides, :kind, :command),
       dispatcher: dispatcher,
       registered_by: Keyword.get(overrides, :registered_by, dispatcher),
-      message_id: options.message_id,
-      correlation_id: options.correlation_id,
-      causation_id: options.causation_id,
-      actor: options.actor,
-      assigns: options.assigns,
+      message_id: DispatchOptions.message_id(options),
+      correlation_id: DispatchOptions.correlation_id(options),
+      causation_id: DispatchOptions.causation_id(options),
+      actor: DispatchOptions.actor(options),
+      assigns: DispatchOptions.assigns(options),
       private: Keyword.get(overrides, :private, %{})
     }
   end
@@ -143,11 +143,11 @@ defmodule Trogon.Dispatcher.Context do
   """
   @spec to_dispatch_options(t()) :: DispatchOptions.t()
   def to_dispatch_options(%__MODULE__{} = context) do
-    %DispatchOptions{
+    DispatchOptions.new!(
       correlation_id: context.correlation_id,
       causation_id: context.message_id,
       actor: context.actor,
       assigns: context.assigns
-    }
+    )
   end
 end

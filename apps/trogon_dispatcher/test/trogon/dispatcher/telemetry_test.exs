@@ -13,7 +13,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     end
 
     test "carries the compile-time facts and the context" do
-      options = %DispatchOptions{correlation_id: "corr", actor: :someone, assigns: %{trail: []}}
+      options = DispatchOptions.new!(correlation_id: "corr", actor: :someone, assigns: %{trail: []})
       Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, options)
 
       metadata = Test.assert_dispatch_start(Support.RegisterUser)
@@ -29,7 +29,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     end
 
     test "reports the kind of a query" do
-      Support.RootDispatcher.dispatch_message(%Support.GetUser{id: 1}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.GetUser{id: 1}, DispatchOptions.new!(assigns: %{trail: []}))
 
       metadata = Test.assert_dispatch_start(Support.GetUser)
 
@@ -44,9 +44,10 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     end
 
     test "reports success as a flat result dimension" do
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{email: "a@b.c"}, %DispatchOptions{
-        assigns: %{trail: []}
-      })
+      Support.RootDispatcher.dispatch_message(
+        %Support.RegisterUser{email: "a@b.c"},
+        DispatchOptions.new!(assigns: %{trail: []})
+      )
 
       metadata = Test.assert_dispatch_stop(Support.RegisterUser)
 
@@ -55,7 +56,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     end
 
     test "reports failure and carries the error term" do
-      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, DispatchOptions.new!(assigns: %{trail: []}))
 
       metadata = Test.assert_dispatch_stop(Support.FailingCommand)
 
@@ -64,7 +65,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     end
 
     test "counts a middleware short circuit as a failure" do
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{actor: :forbidden})
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, DispatchOptions.new!(actor: :forbidden))
 
       metadata = Test.assert_dispatch_stop(Support.RegisterUser)
 
@@ -81,7 +82,10 @@ defmodule Trogon.Dispatcher.TelemetryTest do
 
     test "fires when the handler raises and still lets the exception through" do
       assert_raise RuntimeError, "boom", fn ->
-        Support.RootDispatcher.dispatch_message(%Support.ExplodingCommand{}, %DispatchOptions{assigns: %{trail: []}})
+        Support.RootDispatcher.dispatch_message(
+          %Support.ExplodingCommand{},
+          DispatchOptions.new!(assigns: %{trail: []})
+        )
       end
 
       metadata = Test.assert_dispatch_exception(Support.ExplodingCommand)
@@ -96,7 +100,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     test "a dispatch through an importer emits once, naming the entry point and the registering dispatcher" do
       Test.attach_telemetry!()
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, DispatchOptions.new!(assigns: %{trail: []}))
 
       Test.assert_dispatch_start(Support.RegisterUser)
       metadata = Test.assert_dispatch_stop(Support.RegisterUser)
@@ -111,7 +115,7 @@ defmodule Trogon.Dispatcher.TelemetryTest do
     test "passes when the message was never dispatched" do
       Test.attach_telemetry!()
 
-      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, %DispatchOptions{assigns: %{trail: []}})
+      Support.RootDispatcher.dispatch_message(%Support.RegisterUser{}, DispatchOptions.new!(assigns: %{trail: []}))
 
       Test.refute_dispatch(Support.GetUser)
     end

@@ -49,10 +49,10 @@ defmodule Trogon.Dispatcher.Test do
 
   ## Example
 
-      context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
+      context = Test.build_context(%RegisterUser{email: "a@b.c"}, DispatchOptions.new!(actor: actor), kind: :command)
   """
   @spec build_context(struct(), DispatchOptions.t(), keyword()) :: Context.t()
-  def build_context(message, options \\ %DispatchOptions{}, overrides \\ []) do
+  def build_context(message, options \\ DispatchOptions.new!(), overrides \\ []) do
     overrides = Keyword.put_new(overrides, :dispatcher, __MODULE__)
     Context.new(message, options, overrides)
   end
@@ -66,7 +66,7 @@ defmodule Trogon.Dispatcher.Test do
 
   ## Example
 
-      context = Test.build_context(%RegisterUser{email: "a@b.c"}, %DispatchOptions{actor: actor}, kind: :command)
+      context = Test.build_context(%RegisterUser{email: "a@b.c"}, DispatchOptions.new!(actor: actor), kind: :command)
       assert {:ok, %User{}} = Test.call_handler(MyApp.Accounts.RegisterUser, context)
   """
   @spec call_handler(module(), Context.t()) :: Trogon.Dispatcher.response()
@@ -169,7 +169,7 @@ defmodule Trogon.Dispatcher.Test do
       test_process = self()
 
       Mox.expect(mock, function_name, Keyword.fetch!(opts, :times), fn message, options ->
-        verify_dispatch!(mock, message_mod, message, options)
+        options = verify_dispatch!(mock, message_mod, message, options)
         send(test_process, {@telemetry_tag, :dispatched, mock, message, options})
 
         message
@@ -189,10 +189,7 @@ defmodule Trogon.Dispatcher.Test do
         """)
       end
 
-      if not is_struct(options, DispatchOptions) do
-        raise ArgumentError,
-              "expected a %#{inspect(DispatchOptions)}{} as the second argument, got: #{inspect(options)}"
-      end
+      DispatchOptions.validate!(options)
     end
 
     defp mocked_response(message, options, returns) when is_function(returns, 2), do: returns.(message, options)

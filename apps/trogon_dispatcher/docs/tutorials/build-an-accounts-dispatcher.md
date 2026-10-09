@@ -157,9 +157,9 @@ Start `iex -S mix` and dispatch as an administrator who has not verified a secon
 iex> alias MyApp.Accounts.{DeleteAccount, RegisterUser}
 iex> alias Trogon.Dispatcher.DispatchOptions
 iex> admin = %{id: 1, scopes: ["accounts:write", "accounts:delete"], mfa_verified?: false}
-iex> MyApp.Dispatcher.dispatch_message(%RegisterUser{email: "ada@example.com"}, %DispatchOptions{actor: admin})
+iex> MyApp.Dispatcher.dispatch_message(%RegisterUser{email: "ada@example.com"}, DispatchOptions.new!(actor: admin))
 {:ok, %MyApp.Accounts.User{id: 13, email: "ada@example.com"}}
-iex> MyApp.Dispatcher.dispatch_message(%DeleteAccount{user_id: 7}, %DispatchOptions{actor: admin})
+iex> MyApp.Dispatcher.dispatch_message(%DeleteAccount{user_id: 7}, DispatchOptions.new!(actor: admin))
 {:error, :mfa_required}
 ```
 
@@ -167,14 +167,14 @@ Registering worked, because `RegisterUser` does not ask for multi-factor authent
 `MyApp.RequireMFA`. Verify the factor and try again:
 
 ```elixir
-iex> MyApp.Dispatcher.dispatch_message(%DeleteAccount{user_id: 7}, %DispatchOptions{actor: %{admin | mfa_verified?: true}})
+iex> MyApp.Dispatcher.dispatch_message(%DeleteAccount{user_id: 7}, DispatchOptions.new!(actor: %{admin | mfa_verified?: true}))
 {:ok, %MyApp.Accounts.User{id: 7, email: nil}}
 ```
 
 An actor without the scope never reaches the multi-factor check:
 
 ```elixir
-iex> MyApp.Dispatcher.dispatch_message(%DeleteAccount{user_id: 7}, %DispatchOptions{actor: %{id: 2, scopes: []}})
+iex> MyApp.Dispatcher.dispatch_message(%DeleteAccount{user_id: 7}, DispatchOptions.new!(actor: %{id: 2, scopes: []}))
 {:error, :forbidden}
 ```
 
