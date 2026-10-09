@@ -180,26 +180,15 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
   end
 
   defp add_unknown_key_issues(issues, pairs, trigger, cmeta, context) do
-    pairs
-    |> Keyword.keys()
-    |> Enum.uniq()
-    |> Enum.reject(&(&1 in @keys))
-    |> Enum.reduce(issues, fn key, acc -> [unknown_key_issue(context, trigger, cmeta, key) | acc] end)
+    for key <- pairs |> Keyword.keys() |> Enum.uniq(), key not in @keys, reduce: issues do
+      acc -> [unknown_key_issue(context, trigger, cmeta, key) | acc]
+    end
   end
 
   defp add_duplicate_key_issues(issues, pairs, trigger, cmeta, context) do
-    pairs
-    |> Keyword.keys()
-    |> Enum.filter(&(&1 in @keys))
-    |> duplicated_keys()
-    |> Enum.reduce(issues, fn key, acc -> [duplicate_key_issue(context, trigger, cmeta, key) | acc] end)
-  end
-
-  defp duplicated_keys(keys) do
-    keys
-    |> Enum.frequencies()
-    |> Enum.filter(fn {_key, count} -> count > 1 end)
-    |> Enum.map(fn {key, _count} -> key end)
+    for {key, count} <- pairs |> Keyword.keys() |> Enum.frequencies(), key in @keys, count > 1, reduce: issues do
+      acc -> [duplicate_key_issue(context, trigger, cmeta, key) | acc]
+    end
   end
 
   defp add_assigns_issues(issues, pairs, trigger, cmeta, context) do
@@ -210,9 +199,9 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
   end
 
   defp assigns_issues({:%{}, _meta, assigns_pairs}, trigger, cmeta, context, issues) when is_list(assigns_pairs) do
-    assigns_pairs
-    |> Enum.reject(fn {key, _value} -> is_atom(key) end)
-    |> Enum.reduce(issues, fn {key, _value}, acc -> [non_atom_assigns_key_issue(context, trigger, cmeta, key) | acc] end)
+    for {key, _value} <- assigns_pairs, not is_atom(key), reduce: issues do
+      acc -> [non_atom_assigns_key_issue(context, trigger, cmeta, key) | acc]
+    end
   end
 
   defp assigns_issues(literal, trigger, cmeta, context, issues)
@@ -227,7 +216,9 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
   defp assigns_issues(_dynamic_ast, _trigger, _cmeta, _context, issues), do: issues
 
   defp add_id_issues(issues, pairs, trigger, cmeta, context) do
-    Enum.reduce(@id_keys, issues, fn key, acc -> add_id_issue(acc, pairs, key, trigger, cmeta, context) end)
+    for key <- @id_keys, reduce: issues do
+      acc -> add_id_issue(acc, pairs, key, trigger, cmeta, context)
+    end
   end
 
   defp add_id_issue(issues, pairs, key, trigger, cmeta, context) do
