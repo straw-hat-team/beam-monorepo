@@ -271,6 +271,21 @@ defmodule Trogon.DispatcherTest do
       assert Context.get_private(context, Support.RequireTenant) == "tenant"
       assert Context.get_private(context, Unknown, :default) == :default
     end
+
+    test "merge_assigns/2 merges a keyword list or a map into host space" do
+      context = Test.build_context(%Support.RegisterUser{}, DispatchOptions.new!(assigns: %{trail: []}))
+
+      context = Context.merge_assigns(context, tenant: "t-1")
+      context = Context.merge_assigns(context, %{trail: [:seen]})
+
+      assert context.assigns == %{tenant: "t-1", trail: [:seen]}
+    end
+
+    test "merge_assigns/2 rejects a non-atom key" do
+      context = Test.build_context(%Support.RegisterUser{})
+
+      assert_raise FunctionClauseError, fn -> Context.merge_assigns(context, %{"tenant" => "t-1"}) end
+    end
   end
 
   describe "Context.to_dispatch_options/1" do

@@ -533,33 +533,8 @@ defmodule Trogon.Dispatcher do
   end
 
   @doc false
-  def validate(
-        %Context{
-          message: message,
-          kind: kind,
-          dispatcher: dispatcher,
-          registered_by: registered_by,
-          assigns: assigns,
-          private: private
-        } = returned,
-        module,
-        %Context{message: message, kind: kind, dispatcher: dispatcher, registered_by: registered_by}
-      )
-      when is_map(assigns) and is_map(private) do
+  def validate(%Context{} = returned, module, _context) do
     validate_response(returned.response, module, returned)
-  end
-
-  def validate(%Context{} = returned, module, context) do
-    {field, reason} = context_violation(returned, context)
-
-    raise InvalidContextError.exception(
-            module: module,
-            dispatched_message: context.message,
-            dispatcher: context.dispatcher,
-            returned: Map.fetch!(returned, field),
-            field: field,
-            reason: reason
-          )
   end
 
   def validate(returned, module, context) do
@@ -569,17 +544,6 @@ defmodule Trogon.Dispatcher do
             dispatcher: context.dispatcher,
             returned: returned
           )
-  end
-
-  defp context_violation(returned, context) do
-    case Enum.find(
-           [:message, :kind, :dispatcher, :registered_by],
-           &(Map.fetch!(returned, &1) != Map.fetch!(context, &1))
-         ) do
-      nil when is_map(returned.assigns) -> {:private, :not_a_map}
-      nil -> {:assigns, :not_a_map}
-      field -> {field, :changed}
-    end
   end
 
   @doc false
