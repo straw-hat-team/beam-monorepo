@@ -46,8 +46,8 @@ defmodule Trogon.Dispatcher.Context do
   @type t :: %__MODULE__{
           message: struct(),
           kind: kind(),
-          dispatcher: module() | nil,
-          registered_by: module() | nil,
+          dispatcher: module(),
+          registered_by: module(),
           message_id: String.Chars.t() | nil,
           correlation_id: String.Chars.t() | nil,
           causation_id: String.Chars.t() | nil,
@@ -65,16 +65,17 @@ defmodule Trogon.Dispatcher.Context do
   Dispatchers build the struct inline at compile time; this is the runtime equivalent, used by test helpers and by
   anything that needs a context without going through a dispatcher.
 
-  `overrides` accepts `:kind`, `:dispatcher` and `:registered_by`.
+  `overrides` requires `:dispatcher`, and accepts `:kind` (defaults to `:command`), `:registered_by` (defaults to the
+  dispatcher) and `:private` (defaults to `%{}`). An unknown or repeated key raises `ArgumentError`.
   """
   @spec new(struct(), DispatchOptions.t(), keyword()) :: t()
-  def new(message, %DispatchOptions{} = options \\ DispatchOptions.new!(), overrides \\ [])
-      when is_struct(message) do
-    dispatcher = Keyword.get(overrides, :dispatcher)
+  def new(message, %DispatchOptions{} = options, overrides) when is_struct(message) do
+    overrides = Keyword.validate!(overrides, [:dispatcher, :registered_by, kind: :command, private: %{}])
+    dispatcher = Keyword.fetch!(overrides, :dispatcher)
 
     %__MODULE__{
       message: message,
-      kind: Keyword.get(overrides, :kind, :command),
+      kind: Keyword.fetch!(overrides, :kind),
       dispatcher: dispatcher,
       registered_by: Keyword.get(overrides, :registered_by, dispatcher),
       message_id: options.message_id,
@@ -82,7 +83,7 @@ defmodule Trogon.Dispatcher.Context do
       causation_id: options.causation_id,
       actor: options.actor,
       assigns: options.assigns,
-      private: Keyword.get(overrides, :private, %{})
+      private: Keyword.fetch!(overrides, :private)
     }
   end
 

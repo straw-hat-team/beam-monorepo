@@ -236,12 +236,12 @@ defmodule Trogon.DispatcherTest do
       assert metadata.context.registered_by == Support.AccountsDispatcher
     end
 
-    test "Context.new/1 builds a command context with no dispatcher and empty options" do
+    test "Context.new/3 builds a command context with empty options by default" do
       assert %Context{
                message: %Support.RegisterUser{email: "a@b.c"},
                kind: :command,
-               dispatcher: nil,
-               registered_by: nil,
+               dispatcher: Support.RootDispatcher,
+               registered_by: Support.RootDispatcher,
                message_id: nil,
                correlation_id: nil,
                causation_id: nil,
@@ -249,7 +249,30 @@ defmodule Trogon.DispatcherTest do
                assigns: %{},
                private: %{},
                response: nil
-             } = Context.new(%Support.RegisterUser{email: "a@b.c"})
+             } =
+               Context.new(%Support.RegisterUser{email: "a@b.c"}, DispatchOptions.new!(),
+                 dispatcher: Support.RootDispatcher
+               )
+    end
+
+    test "Context.new/3 requires a dispatcher" do
+      assert_raise KeyError, fn -> Context.new(%Support.RegisterUser{}, DispatchOptions.new!(), []) end
+    end
+
+    test "Context.new/3 rejects an unknown override" do
+      assert_raise ArgumentError, ~r/unknown keys \[:actor\]/, fn ->
+        Context.new(%Support.RegisterUser{}, DispatchOptions.new!(), dispatcher: Support.RootDispatcher, actor: :a)
+      end
+    end
+
+    test "Context.new/3 rejects a repeated override" do
+      assert_raise ArgumentError, ~r/duplicate keys \[:kind\]/, fn ->
+        Context.new(%Support.RegisterUser{}, DispatchOptions.new!(),
+          dispatcher: Support.RootDispatcher,
+          kind: :command,
+          kind: :query
+        )
+      end
     end
 
     test "Context.new/3 defaults registered_by to the dispatcher" do
