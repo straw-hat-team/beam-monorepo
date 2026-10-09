@@ -20,8 +20,8 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
       A literal argument is the one place a wrong value is caught before it ever reaches
       runtime, so this check reports the ways a literal can break what `new/1` itself does not
       check: the argument not being a keyword list at all, a key outside the five above, the
-      same key given more than once, `assigns` not being a map, a non-atom key inside a literal
-      `assigns` map, and a tuple or a map literal given for `message_id`, `correlation_id` or
+      same key given more than once, `assigns` not being a map, a string or number key inside a
+      literal `assigns` map, and a tuple or a map literal given for `message_id`, `correlation_id` or
       `causation_id`.
 
           # preferred
@@ -38,12 +38,12 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
       piped or not, whose argument is a map literal or another non-list literal instead of a
       keyword list; a literal keyword list with a key outside the five above, or the same key
       written twice; a literal `assigns` value that is not a map, or a literal `assigns` map
-      with a key that is not a literal atom; and a literal tuple or map given for `message_id`,
+      with a string or number key; and a literal tuple or map given for `message_id`,
       `correlation_id` or `causation_id`.
 
       Not reported: anything dynamic, a variable, a function call, or a list whose elements are
-      not all recognizably literal `key: value` pairs, since there is nothing to check without
-      running it; a struct literal given for `message_id`, `correlation_id` or `causation_id`,
+      not all recognizably literal `key: value` pairs, or an `assigns` key that is a variable or
+      a call, since there is nothing to check without running it; a struct literal given for `message_id`, `correlation_id` or `causation_id`,
       since a struct can implement `String.Chars` even though a bare map or tuple never does;
       and anything under `except_in`.
       """,
@@ -199,7 +199,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
   end
 
   defp assigns_issues({:%{}, _meta, assigns_pairs}, trigger, cmeta, context, issues) when is_list(assigns_pairs) do
-    for {key, _value} <- assigns_pairs, not is_atom(key), reduce: issues do
+    for {key, _value} <- assigns_pairs, is_binary(key) or is_number(key), reduce: issues do
       acc -> [non_atom_assigns_key_issue(context, trigger, cmeta, key) | acc]
     end
   end

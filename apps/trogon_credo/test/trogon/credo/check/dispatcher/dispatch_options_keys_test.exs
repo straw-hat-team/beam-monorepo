@@ -153,6 +153,36 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
     end)
   end
 
+  test "reports a number key inside a literal assigns map" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def build(tenant) do
+        DispatchOptions.new!(assigns: %{1 => tenant})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DispatchOptionsKeys)
+    |> assert_issue(fn issue -> assert issue.message =~ "assigns key 1 must be an atom" end)
+  end
+
+  test "does not report a variable or call key inside a literal assigns map" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def build(key, tenant) do
+        DispatchOptions.new!(assigns: %{key => tenant, String.to_existing_atom("region") => :eu})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DispatchOptionsKeys)
+    |> refute_issues()
+  end
+
   for key <- [:message_id, :correlation_id, :causation_id] do
     test "reports a 2-tuple literal for #{key}" do
       """
