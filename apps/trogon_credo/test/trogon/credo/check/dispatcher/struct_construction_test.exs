@@ -136,6 +136,55 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstructionTest do
     |> refute_issues()
   end
 
+  test "reports a struct literal bound on the right side of =" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def build(actor) do
+        options = %DispatchOptions{actor: actor}
+        options
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(StructConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "DispatchOptions" end)
+  end
+
+  test "reports a struct literal returned from a case clause" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.Context
+
+      def build(message) do
+        case message do
+          nil -> nil
+          message -> %Context{message: message, kind: :command, dispatcher: nil, registered_by: nil}
+        end
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(StructConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "Context" end)
+  end
+
+  test "does not report a struct pattern inside match?/2" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.Context
+
+      def context?(value) do
+        match?(%Context{}, value) or Kernel.match?(%Trogon.Dispatcher.Context{}, value)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(StructConstruction)
+    |> refute_issues()
+  end
+
   test "does not report a pattern match in a case clause" do
     """
     defmodule MyApp.Authorize do

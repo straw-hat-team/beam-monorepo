@@ -112,6 +112,19 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstruction do
 
   defp traverse({:quote, _meta, _args}, issues, _context), do: {[], issues}
 
+  # `match?/2` compares a value against a pattern, so its first argument is a
+  # pattern position even though the call itself is written as an expression,
+  # `Kernel.`-qualified or not.
+  defp traverse({:match?, _meta, [_pattern, value]}, issues, _context), do: {[value], issues}
+
+  defp traverse(
+         {{:., _dot_meta, [{:__aliases__, _kernel_meta, [:Kernel]}, :match?]}, _call_meta, [_pattern, value]},
+         issues,
+         _context
+       ) do
+    {[value], issues}
+  end
+
   # `%Context{var | ...}`, the struct update form, already has a valid struct to update and is
   # not a construction; `ContextMutation` covers what it writes.
   defp traverse(
@@ -129,10 +142,16 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstruction do
 
   defp traverse(ast, issues, _context) do
     case AstPattern.hide_pattern_position(ast) do
-      {:ok, rewritten} -> {rewritten, issues}
+      {:ok, rewritten} -> {revisit(ast, rewritten), issues}
       :error -> {ast, issues}
     end
   end
+
+  # A prewalk only walks into what a callback returns, never back over it, so a
+  # rewritten expression is wrapped to be visited itself, unless it keeps the
+  # form it was rewritten from, which would rewrite it again forever.
+  defp revisit({form, _meta, _args}, {form, _rewritten_meta, _rewritten_args} = rewritten), do: rewritten
+  defp revisit(_ast, rewritten), do: [rewritten]
 
   defp report(nil, _parts, _meta, _context, issues), do: issues
 
