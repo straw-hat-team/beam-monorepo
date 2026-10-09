@@ -22,7 +22,7 @@ defmodule Trogon.Credo.Plugin.Oban do
     * `workers` - forwarded as `for_use` to `Trogon.Credo.Check.Oban.WorkerQueue`
       and `Trogon.Credo.Check.Oban.WorkerName`. Left out, each check's own default
       applies.
-    * `suffix` - forwarded to `Trogon.Credo.Check.Oban.WorkerName`.
+    * `suffixes` - forwarded to `Trogon.Credo.Check.Oban.WorkerName`.
     * `except` - a list of the checks above to leave disabled.
 
   A check the project configures in its own `.credo.exs` keeps that entry, params
@@ -42,7 +42,7 @@ defmodule Trogon.Credo.Plugin.Oban do
   def init(exec) do
     PluginSupport.enable_checks(exec, __MODULE__, [
       {WorkerQueue, PluginSupport.check_params(exec, __MODULE__, workers: :for_use)},
-      {WorkerName, PluginSupport.check_params(exec, __MODULE__, [{:workers, :for_use}, :suffix])},
+      {WorkerName, PluginSupport.check_params(exec, __MODULE__, [{:workers, :for_use}, :suffixes])},
       {ForbiddenDecorator, []}
     ])
   end
