@@ -8,7 +8,8 @@ defmodule Trogon.Credo.PluginSupport.EnableChecks do
   @impl true
   def call(%Execution{checks: %{enabled: enabled} = checks} = exec, opts) when is_list(enabled) do
     configured = MapSet.new(enabled, &elem(&1, 0))
-    added = opts |> Keyword.fetch!(:checks) |> PluginSupport.reject_listed(configured)
+    aliases = Keyword.get(opts, :aliases, %{})
+    added = opts |> Keyword.fetch!(:checks) |> PluginSupport.reject_listed(configured, aliases)
 
     %{exec | checks: %{checks | enabled: enabled ++ added}}
   end
