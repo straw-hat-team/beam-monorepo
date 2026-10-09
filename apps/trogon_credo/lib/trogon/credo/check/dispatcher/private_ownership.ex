@@ -167,7 +167,7 @@ defmodule Trogon.Credo.Check.Dispatcher.PrivateOwnership do
   # `context |> Context.put_private(owner, value)`, piped.
   defp visit(
          {:|>, _pmeta,
-          [lhs, {{:., _dmeta, [{:__aliases__, _ameta, parts}, :put_private]}, cmeta, [owner_ast, _value_ast]}]} =
+          [_lhs, {{:., _dmeta, [{:__aliases__, _ameta, parts}, :put_private]}, cmeta, [owner_ast, _value_ast]}]} =
            ast,
          prefix,
          scope,
@@ -175,7 +175,6 @@ defmodule Trogon.Credo.Check.Dispatcher.PrivateOwnership do
          issues
        ) do
     issues = report_owner(parts, owner_ast, cmeta, prefix, scope, ctx, issues)
-    issues = visit(lhs, prefix, scope, ctx, issues)
     visit_children(ast, prefix, scope, ctx, issues)
   end
 

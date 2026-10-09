@@ -24,6 +24,28 @@ defmodule Trogon.Credo.Check.Dispatcher.PrivateOwnershipTest do
     end)
   end
 
+  test "reports each foreign owner in a put_private pipe chain once" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+      alias Trogon.Dispatcher.Context
+
+      def call(context, next, _options) do
+        context
+        |> Context.put_private(MyApp.OtherA, :a)
+        |> Context.put_private(MyApp.OtherB, :b)
+        |> Context.put_private(MyApp.OtherC, :c)
+        |> next.()
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(PrivateOwnership)
+    |> assert_issues(fn issues ->
+      assert issues |> Enum.map(& &1.trigger) |> Enum.sort() == ["MyApp.OtherA", "MyApp.OtherB", "MyApp.OtherC"]
+    end)
+  end
+
   test "reports an unpiped put_private naming another module as the owner" do
     """
     defmodule MyApp.Authorize do
