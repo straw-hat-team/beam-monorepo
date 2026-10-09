@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.7.0...trogon_credo@v0.8.0) (2026-10-09)
+
+
+### Features
+
+* **trogon_credo:** Let tests and shared contexts build errors they do not own ([#513](https://github.com/straw-hat-team/beam-monorepo/issues/513)) ([a0f43c5](https://github.com/straw-hat-team/beam-monorepo/commit/a0f43c50afa499ffac021c183b6f93aac1bcaf94))
+
 ## [0.7.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.6.0...trogon_credo@v0.7.0) (2026-10-09)
 
 
