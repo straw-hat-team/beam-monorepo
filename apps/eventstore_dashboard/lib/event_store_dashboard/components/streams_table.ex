@@ -7,6 +7,7 @@ defmodule EventStoreDashboard.Components.StreamsTable do
 
   alias EventStore.Sql.Statements
   alias EventStoreDashboard.Components.{EventLink, Pagination, TableParams}
+  alias EventStoreDashboard.Repo
   alias EventStoreDashboard.Repo.Context
   alias Phoenix.LiveDashboard.PageBuilder
   alias Phoenix.LiveView.Socket
@@ -80,14 +81,14 @@ defmodule EventStoreDashboard.Components.StreamsTable do
     search_term = url_params |> TableParams.parse_search() |> prefix_pattern()
     offset = (page_number - 1) * limit
 
-    with {:ok, total_entries} <- count_streams(node, ctx, search_term),
+    with {:ok, total_entries} <- Repo.count_streams(node, ctx, search_term),
          {:ok, rows} <-
            query_streams(node, ctx, sort_by, sort_dir, search_term, limit, offset) do
       total_pages = if total_entries == 0, do: 0, else: div(total_entries - 1, limit) + 1
 
       %{
         entries: Enum.map(rows, &row_to_stream/1),
-        total_entries: total_entries,
+        total_entries: format_total(total_entries, search_term),
         total_pages: total_pages
       }
     else
@@ -95,14 +96,8 @@ defmodule EventStoreDashboard.Components.StreamsTable do
     end
   end
 
-  defp count_streams(node, %Context{} = ctx, search_term) do
-    sql = IO.iodata_to_binary(Statements.count_streams(ctx.schema))
-
-    case :rpc.call(node, Postgrex, :query, [ctx.conn, sql, [search_term]]) do
-      {:ok, %Postgrex.Result{rows: [[count]]}} -> {:ok, count}
-      _ -> :error
-    end
-  end
+  defp format_total(total_entries, "%"), do: "~#{total_entries}"
+  defp format_total(total_entries, _search_term), do: total_entries
 
   defp query_streams(node, %Context{} = ctx, sort_by, sort_dir, search_term, limit, offset) do
     sql =
