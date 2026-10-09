@@ -1,4 +1,4 @@
-defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
+defmodule Trogon.Credo.Check.Commanded.ErrorOwnership do
   use Credo.Check,
     base_priority: :high,
     category: :design,
@@ -12,28 +12,29 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
       An error belongs to the context that defines it, and that context is the one that
       decides when it happens. A context is whatever owns the decision, a domain layer,
       a command layer, or a web server that is its own domain; nothing here asks for a
-      layer by name. Another context building or raising that error decides something on
-      the owner's behalf, and keeps deciding it the old way after the owner changes its
-      rule. Reacting to the error, matching it in a `rescue` or a pattern, or asking
-      what it is with `is_exception/2`, leaves the decision with its owner and is never
-      reported.
+      layer by name. Another context building that error decides something on the
+      owner's behalf, and keeps deciding it the old way after the owner changes its
+      rule. Reacting to the error, matching the `{:error, error}` the owner returns, or
+      asking what it is with `is_exception/2`, leaves the decision with its owner and is
+      never reported.
 
           # preferred
           defmodule Acme.Billing.Invoice do
             def register(%__MODULE__{status: :registered}, _command) do
-              raise Acme.Billing.AlreadyRegisteredError
+              {:error, %Acme.Billing.AlreadyRegisteredError{}}
             end
           end
 
           defmodule Acme.Web.InvoiceController do
             def create(conn, params) do
-              Acme.Billing.register_invoice(params)
-            rescue
-              e in Acme.Billing.AlreadyRegisteredError -> conn |> send_conflict(e)
+              case Acme.Billing.register_invoice(params) do
+                {:ok, invoice} -> send_created(conn, invoice)
+                {:error, %Acme.Billing.AlreadyRegisteredError{} = error} -> send_conflict(conn, error)
+              end
             end
 
             def show(conn, %{"id" => id}) do
-              raise Acme.Web.NotFoundError, id: id
+              {:error, %Acme.Web.NotFoundError{id: id}}
             end
           end
 
@@ -41,7 +42,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
           defmodule Acme.Web.InvoiceController do
             def create(conn, params) do
               if already_registered?(params) do
-                raise Acme.Billing.AlreadyRegisteredError
+                {:error, %Acme.Billing.AlreadyRegisteredError{}}
               end
             end
           end
@@ -55,7 +56,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
       such as `is_exception/2`, any other function called on it, the module passed
       around as a plain value, an `alias`, a typespec, and a pattern anywhere a pattern
       may be written, a function head, a `case` or `with` clause, a `rescue` clause, a
-      guard, is left alone, since none of those build or raise the error.
+      guard, is left alone, since none of those build the error.
       """,
       params: [
         errors: """
@@ -88,8 +89,8 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstruction do
   alias Trogon.Credo.ModuleName
   alias Trogon.Credo.ModulePattern
 
-  @message "Only the context that defines this error builds or raises it; match on it " <>
-             "here, or raise an error this context owns."
+  @message "Only the context that defines this error builds it; match on the error it " <>
+             "returns instead of building it here."
 
   @kernel_constructions [:raise, :reraise, :struct, :struct!]
 

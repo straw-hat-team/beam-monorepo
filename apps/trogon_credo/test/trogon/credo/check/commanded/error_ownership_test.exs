@@ -1,10 +1,10 @@
-defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
+defmodule Trogon.Credo.Check.Commanded.ErrorOwnershipTest do
   use Credo.Test.Case
 
-  alias Trogon.Credo.Check.Commanded.ErrorConstruction
+  alias Trogon.Credo.Check.Commanded.ErrorOwnership
 
-  @message "Only the context that defines this error builds or raises it; match on it " <>
-             "here, or raise an error this context owns."
+  @message "Only the context that defines this error builds it; match on the error it " <>
+             "returns instead of building it here."
 
   test "reports a struct built outside the owning context" do
     """
@@ -15,10 +15,10 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue ->
-      assert issue.check == ErrorConstruction
-      assert issue.category == ErrorConstruction.category()
+      assert issue.check == ErrorOwnership
+      assert issue.category == ErrorOwnership.category()
       assert issue.trigger == "Acme.Billing.Domain.NotFoundError"
       assert issue.message == @message
     end)
@@ -33,7 +33,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -46,7 +46,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -61,7 +61,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "NotFoundError" end)
   end
 
@@ -74,7 +74,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -87,7 +87,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -102,7 +102,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -115,7 +115,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -128,7 +128,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -141,8 +141,8 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction, hint: "Rescue it instead.")
-    |> assert_issue(fn issue -> assert issue.message == @message <> " Rescue it instead." end)
+    |> run_check(ErrorOwnership, hint: "Return an error this context owns.")
+    |> assert_issue(fn issue -> assert issue.message == @message <> " Return an error this context owns." end)
   end
 
   test "accepts a custom errors pattern with a deeper owner" do
@@ -154,7 +154,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction, errors: ["(Acme.*.*).**Error"])
+    |> run_check(ErrorOwnership, errors: ["(Acme.*.*).**Error"])
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.Payments.DeclinedError" end)
   end
 
@@ -167,7 +167,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -180,7 +180,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -193,7 +193,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -206,7 +206,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -219,7 +219,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -232,7 +232,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -245,7 +245,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -260,7 +260,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "InvoiceNotFound" end)
   end
 
@@ -273,7 +273,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -286,7 +286,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -299,7 +299,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -312,7 +312,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -325,7 +325,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -341,7 +341,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -356,7 +356,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -369,7 +369,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction, constructors: [:build])
+    |> run_check(ErrorOwnership, constructors: [:build])
     |> refute_issues()
   end
 
@@ -382,7 +382,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction, constructors: [:build])
+    |> run_check(ErrorOwnership, constructors: [:build])
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -395,7 +395,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -408,7 +408,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -421,7 +421,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -437,7 +437,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -450,7 +450,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -463,7 +463,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -479,7 +479,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -492,7 +492,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 
@@ -505,7 +505,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> assert_issue(fn issue -> assert issue.trigger == "Acme.Billing.NotFoundError" end)
   end
 
@@ -518,7 +518,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorConstructionTest do
     end
     """
     |> to_source_file()
-    |> run_check(ErrorConstruction)
+    |> run_check(ErrorOwnership)
     |> refute_issues()
   end
 end

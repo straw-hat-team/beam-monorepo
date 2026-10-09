@@ -3,7 +3,7 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
 
   alias Trogon.Credo.Check.Commanded.AggregateApplyCall
   alias Trogon.Credo.Check.Commanded.DeterministicCommand
-  alias Trogon.Credo.Check.Commanded.ErrorConstruction
+  alias Trogon.Credo.Check.Commanded.ErrorOwnership
   alias Trogon.Credo.Check.Commanded.SwappableNonDeterminism
   alias Trogon.Credo.Plugin.Commanded, as: CommandedPlugin
 
@@ -156,10 +156,10 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
     assert [%{check: SwappableNonDeterminism, trigger: "Ecto.UUID.generate"}] = issues
   end
 
-  test "enables ErrorConstruction against the default error pattern" do
+  test "enables ErrorOwnership against the default error pattern" do
     issues = run_credo(config([{CommandedPlugin, []}]), [{"controller.ex", @foreign_error_raise}])
 
-    assert [%{check: ErrorConstruction, trigger: "Acme.Review.Domain.NotFoundError"}] = issues
+    assert [%{check: ErrorOwnership, trigger: "Acme.Review.Domain.NotFoundError"}] = issues
   end
 
   test "keeps the project's own entry for a check it enables" do
@@ -169,7 +169,7 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
   end
 
   test "leaves out the checks named in except" do
-    except = [AggregateApplyCall, DeterministicCommand, SwappableNonDeterminism, ErrorConstruction]
+    except = [AggregateApplyCall, DeterministicCommand, SwappableNonDeterminism, ErrorOwnership]
 
     assert [] ==
              run_credo(
@@ -208,11 +208,11 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
     assert [] == run_credo(config([{CommandedPlugin, []}]), [{"event_handler.ex", source}])
   end
 
-  test "honors a disable comment naming ErrorConstruction" do
+  test "honors a disable comment naming ErrorOwnership" do
     source = """
     defmodule Acme.Web.ReviewController do
       def create(params) do
-        # credo:disable-for-next-line Trogon.Credo.Check.Commanded.ErrorConstruction
+        # credo:disable-for-next-line Trogon.Credo.Check.Commanded.ErrorOwnership
         raise Acme.Review.Domain.NotFoundError
       end
     end
