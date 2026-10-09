@@ -35,6 +35,9 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstruction do
       former, and `Context.new/3`, or `Trogon.Dispatcher.Test`'s `build_context/3` in a test,
       for the latter.
 
+      A default argument, `opts \\\\ %DispatchOptions{}`, is an expression even though it sits in a
+      function head, so it is reported too.
+
       Not reported: a pattern, such as a function head, a `case`/`with` clause, or the left
       side of a `=`, since a pattern matches a value rather than building one; the struct
       update form, `%Context{context | ...}`, since it already has a valid struct to start
@@ -71,6 +74,8 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstruction do
   alias Trogon.Credo.ModuleDeclaration
   alias Trogon.Credo.ModuleName
   alias Trogon.Credo.ModulePattern
+
+  @definition_kinds [:def, :defp, :defmacro, :defmacrop]
 
   @doc false
   @impl true
@@ -140,6 +145,12 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstruction do
     {ast, report(ModuleName.resolve(parts, context.aliases), parts, ameta, context, issues)}
   end
 
+  # A function head is a pattern, but each `\\` default in it is an expression, so the
+  # defaults are walked along with the body.
+  defp traverse({kind, _meta, [head | rest]}, issues, _context) when kind in @definition_kinds do
+    {[default_values(head) | rest], issues}
+  end
+
   defp traverse(ast, issues, _context) do
     case AstPattern.hide_pattern_position(ast) do
       {:ok, rewritten} -> {revisit(ast, rewritten), issues}
@@ -152,6 +163,13 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstruction do
   # form it was rewritten from, which would rewrite it again forever.
   defp revisit({form, _meta, _args}, {form, _rewritten_meta, _rewritten_args} = rewritten), do: rewritten
   defp revisit(_ast, rewritten), do: [rewritten]
+
+  defp default_values({:when, _meta, [head, _guard]}), do: default_values(head)
+
+  defp default_values({_name, _meta, args}) when is_list(args),
+    do: for({:\\, _dmeta, [_pattern, default]} <- args, do: default)
+
+  defp default_values(_head), do: []
 
   defp report(nil, _parts, _meta, _context, issues), do: issues
 

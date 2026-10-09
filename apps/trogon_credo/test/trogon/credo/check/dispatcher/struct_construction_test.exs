@@ -170,6 +170,36 @@ defmodule Trogon.Credo.Check.Dispatcher.StructConstructionTest do
     |> assert_issue(fn issue -> assert issue.trigger == "Context" end)
   end
 
+  test "reports a struct literal given as a default argument" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def dispatch(message, options \\\\ %DispatchOptions{}) when is_struct(message) do
+        {message, options}
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(StructConstruction)
+    |> assert_issue(fn issue -> assert issue.trigger == "DispatchOptions" end)
+  end
+
+  test "does not report a struct pattern given a default argument" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def dispatch(%DispatchOptions{} = options \\\\ default_options()) do
+        options
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(StructConstruction)
+    |> refute_issues()
+  end
+
   test "does not report a struct pattern inside match?/2" do
     """
     defmodule MyApp.Authorize do
