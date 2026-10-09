@@ -48,8 +48,17 @@ defmodule Trogon.Dispatcher.DispatchOptions do
   @spec new([option()]) :: {:ok, t()} | {:error, InvalidDispatchOptionsError.t()}
   def new(opts \\ []) do
     with :ok <- validate_keyword(opts),
-         :ok <- validate_keys(opts) do
-      __MODULE__ |> struct(opts) |> validate()
+         :ok <- validate_keys(opts),
+         assigns = Keyword.get(opts, :assigns, %{}),
+         :ok <- validate_assigns(assigns) do
+      {:ok,
+       %__MODULE__{
+         message_id: Keyword.get(opts, :message_id),
+         correlation_id: Keyword.get(opts, :correlation_id),
+         causation_id: Keyword.get(opts, :causation_id),
+         actor: Keyword.get(opts, :actor),
+         assigns: assigns
+       }}
     end
   end
 
@@ -67,8 +76,8 @@ defmodule Trogon.Dispatcher.DispatchOptions do
   @doc false
   @spec validate!(term()) :: t()
   def validate!(%__MODULE__{} = options) do
-    case validate(options) do
-      {:ok, options} -> options
+    case validate_assigns(options.assigns) do
+      :ok -> options
       {:error, error} -> raise error
     end
   end
@@ -77,7 +86,7 @@ defmodule Trogon.Dispatcher.DispatchOptions do
     raise ArgumentError, "expected a %#{inspect(__MODULE__)}{} as the second argument, got: #{inspect(options)}"
   end
 
-  defp validate(%__MODULE__{assigns: assigns} = options) do
+  defp validate_assigns(assigns) do
     cond do
       not is_map(assigns) ->
         {:error, InvalidDispatchOptionsError.exception(field: :assigns, value: assigns, reason: :not_a_map)}
@@ -86,7 +95,7 @@ defmodule Trogon.Dispatcher.DispatchOptions do
         {:error, InvalidDispatchOptionsError.exception(field: :assigns, value: assigns, reason: :non_atom_key)}
 
       true ->
-        {:ok, options}
+        :ok
     end
   end
 

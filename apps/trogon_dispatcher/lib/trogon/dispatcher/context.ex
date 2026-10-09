@@ -65,8 +65,8 @@ defmodule Trogon.Dispatcher.Context do
   `overrides` accepts `:kind`, `:dispatcher` and `:registered_by`.
   """
   @spec new(struct(), DispatchOptions.t(), keyword()) :: t()
-  def new(message, options \\ DispatchOptions.new!(), overrides \\ []) when is_struct(message) do
-    options = DispatchOptions.validate!(options)
+  def new(message, %DispatchOptions{} = options \\ DispatchOptions.new!(), overrides \\ [])
+      when is_struct(message) do
     dispatcher = Keyword.get(overrides, :dispatcher)
 
     %__MODULE__{

@@ -246,8 +246,8 @@ defmodule Trogon.Dispatcher do
 
   defp entrypoints do
     quote do
-      def dispatch_message(message, options \\ Trogon.Dispatcher.DispatchOptions.new!())
-      def dispatch_message!(message, options \\ Trogon.Dispatcher.DispatchOptions.new!())
+      def dispatch_message(message, options \\ DispatchOptions.new!())
+      def dispatch_message!(message, options \\ DispatchOptions.new!())
 
       def dispatch_message!(message, options) do
         message
@@ -511,6 +511,7 @@ defmodule Trogon.Dispatcher do
 
   @doc false
   def dispatch(message, options, kind, dispatcher, registered_by, middleware, {handler_mod, _handle} = handler) do
+    options = DispatchOptions.validate!(options)
     context = Context.new(message, options, kind: kind, dispatcher: dispatcher, registered_by: registered_by)
 
     metadata = %{
