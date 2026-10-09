@@ -11,11 +11,11 @@ defmodule Trogon.Dispatcher.DispatchOptions do
   `message_id`, `correlation_id` and `causation_id` can be any term that implements `String.Chars`, such as a string,
   an integer or an ID struct, because they are rendered as text wherever they leave the process, such as on a span.
 
-  `assigns` is a map with atom keys. Types are not checked at runtime: `t:option/0` and `t:t/0` state them, and
+  `assigns` is a map with atom keys. Types are not checked at runtime: `t:options/0` and `t:t/0` state them, and
   `Trogon.Credo.Plugin.Dispatcher` reports a literal that breaks them. `new/1` and `new!/1` reject unknown and
   repeated keys.
 
-  Build it with `new/1` or `new!/1`. Everything downstream trusts options it receives, so a struct literal that skips
+  Build it with `new/1` or `new!/1`, from a keyword list or a map. Everything downstream trusts options it receives, so a struct literal that skips
   them is a bug at the call site.
   """
 
@@ -42,17 +42,32 @@ defmodule Trogon.Dispatcher.DispatchOptions do
           | {:actor, term() | nil}
           | {:assigns, %{optional(atom()) => term()}}
 
+  @type options ::
+          [option()]
+          | %{
+              optional(:message_id) => String.Chars.t() | nil,
+              optional(:correlation_id) => String.Chars.t() | nil,
+              optional(:causation_id) => String.Chars.t() | nil,
+              optional(:actor) => term() | nil,
+              optional(:assigns) => %{optional(atom()) => term()}
+            }
+
   @defaults [message_id: nil, correlation_id: nil, causation_id: nil, actor: nil, assigns: %{}]
 
   @doc """
-  Builds options, returning an error for an unknown or repeated key.
+  Builds options from a keyword list or a map, returning an error for an unknown or repeated key.
 
   ## Example
 
       {:ok, options} = DispatchOptions.new(actor: actor, assigns: %{request_id: "req-1"})
+      {:ok, options} = DispatchOptions.new(%{actor: actor})
   """
-  @spec new([option()]) :: {:ok, t()} | {:error, InvalidDispatchOptionsError.t()}
-  def new(opts \\ []) do
+  @spec new(options()) :: {:ok, t()} | {:error, InvalidDispatchOptionsError.t()}
+  def new(opts \\ [])
+
+  def new(opts) when is_map(opts) and not is_struct(opts), do: opts |> Map.to_list() |> new()
+
+  def new(opts) do
     case Keyword.validate(opts, @defaults) do
       {:ok, opts} ->
         {:ok,
@@ -72,7 +87,7 @@ defmodule Trogon.Dispatcher.DispatchOptions do
   @doc """
   Builds options, raising `Trogon.Dispatcher.InvalidDispatchOptionsError` for an unknown or repeated key.
   """
-  @spec new!([option()]) :: t()
+  @spec new!(options()) :: t()
   def new!(opts \\ []) do
     case new(opts) do
       {:ok, options} -> options
