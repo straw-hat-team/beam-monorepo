@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.2.2...eventstore_dashboard@v0.2.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* **eventstore_dashboard:** Scope table search/sort/limit params to their tab ([#496](https://github.com/straw-hat-team/beam-monorepo/issues/496)) ([74dfb71](https://github.com/straw-hat-team/beam-monorepo/commit/74dfb71435a313b54238d28d6828faced9977a1c))
+
 ## [0.2.2](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.2.1...eventstore_dashboard@v0.2.2) (2026-06-03)
 
 
