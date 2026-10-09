@@ -214,7 +214,6 @@ defmodule Trogon.Dispatcher do
 
   defmacro __before_compile__(env) do
     module = env.module
-    options_mod = DispatchOptions
 
     local_middleware = accumulated(module, :trogon_dispatcher_middleware)
     imports = accumulated(module, :trogon_dispatcher_imports)
@@ -230,7 +229,7 @@ defmodule Trogon.Dispatcher do
 
     quote do
       unquote(introspection(registrations, local_middleware, imports))
-      unquote(entrypoints(options_mod))
+      unquote(entrypoints())
       unquote(clauses)
       unquote(fallbacks())
     end
@@ -245,10 +244,10 @@ defmodule Trogon.Dispatcher do
     end
   end
 
-  defp entrypoints(options_mod) do
+  defp entrypoints do
     quote do
-      def dispatch_message(message, options \\ unquote(options_mod).new!())
-      def dispatch_message!(message, options \\ unquote(options_mod).new!())
+      def dispatch_message(message, options \\ Trogon.Dispatcher.DispatchOptions.new!())
+      def dispatch_message!(message, options \\ Trogon.Dispatcher.DispatchOptions.new!())
 
       def dispatch_message!(message, options) do
         message
