@@ -212,6 +212,33 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutation do
     visit([subject, value], scope, ctx, issues)
   end
 
+  # `context |> Map.put(:assigns, value)` / `context |> Map.replace!(:private, value)`.
+  defp visit(
+         {:|>, _pmeta, [subject, {{:., _dmeta, [{:__aliases__, _mmeta, [:Map]}, function]}, cmeta, [key, value]}]},
+         scope,
+         ctx,
+         issues
+       )
+       when function in @map_functions and is_atom(key) do
+    issues = report_fields(scope, ctx, [{key, value}], Atom.to_string(function), cmeta, issues)
+    visit([subject, value], scope, ctx, issues)
+  end
+
+  # `context |> struct!(assigns: value)`.
+  defp visit({:|>, _pmeta, [subject, {:struct!, meta, [fields]}]}, scope, ctx, issues) do
+    visit_struct!(subject, fields, "struct!", meta, scope, ctx, issues)
+  end
+
+  # `context |> Kernel.struct!(assigns: value)`.
+  defp visit(
+         {:|>, _pmeta, [subject, {{:., _dmeta, [{:__aliases__, _kmeta, [:Kernel]}, :struct!]}, cmeta, [fields]}]},
+         scope,
+         ctx,
+         issues
+       ) do
+    visit_struct!(subject, fields, "struct!", cmeta, scope, ctx, issues)
+  end
+
   # `struct!(context, assigns: value)`, the field a map literal or a keyword list.
   defp visit({:struct!, meta, [subject, fields]}, scope, ctx, issues) do
     visit_struct!(subject, fields, "struct!", meta, scope, ctx, issues)

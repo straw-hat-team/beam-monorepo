@@ -213,6 +213,70 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutationTest do
     |> assert_issue(fn issue -> assert issue.trigger == "struct!" end)
   end
 
+  test "reports a piped Map.put/3 on a restricted field inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+
+      def call(context, next, _options) do
+        updated = context |> Map.put(:response, :ok)
+        next.(updated)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> assert_issue(fn issue -> assert issue.trigger == "put" end)
+  end
+
+  test "reports a piped Map.replace!/3 on a restricted field inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+
+      def call(context, next, _options) do
+        updated = context |> Map.replace!(:private, %{})
+        next.(updated)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> assert_issue(fn issue -> assert issue.trigger == "replace!" end)
+  end
+
+  test "reports a piped struct!/2 naming a restricted field inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+
+      def call(context, next, _options) do
+        updated = context |> struct!(assigns: %{})
+        next.(updated)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> assert_issue(fn issue -> assert issue.trigger == "struct!" end)
+  end
+
+  test "reports a piped Kernel.struct!/2 naming a restricted field inside a middleware" do
+    """
+    defmodule MyApp.Authorize do
+      @behaviour Trogon.Dispatcher.Middleware
+
+      def call(context, next, _options) do
+        updated = context |> Kernel.struct!(private: %{})
+        next.(updated)
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ContextMutation)
+    |> assert_issue(fn issue -> assert issue.trigger == "struct!" end)
+  end
+
   test "does not report Map.put/3 whose key is not a literal atom" do
     """
     defmodule MyApp.Authorize do
