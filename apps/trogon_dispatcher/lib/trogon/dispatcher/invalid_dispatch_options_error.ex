@@ -6,7 +6,7 @@ defmodule Trogon.Dispatcher.InvalidDispatchOptionsError do
   failed on.
   """
 
-  @type validation :: :unknown_key
+  @type validation :: :unknown_key | :duplicate_key
 
   defexception [:field, :value, :validation]
 
@@ -29,5 +29,9 @@ defmodule Trogon.Dispatcher.InvalidDispatchOptionsError do
   def message(%__MODULE__{validation: :unknown_key} = exception) do
     "unknown dispatch option #{inspect(exception.field)}, expected one of: " <>
       ":message_id, :correlation_id, :causation_id, :actor, :assigns"
+  end
+
+  def message(%__MODULE__{validation: :duplicate_key} = exception) do
+    "dispatch option #{inspect(exception.field)} given more than once, got: #{inspect(exception.value)}"
   end
 end

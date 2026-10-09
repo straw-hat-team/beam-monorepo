@@ -48,7 +48,7 @@ on the struct.
 ## Types are checked before runtime, not during it
 
 The dispatch path does not re-check the shape of what it is handed. `Trogon.Dispatcher.DispatchOptions` rejects an
-unknown key when it is built, and nothing more: whether `assigns` is a map with atom keys is stated by its type, and
+unknown or repeated key when it is built, and nothing more: whether `assigns` is a map with atom keys is stated by its type, and
 caught before runtime by the Elixir type checker where it can see the value, and by `Trogon.Credo.Plugin.Dispatcher`
 for literals and direct context updates the type checker cannot follow across modules. A value that slips past both is
 a bug at the call site, and checking for it on every dispatch would charge every caller for it.

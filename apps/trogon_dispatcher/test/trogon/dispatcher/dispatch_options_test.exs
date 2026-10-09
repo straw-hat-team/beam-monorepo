@@ -31,9 +31,11 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
       assert options.assigns == %{trail: []}
     end
 
-    test "accepts a repeated key and keeps its first value, as Keyword does" do
-      assert {:ok, options} = DispatchOptions.new(actor: :first, actor: :second)
-      assert options.actor == :first
+    test "rejects a repeated key" do
+      assert {:error, %InvalidDispatchOptionsError{} = error} = DispatchOptions.new(actor: :first, actor: :second)
+      assert error.field == :actor
+      assert error.value == [:first, :second]
+      assert error.validation == :duplicate_key
     end
 
     test "rejects an unknown key" do
@@ -46,6 +48,12 @@ defmodule Trogon.Dispatcher.DispatchOptionsTest do
     test "raises on an unknown key" do
       assert_raise InvalidDispatchOptionsError, ~r/unknown dispatch option :private/, fn ->
         DispatchOptions.new!(private: %{})
+      end
+    end
+
+    test "raises on a repeated key" do
+      assert_raise InvalidDispatchOptionsError, ~r/dispatch option :actor given more than once/, fn ->
+        DispatchOptions.new!(actor: :first, actor: :second)
       end
     end
   end
