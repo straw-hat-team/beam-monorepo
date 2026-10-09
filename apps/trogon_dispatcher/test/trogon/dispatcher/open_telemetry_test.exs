@@ -397,15 +397,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     test "stop phase can set the status to ok on a returned error, and that wins" do
       OpenTelemetryCase.detach_handlers()
 
-      DispatcherOpenTelemetry.setup(
-        hook: fn
-          %{phase: :stop, meta: %{error: :nope}, span_ctx: span_ctx} ->
-            Span.set_status(span_ctx, OpenTelemetry.status(:ok))
-
-          _context ->
-            :ok
-        end
-      )
+      DispatcherOpenTelemetry.setup(hook: &set_ok_status_on_nope/1)
 
       Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, DispatchOptions.new!(assigns: %{trail: []}))
 
@@ -416,15 +408,7 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
     test "stop phase setting an error status with a custom description wins over ours" do
       OpenTelemetryCase.detach_handlers()
 
-      DispatcherOpenTelemetry.setup(
-        hook: fn
-          %{phase: :stop, meta: %{error: :nope}, span_ctx: span_ctx} ->
-            Span.set_status(span_ctx, OpenTelemetry.status(:error, "custom description"))
-
-          _context ->
-            :ok
-        end
-      )
+      DispatcherOpenTelemetry.setup(hook: &set_custom_error_status_on_nope/1)
 
       Support.RootDispatcher.dispatch_message(%Support.FailingCommand{}, DispatchOptions.new!(assigns: %{trail: []}))
 
@@ -521,4 +505,16 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
       refute_receive {:span, _span}, 200
     end
   end
+
+  defp set_ok_status_on_nope(%{phase: :stop, meta: %{error: :nope}, span_ctx: span_ctx}) do
+    Span.set_status(span_ctx, OpenTelemetry.status(:ok))
+  end
+
+  defp set_ok_status_on_nope(_context), do: :ok
+
+  defp set_custom_error_status_on_nope(%{phase: :stop, meta: %{error: :nope}, span_ctx: span_ctx}) do
+    Span.set_status(span_ctx, OpenTelemetry.status(:error, "custom description"))
+  end
+
+  defp set_custom_error_status_on_nope(_context), do: :ok
 end

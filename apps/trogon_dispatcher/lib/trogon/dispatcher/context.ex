@@ -103,8 +103,10 @@ defmodule Trogon.Dispatcher.Context do
   """
   @spec merge_assigns(t(), Enumerable.t({atom(), term()})) :: t()
   def merge_assigns(%__MODULE__{} = context, assigns) do
-    %{context | assigns: Enum.into(assigns, context.assigns, fn {key, value} when is_atom(key) -> {key, value} end)}
+    %{context | assigns: Enum.into(assigns, context.assigns, &assign_entry/1)}
   end
+
+  defp assign_entry({key, _value} = entry) when is_atom(key), do: entry
 
   @doc """
   Puts a value into middleware scratch space under the owning module's key.
