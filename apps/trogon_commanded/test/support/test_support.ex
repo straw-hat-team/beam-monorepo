@@ -175,6 +175,52 @@ defmodule Trogon.Commanded.TestSupport do
     end
   end
 
+  defmodule MyAggregateV2 do
+    @moduledoc false
+
+    use Trogon.Commanded.Aggregate,
+      identifier: {:uuid, Ecto.UUID},
+      identity_prefix: "my-aggregate-v2-",
+      features: [v2: true]
+
+    embedded_schema do
+      field :name, :string
+      field :balance, :integer, default: 0
+      embeds_one :money, TransferableMoney
+    end
+
+    @impl Trogon.Commanded.Aggregate
+    def apply(aggregate, %MyEventOne{} = event) do
+      aggregate
+      |> Map.put(:uuid, event.uuid)
+      |> Map.put(:name, event.name)
+    end
+  end
+
+  defmodule ExampleAggregate do
+    @moduledoc false
+
+    use Trogon.Commanded.Aggregate,
+      identifier: {:uuid, Ecto.UUID},
+      features: [v2: true]
+
+    embedded_schema do
+      field :name, :string
+      field :balance, :integer, default: 0
+      field :opened_at, :utc_datetime_usec
+      field :status, Ecto.Enum, values: [:open, :closed], default: :open
+      embeds_one :money, TransferableMoney
+
+      polymorphic_embeds_one :contact,
+        types: [
+          email: Trogon.Commanded.TestSupport.EmailContent,
+          sms: Trogon.Commanded.TestSupport.SmsContent
+        ],
+        on_type_not_found: :raise,
+        on_replace: :update
+    end
+  end
+
   defmodule DefaultApp do
     @moduledoc false
     use Commanded.Application,
