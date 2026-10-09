@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.1.0...trogon_commanded@v1.2.0) (2026-10-09)
+
+
+### Features
+
+* **trogon_commanded:** Let aggregates opt out of building states production never reaches ([#516](https://github.com/straw-hat-team/beam-monorepo/issues/516)) ([3cd21bc](https://github.com/straw-hat-team/beam-monorepo/commit/3cd21bcefdaf03407b355925072b34cadf2b3602))
+
 ## [1.1.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.0.2...trogon_commanded@v1.1.0) (2026-09-17)
 
 
