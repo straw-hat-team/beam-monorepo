@@ -12,33 +12,35 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
       `Trogon.Dispatcher.DispatchOptions.new/1` and `new!/1` check only one thing at runtime:
       that every key is one of `:message_id`, `:correlation_id`, `:causation_id`, `:actor` and
       `:assigns`, given at most once. Everything else `t:Trogon.Dispatcher.DispatchOptions.option/0`
-      states is a type, not a runtime check: that the argument is itself a keyword list, that
+      states is a type, not a runtime check: that the argument is a keyword list or a map, that
       `assigns` is a map, that the map's keys are atoms, and that `message_id`, `correlation_id`
       and `causation_id` implement `String.Chars`, since OpenTelemetry calls `to_string/1` on
       whichever of them a caller sets, with no guard in front of it.
 
       A literal argument is the one place a wrong value is caught before it ever reaches
       runtime, so this check reports the ways a literal can break what `new/1` itself does not
-      check: the argument not being a keyword list at all, a key outside the five above, the
+      check: the argument being neither a keyword list nor a map, a key outside the five above, the
       same key given more than once, `assigns` not being a map, a string or number key inside a
       literal `assigns` map, and a tuple or a map literal given for `message_id`, `correlation_id` or
       `causation_id`.
 
           # preferred
           DispatchOptions.new!(actor: actor, assigns: %{tenant: tenant})
+          DispatchOptions.new!(%{actor: actor})
 
           # NOT preferred
-          DispatchOptions.new!(%{actor: actor})
+          DispatchOptions.new!("actor")
           DispatchOptions.new!(actor: actor, actor: other_actor)
           DispatchOptions.new!(assigns: [tenant: tenant])
           DispatchOptions.new!(assigns: %{"tenant" => tenant})
           DispatchOptions.new!(message_id: {:ref, ref})
 
       Reported: a call to `new/1` or `new!/1` on one of `dispatch_options_modules`, written
-      piped or not, whose argument is a map literal or another non-list literal instead of a
-      keyword list; a literal keyword list with a key outside the five above, or the same key
-      written twice; a literal `assigns` value that is not a map, or a literal `assigns` map
-      with a string or number key; and a literal tuple or map given for `message_id`,
+      piped or not, whose argument is a literal that is neither a list nor a map, including
+      `nil`, a tuple and a struct; a literal
+      keyword list or map with a key outside the five above, or the same key written twice; a
+      literal `assigns` value that is not a map, or a literal `assigns` map with a string or
+      number key; and a literal tuple or map given for `message_id`,
       `correlation_id` or `causation_id`.
 
       Not reported: anything dynamic, a variable, a function call, or a list whose elements are
@@ -146,15 +148,27 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
     end
   end
 
-  defp classify({:%{}, _meta, pairs}, trigger, cmeta, context, issues) when is_list(pairs) do
+  defp classify({:%, _meta, [_struct, {:%{}, _mmeta, _fields}]}, trigger, cmeta, context, issues) do
     [not_a_keyword_list_issue(context, trigger, cmeta) | issues]
+  end
+
+  defp classify({:{}, _meta, elems}, trigger, cmeta, context, issues) when is_list(elems) do
+    [not_a_keyword_list_issue(context, trigger, cmeta) | issues]
+  end
+
+  defp classify({_left, _right}, trigger, cmeta, context, issues) do
+    [not_a_keyword_list_issue(context, trigger, cmeta) | issues]
+  end
+
+  defp classify({:%{}, _meta, pairs}, trigger, cmeta, context, issues) when is_list(pairs) do
+    classify(pairs, trigger, cmeta, context, issues)
   end
 
   defp classify(literal, trigger, cmeta, context, issues) when is_number(literal) or is_binary(literal) do
     [not_a_keyword_list_issue(context, trigger, cmeta) | issues]
   end
 
-  defp classify(literal, trigger, cmeta, context, issues) when is_atom(literal) and literal != nil do
+  defp classify(literal, trigger, cmeta, context, issues) when is_atom(literal) do
     [not_a_keyword_list_issue(context, trigger, cmeta) | issues]
   end
 
@@ -247,7 +261,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
       context,
       trigger,
       cmeta,
-      "The argument must be a keyword list, since every dispatch option is given as a `key: value` pair."
+      "The argument must be a keyword list or a map, since every dispatch option is given as a `key: value` pair."
     )
   end
 

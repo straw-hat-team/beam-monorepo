@@ -3,13 +3,28 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
 
   alias Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys
 
-  test "reports a map literal passed to new!/1" do
+  test "does not report a map literal with known keys" do
     """
     defmodule MyApp.Authorize do
       alias Trogon.Dispatcher.DispatchOptions
 
       def build(actor) do
-        DispatchOptions.new!(%{actor: actor})
+        DispatchOptions.new!(%{actor: actor, assigns: %{tenant: :acme}})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DispatchOptionsKeys)
+    |> refute_issues()
+  end
+
+  test "reports an unknown key in a map literal" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def build(actor) do
+        DispatchOptions.new!(%{actor: actor, private: %{}})
       end
     end
     """
@@ -19,11 +34,26 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
       assert issue.check == DispatchOptionsKeys
       assert issue.category == DispatchOptionsKeys.category()
       assert issue.trigger == "new!"
-      assert issue.message =~ "must be a keyword list"
+      assert issue.message =~ ":private is not a known dispatch option"
     end)
   end
 
-  for literal <- [~s("nope"), "42", ":nope"] do
+  test "reports a non-map assigns in a map literal" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def build do
+        DispatchOptions.new!(%{assigns: [tenant: :acme]})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DispatchOptionsKeys)
+    |> assert_issue(fn issue -> assert issue.message =~ "`assigns` must be a map" end)
+  end
+
+  for literal <- [~s("nope"), "42", ":nope", "nil", "{:actor, :someone}", "{:a, :b, :c}", "%MyApp.Options{}"] do
     test "reports a bare #{literal} literal passed to new/1" do
       """
       defmodule MyApp.Authorize do
@@ -38,7 +68,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
       |> run_check(DispatchOptionsKeys)
       |> assert_issue(fn issue ->
         assert issue.trigger == "new"
-        assert issue.message =~ "must be a keyword list"
+        assert issue.message =~ "must be a keyword list or a map"
       end)
     end
   end
@@ -342,7 +372,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
     """
     defmodule MyApp.Authorize do
       def build(actor) do
-        MyApp.Options.new!(%{actor: actor})
+        MyApp.Options.new!(actor: actor, bogus: true)
       end
     end
     """
@@ -357,7 +387,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
       alias Trogon.Dispatcher.DispatchOptions
 
       def build(actor) do
-        DispatchOptions.new!(%{actor: actor})
+        DispatchOptions.new!(actor: actor, bogus: true)
       end
     end
     """
@@ -385,7 +415,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
     """
     defmodule MyApp.Authorize do
       def build(actor) do
-        MyApp.Options.new!(%{actor: actor})
+        MyApp.Options.new!(actor: actor, bogus: true)
       end
     end
     """
