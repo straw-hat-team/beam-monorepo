@@ -4,7 +4,7 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
     category: :readability,
     param_defaults: [
       for_use: [],
-      suffixes: ["Worker", "Job", "Manager", "Helper", "Util", "Utils"],
+      suffixes: ["Worker", "Processor", "Job", "Manager", "Helper", "Util", "Utils"],
       hint: nil
     ],
     explanations: [
@@ -25,6 +25,11 @@ defmodule Trogon.Credo.Check.Readability.MechanicalModuleName do
           defmodule MyApp.Jobs.SendWelcomeEmailWorker do
             use Oban.Worker
           end
+
+      A suffix such as `Worker` or `Processor` also moves the verb out of the head
+      of the name. `SendWelcomeEmailWorker` reads as `WorkSendWelcomeEmail`, and
+      `WelcomeEmailProcessor` as `ProcessWelcomeEmail`, so the last word names the
+      mechanism instead of the action the module performs.
 
       The same reasoning applies to the file name: a file named
       `send_welcome_email_worker.ex` restates the mechanism as well. The file
