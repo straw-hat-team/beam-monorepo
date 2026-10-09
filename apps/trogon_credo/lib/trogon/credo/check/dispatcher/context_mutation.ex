@@ -43,7 +43,7 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutation do
       and `response`; the struct named form is only reported when the name resolves to
       one of `context_modules`, while the unnamed `%{var | ...}` form is reported on the
       field name alone, since the module building it is scoped to a middleware or a
-      handler already. `Map.put/3`, `Map.replace!/3` and `struct!/2` are reported the
+      handler already. `Map.put/3`, `Map.replace!/3`, `struct/2` and `struct!/2` are reported the
       same way when the field is a literal atom, a key built at runtime is left alone,
       since there is nothing to resolve statically.
 
@@ -89,6 +89,7 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutation do
 
   @restricted_fields [:assigns, :private, :message, :kind, :dispatcher, :registered_by, :response]
   @map_functions [:put, :replace!]
+  @struct_functions [:struct, :struct!]
 
   @doc false
   @impl true
@@ -224,34 +225,38 @@ defmodule Trogon.Credo.Check.Dispatcher.ContextMutation do
     visit([subject, value], scope, ctx, issues)
   end
 
-  # `context |> struct!(assigns: value)`.
-  defp visit({:|>, _pmeta, [subject, {:struct!, meta, [fields]}]}, scope, ctx, issues) do
-    visit_struct!(subject, fields, "struct!", meta, scope, ctx, issues)
+  # `context |> struct!(assigns: value)` / `context |> struct(assigns: value)`.
+  defp visit({:|>, _pmeta, [subject, {function, meta, [fields]}]}, scope, ctx, issues)
+       when function in @struct_functions do
+    visit_struct!(subject, fields, Atom.to_string(function), meta, scope, ctx, issues)
   end
 
-  # `context |> Kernel.struct!(assigns: value)`.
+  # `context |> Kernel.struct!(assigns: value)` / `context |> Kernel.struct(assigns: value)`.
   defp visit(
-         {:|>, _pmeta, [subject, {{:., _dmeta, [{:__aliases__, _kmeta, [:Kernel]}, :struct!]}, cmeta, [fields]}]},
+         {:|>, _pmeta, [subject, {{:., _dmeta, [{:__aliases__, _kmeta, [:Kernel]}, function]}, cmeta, [fields]}]},
          scope,
          ctx,
          issues
-       ) do
-    visit_struct!(subject, fields, "struct!", cmeta, scope, ctx, issues)
+       )
+       when function in @struct_functions do
+    visit_struct!(subject, fields, Atom.to_string(function), cmeta, scope, ctx, issues)
   end
 
-  # `struct!(context, assigns: value)`, the field a map literal or a keyword list.
-  defp visit({:struct!, meta, [subject, fields]}, scope, ctx, issues) do
-    visit_struct!(subject, fields, "struct!", meta, scope, ctx, issues)
+  # `struct!(context, assigns: value)` / `struct(context, assigns: value)`, the field a map
+  # literal or a keyword list.
+  defp visit({function, meta, [subject, fields]}, scope, ctx, issues) when function in @struct_functions do
+    visit_struct!(subject, fields, Atom.to_string(function), meta, scope, ctx, issues)
   end
 
-  # `Kernel.struct!(context, assigns: value)`.
+  # `Kernel.struct!(context, assigns: value)` / `Kernel.struct(context, assigns: value)`.
   defp visit(
-         {{:., _dmeta, [{:__aliases__, _kmeta, [:Kernel]}, :struct!]}, cmeta, [subject, fields]},
+         {{:., _dmeta, [{:__aliases__, _kmeta, [:Kernel]}, function]}, cmeta, [subject, fields]},
          scope,
          ctx,
          issues
-       ) do
-    visit_struct!(subject, fields, "struct!", cmeta, scope, ctx, issues)
+       )
+       when function in @struct_functions do
+    visit_struct!(subject, fields, Atom.to_string(function), cmeta, scope, ctx, issues)
   end
 
   defp visit({form, _meta, args}, scope, ctx, issues) when is_list(args) do
