@@ -15,19 +15,24 @@ defmodule Trogon.Commanded.EventStore.JsonbSerializer do
   """
 
   alias Commanded.EventStore.TypeProvider
+  alias Trogon.Commanded.EventStore.JsonbSerializer.Serializable
 
   @doc """
   Serialize given term to JSON binary data.
 
-  It is just a passthrough, since `EventStore.PostgresTypes` will take care of the serialization.
+  It is just a passthrough, since `EventStore.PostgresTypes` will take care of the serialization. Aggregates using
+  the `v2` feature of `Trogon.Commanded.Aggregate` are serialized through `Trogon.Commanded.EventStore.JsonbSerializer.Serializable` first.
   """
+  def serialize(%_{} = term), do: Serializable.serialize(term)
+
   def serialize(term), do: term
 
   @doc """
   Deserialize given JSON binary data to the expected type.
 
   It is already a map since `EventStore.PostgresTypes` will take care of the deserialization. Then, it will use
-  `Trogon.Commanded.Event` to cast the event to the correct type.
+  `Trogon.Commanded.Event` to cast the event to the correct type. Aggregates using the `v2` feature of
+  `Trogon.Commanded.Aggregate` are deserialized through `Trogon.Commanded.EventStore.JsonbSerializer.Serializable` instead.
   """
   def deserialize(term, config \\ [])
 
@@ -43,7 +48,7 @@ defmodule Trogon.Commanded.EventStore.JsonbSerializer do
     end
   end
 
-  defp run_casting(%module_name{} = _event, term) do
-    module_name.new!(term)
+  defp run_casting(%_{} = empty_struct, term) do
+    Serializable.deserialize(empty_struct, term)
   end
 end
