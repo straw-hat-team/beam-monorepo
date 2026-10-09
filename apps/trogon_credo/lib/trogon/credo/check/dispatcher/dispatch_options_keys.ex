@@ -37,17 +37,18 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
 
       Reported: a call to `new/1` or `new!/1` on one of `dispatch_options_modules`, written
       piped or not, whose argument is a literal that is neither a list nor a map, including
-      `nil`, a tuple and a struct; a literal
-      keyword list or map with a key outside the five above, or the same key written twice; a
-      literal `assigns` value that is not a map, or a literal `assigns` map with a string or
-      number key; and a literal tuple or map given for `message_id`,
-      `correlation_id` or `causation_id`.
+      `nil`, a tuple and a struct; a literal keyword list or map with a key outside the five
+      above, a string or number key included, or the same key written twice; a literal
+      `assigns` value that is not a map, including a tuple, or a literal `assigns` map with a
+      string or number key; and a literal tuple or map given for `message_id`, `correlation_id`
+      or `causation_id`.
 
-      Not reported: anything dynamic, a variable, a function call, or a list whose elements are
-      not all recognizably literal `key: value` pairs, or an `assigns` key that is a variable or
-      a call, since there is nothing to check without running it; a struct literal given for `message_id`, `correlation_id` or `causation_id`,
-      since a struct can implement `String.Chars` even though a bare map or tuple never does;
-      and anything under `except_in`.
+      Not reported: anything dynamic, a variable, a function call, a list whose elements are
+      not all `key: value` pairs, or a key, top-level or inside `assigns`, that is a variable or
+      a call, since there is nothing to check without running it; a struct given for `assigns`,
+      since a struct is a map; a struct literal given for `message_id`, `correlation_id` or
+      `causation_id`, since a struct can implement `String.Chars` even though a bare map or
+      tuple never does; and anything under `except_in`.
       """,
       params: [
         dispatch_options_modules: """
@@ -174,16 +175,20 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
 
   defp classify(_dynamic_ast, _trigger, _cmeta, _context, issues), do: issues
 
+  # A pair whose key is a variable or a call has nothing to check, so it is
+  # dropped; the pairs left still carry every key a reader can see.
   defp literal_keyword_pairs(list) do
-    if Enum.all?(list, &literal_pair?/1) do
-      {:ok, list}
+    if Enum.all?(list, &pair?/1) do
+      {:ok, Enum.filter(list, fn {key, _value} -> literal_key?(key) end)}
     else
       :error
     end
   end
 
-  defp literal_pair?({key, _value}), do: is_atom(key)
-  defp literal_pair?(_other), do: false
+  defp pair?({_key, _value}), do: true
+  defp pair?(_other), do: false
+
+  defp literal_key?(key), do: is_atom(key) or is_binary(key) or is_number(key)
 
   defp check_pairs(pairs, trigger, cmeta, context, issues) do
     issues
@@ -194,13 +199,16 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
   end
 
   defp add_unknown_key_issues(issues, pairs, trigger, cmeta, context) do
-    for key <- pairs |> Keyword.keys() |> Enum.uniq(), key not in @keys, reduce: issues do
+    for key <- pairs |> Enum.map(&elem(&1, 0)) |> Enum.uniq(), key not in @keys, reduce: issues do
       acc -> [unknown_key_issue(context, trigger, cmeta, key) | acc]
     end
   end
 
   defp add_duplicate_key_issues(issues, pairs, trigger, cmeta, context) do
-    for {key, count} <- pairs |> Keyword.keys() |> Enum.frequencies(), key in @keys, count > 1, reduce: issues do
+    for {key, count} <- pairs |> Enum.map(&elem(&1, 0)) |> Enum.frequencies(),
+        key in @keys,
+        count > 1,
+        reduce: issues do
       acc -> [duplicate_key_issue(context, trigger, cmeta, key) | acc]
     end
   end
@@ -224,6 +232,14 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
   end
 
   defp assigns_issues(literal, trigger, cmeta, context, issues) when is_atom(literal) do
+    [assigns_not_a_map_issue(context, trigger, cmeta, literal) | issues]
+  end
+
+  defp assigns_issues({:{}, _meta, elems} = literal, trigger, cmeta, context, issues) when is_list(elems) do
+    [assigns_not_a_map_issue(context, trigger, cmeta, literal) | issues]
+  end
+
+  defp assigns_issues({_left, _right} = literal, trigger, cmeta, context, issues) do
     [assigns_not_a_map_issue(context, trigger, cmeta, literal) | issues]
   end
 
@@ -285,7 +301,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeys do
   end
 
   defp assigns_not_a_map_issue(context, trigger, cmeta, literal) do
-    issue_for(context, trigger, cmeta, "`assigns` must be a map, got: #{inspect(literal)}.")
+    issue_for(context, trigger, cmeta, "`assigns` must be a map, got: #{Macro.to_string(literal)}.")
   end
 
   defp non_atom_assigns_key_issue(context, trigger, cmeta, key) do

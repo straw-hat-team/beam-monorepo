@@ -53,6 +53,43 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
     |> assert_issue(fn issue -> assert issue.message =~ "`assigns` must be a map" end)
   end
 
+  for key <- [~s("actor"), "1"] do
+    test "reports a #{key} key in a map literal alongside its other keys" do
+      """
+      defmodule MyApp.Authorize do
+        alias Trogon.Dispatcher.DispatchOptions
+
+        def build(actor) do
+          DispatchOptions.new!(%{#{unquote(key)} => actor, :bogus => true, :assigns => [tenant: :acme]})
+        end
+      end
+      """
+      |> to_source_file()
+      |> run_check(DispatchOptionsKeys)
+      |> assert_issues(fn issues ->
+        messages = Enum.map(issues, & &1.message)
+        assert Enum.any?(messages, &(&1 =~ "#{unquote(key)} is not a known dispatch option"))
+        assert Enum.any?(messages, &(&1 =~ ":bogus is not a known dispatch option"))
+        assert Enum.any?(messages, &(&1 =~ "`assigns` must be a map"))
+      end)
+    end
+  end
+
+  test "checks the literal keys of a map literal that also has a variable key" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def build(key, actor) do
+        DispatchOptions.new!(%{key => actor, bogus: true})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DispatchOptionsKeys)
+    |> assert_issue(fn issue -> assert issue.message =~ ":bogus is not a known dispatch option" end)
+  end
+
   for literal <- [~s("nope"), "42", ":nope", "nil", "{:actor, :someone}", "{:a, :b, :c}", "%MyApp.Options{}"] do
     test "reports a bare #{literal} literal passed to new/1" do
       """
@@ -147,7 +184,7 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
     end)
   end
 
-  for literal <- [~s("nope"), "42", ":nope"] do
+  for literal <- [~s("nope"), "42", ":nope", "{:tenant, :acme}", "{:a, :b, :c}"] do
     test "reports assigns given as the bare literal #{literal}" do
       """
       defmodule MyApp.Authorize do
@@ -162,6 +199,21 @@ defmodule Trogon.Credo.Check.Dispatcher.DispatchOptionsKeysTest do
       |> run_check(DispatchOptionsKeys)
       |> assert_issue(fn issue -> assert issue.message =~ "`assigns` must be a map" end)
     end
+  end
+
+  test "does not report a struct literal for assigns" do
+    """
+    defmodule MyApp.Authorize do
+      alias Trogon.Dispatcher.DispatchOptions
+
+      def build do
+        DispatchOptions.new!(assigns: %MyApp.Assigns{tenant: :acme})
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(DispatchOptionsKeys)
+    |> refute_issues()
   end
 
   test "reports a non-atom key inside a literal assigns map" do
