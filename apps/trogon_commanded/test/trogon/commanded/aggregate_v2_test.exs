@@ -102,21 +102,26 @@ defmodule Trogon.Commanded.AggregateV2Test do
       assert stderr =~ "undefined function schema/2"
     end
 
-    test "does not allow a table-backed schema declared through Ecto.Schema directly" do
-      quoted =
-        quote do
-          defmodule Trogon.Commanded.AggregateV2Test.QualifiedTableBacked do
-            use Trogon.Commanded.Aggregate, identifier: :uuid, features: [v2: true]
+    @tag :tmp_dir
+    test "does not allow a table-backed schema declared through Ecto.Schema directly", %{tmp_dir: tmp_dir} do
+      path = Path.join(tmp_dir, "qualified_table_backed.ex")
 
-            Ecto.Schema.schema "accounts" do
-              field :name, :string
-            end
-          end
+      File.write!(path, """
+      defmodule Trogon.Commanded.AggregateV2Test.QualifiedTableBacked do
+        use Trogon.Commanded.Aggregate, identifier: :uuid, features: [v2: true]
+
+        Ecto.Schema.schema "accounts" do
+          field :name, :string
         end
+      end
+      """)
 
-      error = assert_raise CompileError, fn -> Code.compile_quoted(quoted) end
+      capture_io(:stderr, fn ->
+        {pid, ref} = spawn_monitor(fn -> Kernel.ParallelCompiler.compile([path]) end)
 
-      assert Exception.message(error) =~ "must use embedded_schema"
+        assert_receive {:DOWN, ^ref, :process, ^pid, {%CompileError{} = error, _stacktrace}}, 10_000
+        assert Exception.message(error) =~ "must use embedded_schema"
+      end)
     end
   end
 
