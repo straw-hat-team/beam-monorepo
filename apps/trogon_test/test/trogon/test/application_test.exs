@@ -72,12 +72,9 @@ defmodule Trogon.Test.ApplicationTest do
       assert Mock.fetch_env(:trogon_test, :seeded_value) == :error
       refute Keyword.has_key?(Mock.get_all_env(:trogon_test), :seeded_value)
 
-      error =
-        assert_raise TestApplication.MissingEnvError, fn ->
-          Mock.fetch_env!(:trogon_test, :seeded_value)
-        end
-
-      assert %{app: :trogon_test, key: :seeded_value} = error
+      assert_raise TestApplication.MissingEnvError,
+                   ":seeded_value was deleted from the :trogon_test application environment for this test",
+                   fn -> Mock.fetch_env!(:trogon_test, :seeded_value) end
     end
 
     test "put_env/3 brings the key back" do
