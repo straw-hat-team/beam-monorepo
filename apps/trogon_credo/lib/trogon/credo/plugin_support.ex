@@ -13,24 +13,30 @@ defmodule Trogon.Credo.PluginSupport do
   # name. Enabling the checks after the final merge instead adds each one the
   # project has not configured itself, whichever form its `.credo.exs` takes, while
   # a check the project does configure, or disables, keeps the project's entry.
-  def enable_checks(exec, plugin, checks) do
+  #
+  # `aliases` maps a check to the deprecated modules that used to be its name, so
+  # `except`, and a project's own entry for the deprecated module, both reach the
+  # check they actually mean.
+  def enable_checks(exec, plugin, checks, aliases \\ %{}) do
     except = exec |> param(plugin, :except) |> List.wrap()
-    validate_except!(plugin, except, checks)
+    validate_except!(plugin, except, checks, aliases)
 
-    enabled = reject_listed(checks, except)
+    enabled = reject_listed(checks, except, aliases)
 
     Credo.Plugin.append_task(
       exec,
       :convert_cli_options_to_config,
-      {Trogon.Credo.PluginSupport.EnableChecks, checks: enabled}
+      {Trogon.Credo.PluginSupport.EnableChecks, checks: enabled, aliases: aliases}
     )
   end
 
-  def reject_listed(checks, listed) do
-    Enum.reject(checks, &listed?(&1, listed))
+  def reject_listed(checks, listed, aliases \\ %{}) do
+    Enum.reject(checks, &listed?(&1, listed, aliases))
   end
 
-  defp listed?({check, _params}, listed), do: check in listed
+  defp listed?({check, _params}, listed, aliases) do
+    check in listed or Enum.any?(Map.get(aliases, check, []), &(&1 in listed))
+  end
 
   defp param(exec, plugin, name) do
     Execution.get_plugin_param(exec, plugin, name)
@@ -50,8 +56,11 @@ defmodule Trogon.Credo.PluginSupport do
   defp param_names({plugin_param, check_param}), do: {plugin_param, check_param}
   defp param_names(name), do: {name, name}
 
-  defp validate_except!(plugin, except, checks) do
-    known = Enum.map(checks, &elem(&1, 0))
+  defp validate_except!(plugin, except, checks, aliases) do
+    known =
+      checks
+      |> Enum.map(&elem(&1, 0))
+      |> Enum.flat_map(&[&1 | Map.get(aliases, &1, [])])
 
     case Enum.reject(except, &Enum.member?(known, &1)) do
       [] ->

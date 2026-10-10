@@ -2,6 +2,7 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
   use Trogon.Credo.PluginCase, async: false
 
   alias Trogon.Credo.Check.Commanded.AggregateApplyCall
+  alias Trogon.Credo.Check.Commanded.AggregateStateConstruction
   alias Trogon.Credo.Check.Commanded.DeterministicCommand
   alias Trogon.Credo.Check.Commanded.ErrorOwnership
   alias Trogon.Credo.Check.Commanded.SwappableNonDeterminism
@@ -91,19 +92,37 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
   test "enables its checks" do
     issues = run_credo(config([{CommandedPlugin, []}]), @sources)
 
-    assert [%{check: AggregateApplyCall, trigger: "Acme.Review.Aggregate"}] = issues
+    assert [%{check: AggregateStateConstruction, trigger: "Acme.Review.Aggregate"}] = issues
   end
 
   test "enables its checks under a config selected with --config-name" do
     issues = run_credo(config([{CommandedPlugin, []}], "%{enabled: []}", "ci"), @sources, ["--config-name", "ci"])
 
-    assert [%{check: AggregateApplyCall}] = issues
+    assert [%{check: AggregateStateConstruction}] = issues
   end
 
-  test "forwards aggregate_modules to AggregateApplyCall" do
+  test "forwards aggregate_modules to AggregateStateConstruction" do
     issues = run_credo(config([{CommandedPlugin, [aggregate_modules: [Acme.Aggregate]]}]), @sources)
 
-    assert [%{check: AggregateApplyCall, trigger: "Acme.Order.Aggregate"}] = issues
+    assert [%{check: AggregateStateConstruction, trigger: "Acme.Order.Aggregate"}] = issues
+  end
+
+  test "forwards constructor_functions to AggregateStateConstruction" do
+    source = """
+    defmodule Acme.Review.Replay do
+      def run(attrs) do
+        Acme.Review.Aggregate.build(attrs)
+      end
+    end
+    """
+
+    issues =
+      run_credo(config([{CommandedPlugin, [constructor_functions: [:build]]}]), [
+        {"aggregate.ex", @aggregate},
+        {"caller.ex", source}
+      ])
+
+    assert [%{check: AggregateStateConstruction, trigger: "Acme.Review.Aggregate"}] = issues
   end
 
   test "forwards aggregate_modules to DeterministicCommand" do
@@ -170,13 +189,13 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
   end
 
   test "keeps the project's own entry for a check it enables" do
-    checks = "%{enabled: [], disabled: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, []}]}"
+    checks = "%{enabled: [], disabled: [{Trogon.Credo.Check.Commanded.AggregateStateConstruction, []}]}"
 
     assert [] == run_credo(config([{CommandedPlugin, []}], checks), @sources)
   end
 
   test "leaves out the checks named in except" do
-    except = [AggregateApplyCall, DeterministicCommand, SwappableNonDeterminism, ErrorOwnership]
+    except = [AggregateStateConstruction, DeterministicCommand, SwappableNonDeterminism, ErrorOwnership]
 
     assert [] ==
              run_credo(
@@ -232,5 +251,61 @@ defmodule Trogon.Credo.Plugin.CommandedTest do
     assert_raise ArgumentError, ~r/invalid except/, fn ->
       run_credo(config([{CommandedPlugin, [except: [Trogon.Credo.Check.Warning.ForbiddenUse]]}]), @sources)
     end
+  end
+
+  test "accepts AggregateApplyCall, the deprecated name, in except" do
+    except = [AggregateApplyCall, DeterministicCommand, SwappableNonDeterminism, ErrorOwnership]
+
+    assert [] ==
+             run_credo(
+               config([{CommandedPlugin, [except: except]}]),
+               @sources ++ [{"command_handler.ex", @command_handler}, {"event_handler.ex", @event_handler}]
+             )
+  end
+
+  test "keeps the project's own entry for AggregateApplyCall, the check's deprecated name" do
+    checks = "%{enabled: [], disabled: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, []}]}"
+
+    assert [] == run_credo(config([{CommandedPlugin, []}], checks), @sources)
+  end
+
+  test "does not add a second copy of the check on top of the project's own AggregateApplyCall entry" do
+    checks = "%{enabled: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, []}]}"
+
+    issues = run_credo(config([{CommandedPlugin, []}], checks), @sources)
+
+    assert [%{check: AggregateApplyCall, trigger: "Acme.Review.Aggregate"}] = issues
+  end
+
+  test "treats a disabled: entry for AggregateApplyCall as the project's own entry, without an enabled: list" do
+    checks = "%{disabled: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, []}]}"
+
+    issues = run_credo(config([{CommandedPlugin, []}], checks), @sources)
+
+    assert Enum.filter(issues, &(&1.check in [AggregateApplyCall, AggregateStateConstruction])) == []
+  end
+
+  test "treats a {AggregateApplyCall, false} tuple written directly in enabled: as the project's own entry" do
+    checks = "%{enabled: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, false}]}"
+
+    issues = run_credo(config([{CommandedPlugin, []}], checks), @sources)
+
+    assert Enum.filter(issues, &(&1.check in [AggregateApplyCall, AggregateStateConstruction])) == []
+  end
+
+  test "treats a {AggregateApplyCall, false} tuple written under extra: as the project's own entry" do
+    checks = "%{extra: [{Trogon.Credo.Check.Commanded.AggregateApplyCall, false}]}"
+
+    issues = run_credo(config([{CommandedPlugin, []}], checks), @sources)
+
+    assert Enum.filter(issues, &(&1.check in [AggregateApplyCall, AggregateStateConstruction])) == []
+  end
+
+  test "treats a {AggregateApplyCall, false} tuple written in a plain checks list as the project's own entry" do
+    checks = "[{Trogon.Credo.Check.Commanded.AggregateApplyCall, false}]"
+
+    issues = run_credo(config([{CommandedPlugin, []}], checks), @sources)
+
+    assert Enum.filter(issues, &(&1.check in [AggregateApplyCall, AggregateStateConstruction])) == []
   end
 end
