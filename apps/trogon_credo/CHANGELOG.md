@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.8.0...trogon_credo@v0.9.0) (2026-10-10)
+
+
+### Features
+
+* **trogon_credo:** Catch aggregate states nothing in production reaches ([#515](https://github.com/straw-hat-team/beam-monorepo/issues/515)) ([55aec34](https://github.com/straw-hat-team/beam-monorepo/commit/55aec34d130a26090b7922dea78630a6d9e5165f))
+
 ## [0.8.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.7.0...trogon_credo@v0.8.0) (2026-10-09)
 
 
