@@ -116,12 +116,12 @@ defmodule Trogon.Commanded.AggregateV2Test do
       end
       """)
 
-      capture_io(:stderr, fn ->
-        {pid, ref} = spawn_monitor(fn -> Kernel.ParallelCompiler.compile([path]) end)
+      stderr =
+        capture_io(:stderr, fn ->
+          assert {:error, [_ | _], _warnings} = Kernel.ParallelCompiler.compile([path], return_diagnostics: false)
+        end)
 
-        assert_receive {:DOWN, ^ref, :process, ^pid, {%CompileError{} = error, _stacktrace}}, 10_000
-        assert Exception.message(error) =~ "must use embedded_schema"
-      end)
+      assert stderr =~ "must use embedded_schema"
     end
   end
 

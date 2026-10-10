@@ -165,7 +165,7 @@ defmodule Trogon.Commanded.Aggregate do
       import Ecto.Schema, only: [embedded_schema: 1]
       import PolymorphicEmbed, only: [polymorphic_embeds_one: 2, polymorphic_embeds_many: 2]
 
-      @after_verify {Trogon.Commanded.Aggregate, :__reject_table_backed_schema__}
+      @after_compile {Trogon.Commanded.Aggregate, :__reject_table_backed_schema__}
       @derive Jason.Encoder
 
       @typedoc """
@@ -192,8 +192,10 @@ defmodule Trogon.Commanded.Aggregate do
   end
 
   @doc false
-  @spec __reject_table_backed_schema__(module()) :: :ok
-  def __reject_table_backed_schema__(module) do
+  @spec __reject_table_backed_schema__(Macro.Env.t(), binary()) :: :ok
+  def __reject_table_backed_schema__(%Macro.Env{module: module}, _bytecode) do
+    Code.ensure_compiled!(module)
+
     if function_exported?(module, :__schema__, 1) and module.__schema__(:source) do
       raise CompileError,
         description:
