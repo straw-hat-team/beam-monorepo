@@ -11,4 +11,7 @@ import Config
 
 if config_env() == :test do
   config :trogon_proto, Trogon.Proto.Env, system: Trogon.Proto.TestSupport.SystemAdapter.Mock
+
+  config :trogon_test, :seeded_value, "real value"
+  config :trogon_test, :seeded_list, a: 1, b: 2
 end
