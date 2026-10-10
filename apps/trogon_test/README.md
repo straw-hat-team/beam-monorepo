@@ -22,6 +22,8 @@ def deps do
 end
 ```
 
+Keep it `only: :test`. Nothing outside the test environment needs it: the facade below reads `Application` everywhere else, so `trogon_test` and Mox never ship with your release.
+
 ### Wire the facade
 
 Code that reads `Application` directly cannot be overridden per test. Read it through a module your project compiles in instead, `Application` itself in every environment but test:
