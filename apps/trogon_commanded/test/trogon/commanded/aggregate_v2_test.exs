@@ -101,6 +101,23 @@ defmodule Trogon.Commanded.AggregateV2Test do
 
       assert stderr =~ "undefined function schema/2"
     end
+
+    test "does not allow a table-backed schema declared through Ecto.Schema directly" do
+      quoted =
+        quote do
+          defmodule Trogon.Commanded.AggregateV2Test.QualifiedTableBacked do
+            use Trogon.Commanded.Aggregate, identifier: :uuid, features: [v2: true]
+
+            Ecto.Schema.schema "accounts" do
+              field :name, :string
+            end
+          end
+        end
+
+      error = assert_raise CompileError, fn -> Code.compile_quoted(quoted) end
+
+      assert Exception.message(error) =~ "must use embedded_schema"
+    end
   end
 
   describe "marshalling a v2 aggregate to and from JSON" do
