@@ -63,7 +63,10 @@ defmodule MyApp.BillingTest do
 
   test "charges the configured tax rate" do
     TestApplication.put_env(:my_app, :tax_rate, 0.07)
-    assert MyApp.Billing.tax_rate() == 0.07
+
+    tax_rate = MyApp.Billing.tax_rate()
+
+    assert tax_rate == 0.07
   end
 end
 ```

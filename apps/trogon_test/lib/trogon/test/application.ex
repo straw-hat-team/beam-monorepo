@@ -32,7 +32,10 @@ defmodule Trogon.Test.Application do
 
       test "charges the configured tax rate" do
         Trogon.Test.Application.put_env(:my_app, :tax_rate, 0.07)
-        assert MyApp.Billing.tax_rate() == 0.07
+
+        tax_rate = MyApp.Billing.tax_rate()
+
+        assert tax_rate == 0.07
       end
 
   The overrides are Mox stubs, so they reach the test's `$callers`, such as a
