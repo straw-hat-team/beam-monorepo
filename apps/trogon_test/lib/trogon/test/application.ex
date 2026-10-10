@@ -1,13 +1,16 @@
 defmodule Trogon.Test.Application do
   @moduledoc """
-  A per-test, async-safe stand-in for `Application`.
+  A Mox behaviour for the `Application` environment functions, with
+  `Trogon.Test.Application.Mock` as its mock and helpers that override config
+  for a single test.
 
   `Application.put_env/3` writes to the application controller's table, the same
   global, node-wide state every process reads from with `Application.get_env/2,3`.
   A test that calls it changes what every other test concurrently running reads,
   not only its own, so the test cannot run `async: true`, and the `on_exit` that
   restores the previous value races whatever else reads or writes the same key
-  while it runs.
+  while it runs. A Mox stub belongs to the test process instead, so an override
+  never leaves the test that made it.
 
   A project reads configuration through a facade it compiles in, `Application` in
   every environment but test:
@@ -20,25 +23,23 @@ defmodule Trogon.Test.Application do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp, application: Trogon.Test.Application
+      config :my_app, MyApp, application: Trogon.Test.Application.Mock
 
-  Each test then overrides the config it cares about, scoped to its own process:
+  Each test stubs the mock to read the real `Application`, then overrides the
+  config it cares about:
+
+      setup {Trogon.Test.Application, :stub}
 
       test "charges the configured tax rate" do
         Trogon.Test.Application.put_env(:my_app, :tax_rate, 0.07)
         assert MyApp.Billing.tax_rate() == 0.07
       end
 
-  The override belongs to the calling process, called the *owner*. It is visible
-  to the owner itself, to any of the owner's `$callers` (the process that started
-  a `Task`, for instance), and to a process named with `allow/2`. It is invisible
-  to every other process, and it disappears on its own when the owner exits, so
-  no test needs an `on_exit` callback to restore the value it changed.
-
-  Read functions fall through to the real `Application` once there is no
-  override for a key: `get_env/2`, `get_env/3`, `fetch_env/2`, `fetch_env!/2`, and
-  `get_all_env/1`. Write functions scope the change to the calling process:
-  `put_env/3`, `merge_env/3`, and `delete_env/2`.
+  The overrides are Mox stubs, so they reach the test's `$callers`, such as a
+  `Task`, and a process allowed with
+  `Mox.allow(Trogon.Test.Application.Mock, self(), pid)`. Call the write
+  functions from the test process itself, since a stub set from any other
+  process belongs to that process.
 
   > #### Do not alias this module without `as:` {: .warning}
   >
@@ -46,120 +47,37 @@ defmodule Trogon.Test.Application do
   > the rest of that file. Give it another name instead:
   >
   >     alias Trogon.Test.Application, as: TestApplication
-
-  ## Examples
-
-      iex> Trogon.Test.Application.get_env(:trogon_test, :does_not_exist, :default)
-      :default
-      iex> Trogon.Test.Application.put_env(:trogon_test, :does_not_exist, :overridden)
-      :ok
-      iex> Trogon.Test.Application.get_env(:trogon_test, :does_not_exist, :default)
-      :overridden
-      iex> Trogon.Test.Application.delete_env(:trogon_test, :does_not_exist)
-      :ok
-      iex> Trogon.Test.Application.get_env(:trogon_test, :does_not_exist, :default)
-      :default
-
   """
 
-  @ownership_server Trogon.Test.Ownership
-  @ownership_key __MODULE__
+  @overrides_key {__MODULE__, :overrides}
 
-  @typedoc "An application name, same as `t:Application.app/0`."
-  @type app :: atom()
+  @type app :: Application.app()
+  @type key :: Application.key()
+  @type value :: Application.value()
 
-  @typedoc "A configuration key, same as `t:Application.key/0`."
-  @type key :: atom()
-
-  @typedoc "A configuration value, same as `t:Application.value/0`."
-  @type value :: term()
-
-  @typedoc "A PID, or a zero-arity function that resolves to a PID or a list of PIDs."
-  @type allowed :: pid() | (-> pid() | [pid()])
+  @callback get_env(app(), key()) :: value()
+  @callback get_env(app(), key(), value()) :: value()
+  @callback fetch_env(app(), key()) :: {:ok, value()} | :error
+  @callback fetch_env!(app(), key()) :: value()
+  @callback get_all_env(app()) :: [{key(), value()}]
 
   @doc """
-  Returns the value for `key` in `app`'s environment.
+  Stubs `Trogon.Test.Application.Mock` to read the real `Application`.
 
-  Reads the override owned by `self()` or by any of its `$callers` first, and
-  falls through to `Application.get_env/3` when there is none.
+  Takes the test context so it can be given to `setup/1` as
+  `setup {Trogon.Test.Application, :stub}`.
   """
-  @spec get_env(app(), key(), value()) :: value()
-  def get_env(app, key, default \\ nil) do
-    case fetch_override(app, key) do
-      {:ok, {:value, value}} -> value
-      {:ok, :deleted} -> default
-      :error -> Application.get_env(app, key, default)
-    end
+  @spec stub(map()) :: :ok
+  def stub(_context \\ %{}) do
+    Process.delete(@overrides_key)
+    stub_overrides(%{})
   end
 
   @doc """
-  Returns the value for `key` in `app`'s environment, in a tuple.
+  Puts `value` in `key` for `app`, for the calling test alone.
 
-  Mirrors `Application.fetch_env/2`: returns `:error` when the configuration
-  parameter does not exist, considering an override that deletes it as not
-  existing.
-  """
-  @spec fetch_env(app(), key()) :: {:ok, value()} | :error
-  def fetch_env(app, key) do
-    case fetch_override(app, key) do
-      {:ok, {:value, value}} -> {:ok, value}
-      {:ok, :deleted} -> :error
-      :error -> Application.fetch_env(app, key)
-    end
-  end
-
-  @doc """
-  Returns the value for `key` in `app`'s environment, raising if missing.
-
-  Raises the same `ArgumentError` that `Application.fetch_env!/2` would raise.
-  """
-  @spec fetch_env!(app(), key()) :: value()
-  def fetch_env!(app, key) do
-    case fetch_env(app, key) do
-      {:ok, value} ->
-        value
-
-      :error ->
-        raise ArgumentError,
-              "could not fetch application environment #{inspect(key)} for application " <>
-                "#{inspect(app)} #{fetch_env_failed_reason(app, key)}"
-    end
-  end
-
-  @doc """
-  Returns all the key-value pairs for `app`.
-
-  Starts from `Application.get_all_env/1` and applies the override owned by
-  `self()` or any of its `$callers` on top, removing the keys an override
-  deleted.
-  """
-  @spec get_all_env(app()) :: [{key(), value()}]
-  def get_all_env(app) do
-    case fetch_override_app(app) do
-      {:ok, overrides} ->
-        app
-        |> Application.get_all_env()
-        |> Map.new()
-        |> apply_overrides(overrides)
-        |> Enum.to_list()
-
-      :error ->
-        Application.get_all_env(app)
-    end
-  end
-
-  @doc """
-  Puts `value` in `key` for `app`, for the calling process alone.
-
-  Same semantics as `Application.put_env/3`: the next read, from the owner or
-  from one of its `$callers`, sees `value` in place of whatever `key` held
-  before, until the owner changes or deletes it, or the owner exits.
-
-  Called from one of the owner's `$callers`, or from a process named with
-  `allow/2`, the write lands in the owner's overrides, so every process that
-  reads them sees it. With no owner yet, the outermost of the `$callers`, the
-  test process that started the `Task` for instance, becomes the owner. Every
-  write function behaves this way.
+  Same semantics as `Application.put_env/3`: `value` replaces whatever `key`
+  held before.
   """
   @spec put_env(app(), key(), value()) :: :ok
   def put_env(app, key, value) do
@@ -167,132 +85,111 @@ defmodule Trogon.Test.Application do
   end
 
   @doc """
-  Deep merges `value` onto the current effective value of `key` in `app`,
-  for the calling process alone.
+  Deep merges `value` onto the current value of `key` in `app`, for the calling
+  test alone.
 
-  Reads the current effective value the way `get_env/2` would, then merges
-  `value` onto it with `Config.Reader.merge/2`, the same function `mix`
-  itself uses to merge configuration files: keyword lists merge recursively,
-  key by key, and any other value is replaced outright.
+  Merges with `Config.Reader.merge/2`, the function `mix` uses to merge
+  configuration files: keyword lists merge recursively, and any other value is
+  replaced outright.
   """
   @spec merge_env(app(), key(), value()) :: :ok
   def merge_env(app, key, value) do
     update_override(app, key, fn current ->
-      current_value =
-        case current do
-          {:value, overridden} -> overridden
-          :deleted -> nil
-          nil -> Application.get_env(app, key)
-        end
-
-      left = if is_nil(current_value), do: [], else: [{key, current_value}]
-      merged = Config.Reader.merge([{app, left}], [{app, [{key, value}]}])
+      merged = Config.Reader.merge([{app, current_env(app, key, current)}], [{app, [{key, value}]}])
       {:value, get_in(merged, [app, key])}
     end)
   end
 
   @doc """
-  Deletes `key` from `app`'s environment, for the calling process alone.
-
-  The key reads as missing, through `get_env/2`, `fetch_env/2`, `fetch_env!/2`,
-  and `get_all_env/1`, to the owner and to its `$callers`, no matter what the
-  real `Application` holds for it. Every other process keeps reading the real
-  value.
+  Makes `key` in `app` read as missing, for the calling test alone.
   """
   @spec delete_env(app(), key()) :: :ok
   def delete_env(app, key) do
     update_override(app, key, fn _current -> :deleted end)
   end
 
-  @doc """
-  Lets `pid_or_lazy_fun` read the overrides owned by `owner` (`self()` by
-  default).
+  defp current_env(_app, key, {:value, value}), do: [{key, value}]
+  defp current_env(_app, _key, :deleted), do: []
 
-  Use this for a process `$callers` does not cover, such as a `GenServer`
-  started outside of a `Task`. `pid_or_lazy_fun` can be a PID, or a zero-arity
-  function returning a PID (or a list of PIDs) once the process exists, for
-  when it is not started yet at the point `allow/2` is called. Mirrors
-  `NimbleOwnership.allow/4`: allowing a PID already allowed through a
-  different owner, or allowing it while `owner` is not itself a valid owner
-  of another owner's override, returns an error.
-  """
-  @spec allow(pid(), allowed()) :: :ok | {:error, NimbleOwnership.Error.t()}
-  def allow(owner \\ self(), pid_or_lazy_fun) do
-    ensure_owner(owner)
-    NimbleOwnership.allow(@ownership_server, owner, pid_or_lazy_fun, @ownership_key)
-  end
-
-  defp update_override(app, key, fun) do
-    owner =
-      case fetch_owner() do
-        {:ok, owner} -> owner
-        :error -> List.last(callers())
-      end
-
-    @ownership_server
-    |> NimbleOwnership.get_and_update(owner, @ownership_key, fn overrides ->
-      overrides = overrides || %{}
-      app_overrides = Map.get(overrides, app, %{})
-      current = Map.get(app_overrides, key)
-      new_app_overrides = Map.put(app_overrides, key, fun.(current))
-      {:ok, Map.put(overrides, app, new_app_overrides)}
-    end)
-    |> case do
-      {:ok, :ok} -> :ok
-      {:error, %NimbleOwnership.Error{} = error} -> raise error
+  defp current_env(app, key, nil) do
+    case Application.fetch_env(app, key) do
+      {:ok, value} -> [{key, value}]
+      :error -> []
     end
   end
 
-  defp ensure_owner(owner) do
-    NimbleOwnership.get_and_update(@ownership_server, owner, @ownership_key, fn overrides ->
-      {:ok, overrides || %{}}
+  defp update_override(app, key, fun) do
+    overrides = Process.get(@overrides_key, %{})
+    current = get_in(overrides, [Access.key(app, %{}), key])
+    overrides = put_in(overrides, [Access.key(app, %{}), key], fun.(current))
+    Process.put(@overrides_key, overrides)
+    stub_overrides(overrides)
+  end
+
+  defp stub_overrides(overrides) do
+    __MODULE__.Mock
+    |> Mox.stub(:get_env, &get_env(overrides, &1, &2, nil))
+    |> Mox.stub(:get_env, &get_env(overrides, &1, &2, &3))
+    |> Mox.stub(:fetch_env, &fetch_env(overrides, &1, &2))
+    |> Mox.stub(:fetch_env!, fn app, key ->
+      case fetch_override(overrides, app, key) do
+        {:ok, value} ->
+          value
+
+        :deleted ->
+          raise ArgumentError,
+                "could not fetch application environment #{inspect(key)} for application " <>
+                  "#{inspect(app)} because configuration at #{inspect(key)} was not set"
+
+        :error ->
+          Application.fetch_env!(app, key)
+      end
+    end)
+    |> Mox.stub(:get_all_env, fn app ->
+      overrides
+      |> Map.get(app, %{})
+      |> Enum.reduce(Map.new(Application.get_all_env(app)), fn
+        {key, {:value, value}}, env -> Map.put(env, key, value)
+        {key, :deleted}, env -> Map.delete(env, key)
+      end)
+      |> Enum.to_list()
     end)
 
     :ok
   end
 
-  defp fetch_override(app, key) do
-    with {:ok, app_overrides} <- fetch_override_app(app),
-         {:ok, marker} <- Map.fetch(app_overrides, key) do
-      {:ok, marker}
-    else
-      _ -> :error
+  defp get_env(overrides, app, key, default) do
+    case fetch_override(overrides, app, key) do
+      {:ok, value} -> value
+      :deleted -> default
+      :error -> Application.get_env(app, key, default)
     end
   end
 
-  defp fetch_override_app(app) do
-    with {:ok, owner} <- fetch_owner(),
-         owned = NimbleOwnership.get_owned(@ownership_server, owner, %{}),
-         overrides = Map.get(owned, @ownership_key, %{}),
-         {:ok, app_overrides} <- Map.fetch(overrides, app) do
-      {:ok, app_overrides}
-    else
-      _ -> :error
+  defp fetch_env(overrides, app, key) do
+    case fetch_override(overrides, app, key) do
+      {:ok, value} -> {:ok, value}
+      :deleted -> :error
+      :error -> Application.fetch_env(app, key)
     end
   end
 
-  defp fetch_owner do
-    case NimbleOwnership.fetch_owner(@ownership_server, callers(), @ownership_key) do
-      {:ok, owner} -> {:ok, owner}
-      _ -> :error
-    end
-  end
-
-  defp callers do
-    [self() | Process.get(:"$callers", [])]
-  end
-
-  defp apply_overrides(env, overrides) do
-    Enum.reduce(overrides, env, fn
-      {key, {:value, value}}, acc -> Map.put(acc, key, value)
-      {key, :deleted}, acc -> Map.delete(acc, key)
-    end)
-  end
-
-  defp fetch_env_failed_reason(app, key) do
-    case :application.get_key(app, :vsn) do
-      {:ok, _} -> "because configuration at #{inspect(key)} was not set"
-      :undefined -> "because the application was not loaded nor configured"
+  defp fetch_override(overrides, app, key) do
+    case overrides |> Map.get(app, %{}) |> Map.fetch(key) do
+      {:ok, {:value, value}} -> {:ok, value}
+      {:ok, :deleted} -> :deleted
+      :error -> :error
     end
   end
 end
+
+Mox.defmock(Trogon.Test.Application.Mock,
+  for: Trogon.Test.Application,
+  moduledoc: """
+  The Mox mock for `Trogon.Test.Application`.
+
+  Stub it with `Trogon.Test.Application.stub/1`, then override keys with
+  `Trogon.Test.Application.put_env/3`, `Trogon.Test.Application.merge_env/3`, and
+  `Trogon.Test.Application.delete_env/2`.
+  """
+)

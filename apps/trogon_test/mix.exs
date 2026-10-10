@@ -13,7 +13,7 @@ defmodule Trogon.Test.MixProject do
       deps_path: "../../deps",
       lockfile: "../../mix.lock",
       name: "Trogon.Test",
-      description: "Shared ExUnit toolkit with per-process, async-safe stand-ins for global state",
+      description: "Shared ExUnit toolkit for isolated, async-safe tests",
       app: @app,
       version: @version,
       elixir: @elixir_version,
@@ -34,7 +34,6 @@ defmodule Trogon.Test.MixProject do
 
   def application do
     [
-      mod: {Trogon.Test.Supervisor, []},
       extra_applications: [:logger]
     ]
   end
@@ -44,7 +43,7 @@ defmodule Trogon.Test.MixProject do
 
   defp deps do
     [
-      {:nimble_ownership, "~> 1.0"},
+      {:mox, "~> 1.2"},
 
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
