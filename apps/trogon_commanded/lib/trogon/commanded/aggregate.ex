@@ -19,7 +19,8 @@ defmodule Trogon.Commanded.Aggregate do
 
   With `v2` enabled, aggregates keep the `embedded_schema` struct, the
   identifier, `identity_prefix/0`, the `Jason.Encoder` derivation, and the
-  `c:apply/2` fallback.
+  `c:apply/2` fallback. `Ecto.Schema.schema/2` is not imported, since an
+  aggregate is rebuilt from its events and never read from a table.
 
   The feature is read when your aggregate module compiles, through
   `Application.compile_env/4`, so Mix recompiles your aggregates when the value
@@ -161,6 +162,7 @@ defmodule Trogon.Commanded.Aggregate do
 
     quote generated: true do
       use Ecto.Schema
+      import Ecto.Schema, only: [embedded_schema: 1]
       import PolymorphicEmbed, only: [polymorphic_embeds_one: 2, polymorphic_embeds_many: 2]
 
       @derive Jason.Encoder

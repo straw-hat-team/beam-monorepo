@@ -81,6 +81,26 @@ defmodule Trogon.Commanded.AggregateV2Test do
         compile_aggregate(Trogon.Commanded.AggregateV2Test.MissingIdentifier, features: [v2: true])
       end
     end
+
+    test "does not allow a table-backed schema" do
+      quoted =
+        quote do
+          defmodule Trogon.Commanded.AggregateV2Test.TableBacked do
+            use Trogon.Commanded.Aggregate, identifier: :uuid, features: [v2: true]
+
+            schema "accounts" do
+              field :name, :string
+            end
+          end
+        end
+
+      stderr =
+        capture_io(:stderr, fn ->
+          assert_raise CompileError, fn -> Code.compile_quoted(quoted) end
+        end)
+
+      assert stderr =~ "undefined function schema/2"
+    end
   end
 
   describe "marshalling a v2 aggregate to and from JSON" do
