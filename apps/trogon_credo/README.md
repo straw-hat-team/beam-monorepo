@@ -57,6 +57,16 @@ plugins: [{Trogon.Credo.Plugin.Ecto, [except: [Trogon.Credo.Check.Ecto.RepoTrans
 
 To configure one of them differently, list it in `checks:` yourself. Your entry replaces the one the plugin would add, so `{Trogon.Credo.Check.Ecto.RepoTransact, false}` disables it, and a `# credo:disable-for-next-line Trogon.Credo.Check.Ecto.RepoTransact` comment silences a single line.
 
+### Keep tests from writing application env
+
+Add the ExUnit plugin, naming the seam your tests stub instead in `hint:`:
+
+```elixir
+plugins: [{Trogon.Credo.Plugin.ExUnit, [hint: "Read config through MyApp.Config and stub it per test."]}]
+```
+
+Every `Application.put_env`, `Application.put_all_env`, `Application.delete_env`, `:application.set_env`, and `:application.unset_env` call in a `*_test.exs` file or under `test/support` is reported, since application env is global to the node and a test that writes it changes config for every test running at the same time.
+
 ## References
 
 Every check documents what it flags and the parameters it accepts in its own
