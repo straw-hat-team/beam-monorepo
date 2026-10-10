@@ -19,7 +19,8 @@ defmodule Trogon.Commanded.Aggregate do
 
   With `v2` enabled, aggregates keep the `embedded_schema` struct, the
   identifier, `identity_prefix/0`, the `Jason.Encoder` derivation, and the
-  `c:apply/2` fallback.
+  `c:apply/2` fallback. `Ecto.Schema.schema/2` is not imported, since an
+  aggregate is rebuilt from its events and never read from a table.
 
   The feature is read when your aggregate module compiles, through
   `Application.compile_env/4`, so Mix recompiles your aggregates when the value
@@ -161,8 +162,10 @@ defmodule Trogon.Commanded.Aggregate do
 
     quote generated: true do
       use Ecto.Schema
+      import Ecto.Schema, only: [embedded_schema: 1]
       import PolymorphicEmbed, only: [polymorphic_embeds_one: 2, polymorphic_embeds_many: 2]
 
+      @after_compile {Trogon.Commanded.Aggregate, :__reject_table_backed_schema__}
       @derive Jason.Encoder
 
       @typedoc """
@@ -186,6 +189,20 @@ defmodule Trogon.Commanded.Aggregate do
         def deserialize(_aggregate, term), do: Ecto.embedded_load(@for, term, :json)
       end
     end
+  end
+
+  @doc false
+  @spec __reject_table_backed_schema__(Macro.Env.t(), binary()) :: :ok
+  def __reject_table_backed_schema__(%Macro.Env{module: module}, _bytecode) do
+    Code.ensure_compiled!(module)
+
+    if function_exported?(module, :__schema__, 1) and module.__schema__(:source) do
+      raise CompileError,
+        description:
+          "#{inspect(module)} must use embedded_schema, since an aggregate is rebuilt from its events and never read from a table"
+    end
+
+    :ok
   end
 
   defmacro __before_compile__(env) do

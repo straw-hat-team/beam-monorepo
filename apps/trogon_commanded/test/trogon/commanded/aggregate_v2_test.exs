@@ -81,6 +81,48 @@ defmodule Trogon.Commanded.AggregateV2Test do
         compile_aggregate(Trogon.Commanded.AggregateV2Test.MissingIdentifier, features: [v2: true])
       end
     end
+
+    test "does not allow a table-backed schema" do
+      quoted =
+        quote do
+          defmodule Trogon.Commanded.AggregateV2Test.TableBacked do
+            use Trogon.Commanded.Aggregate, identifier: :uuid, features: [v2: true]
+
+            schema "accounts" do
+              field :name, :string
+            end
+          end
+        end
+
+      stderr =
+        capture_io(:stderr, fn ->
+          assert_raise CompileError, fn -> Code.compile_quoted(quoted) end
+        end)
+
+      assert stderr =~ "undefined function schema/2"
+    end
+
+    @tag :tmp_dir
+    test "does not allow a table-backed schema declared through Ecto.Schema directly", %{tmp_dir: tmp_dir} do
+      path = Path.join(tmp_dir, "qualified_table_backed.ex")
+
+      File.write!(path, """
+      defmodule Trogon.Commanded.AggregateV2Test.QualifiedTableBacked do
+        use Trogon.Commanded.Aggregate, identifier: :uuid, features: [v2: true]
+
+        Ecto.Schema.schema "accounts" do
+          field :name, :string
+        end
+      end
+      """)
+
+      stderr =
+        capture_io(:stderr, fn ->
+          assert {:error, [_ | _], _warnings} = Kernel.ParallelCompiler.compile([path], return_diagnostics: false)
+        end)
+
+      assert stderr =~ "must use embedded_schema"
+    end
   end
 
   describe "marshalling a v2 aggregate to and from JSON" do
