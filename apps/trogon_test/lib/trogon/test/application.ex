@@ -81,7 +81,7 @@ defmodule Trogon.Test.Application do
   """
   @spec put_env(app(), key(), value()) :: :ok
   def put_env(app, key, value) do
-    update_override(app, key, fn _current -> {:value, value} end)
+    put_override(app, key, {:value, value})
   end
 
   @doc """
@@ -94,34 +94,35 @@ defmodule Trogon.Test.Application do
   """
   @spec merge_env(app(), key(), value()) :: :ok
   def merge_env(app, key, value) do
-    update_override(app, key, fn current ->
-      merged = Config.Reader.merge([{app, current_env(app, key, current)}], [{app, [{key, value}]}])
-      {:value, get_in(merged, [app, key])}
-    end)
+    current = overrides() |> fetch_override(app, key) |> current_env(app, key)
+    merged = Config.Reader.merge([{app, current}], [{app, [{key, value}]}])
+    put_override(app, key, {:value, get_in(merged, [app, key])})
   end
 
   @doc """
   Makes `key` in `app` read as missing, for the calling test alone.
+
+  `fetch_env!/2` on the mock then raises `Trogon.Test.Application.MissingEnvError`.
   """
   @spec delete_env(app(), key()) :: :ok
   def delete_env(app, key) do
-    update_override(app, key, fn _current -> :deleted end)
+    put_override(app, key, :deleted)
   end
 
-  defp current_env(_app, key, {:value, value}), do: [{key, value}]
-  defp current_env(_app, _key, :deleted), do: []
+  defp current_env({:ok, value}, _app, key), do: [{key, value}]
+  defp current_env(:deleted, _app, _key), do: []
 
-  defp current_env(app, key, nil) do
+  defp current_env(:error, app, key) do
     case Application.fetch_env(app, key) do
       {:ok, value} -> [{key, value}]
       :error -> []
     end
   end
 
-  defp update_override(app, key, fun) do
-    overrides = Process.get(@overrides_key, %{})
-    current = get_in(overrides, [Access.key(app, %{}), key])
-    overrides = put_in(overrides, [Access.key(app, %{}), key], fun.(current))
+  defp overrides, do: Process.get(@overrides_key, %{})
+
+  defp put_override(app, key, override) do
+    overrides = put_in(overrides(), [Access.key(app, %{}), key], override)
     Process.put(@overrides_key, overrides)
     stub_overrides(overrides)
   end
@@ -131,29 +132,8 @@ defmodule Trogon.Test.Application do
     |> Mox.stub(:get_env, &get_env(overrides, &1, &2, nil))
     |> Mox.stub(:get_env, &get_env(overrides, &1, &2, &3))
     |> Mox.stub(:fetch_env, &fetch_env(overrides, &1, &2))
-    |> Mox.stub(:fetch_env!, fn app, key ->
-      case fetch_override(overrides, app, key) do
-        {:ok, value} ->
-          value
-
-        :deleted ->
-          raise ArgumentError,
-                "could not fetch application environment #{inspect(key)} for application " <>
-                  "#{inspect(app)} because configuration at #{inspect(key)} was not set"
-
-        :error ->
-          Application.fetch_env!(app, key)
-      end
-    end)
-    |> Mox.stub(:get_all_env, fn app ->
-      overrides
-      |> Map.get(app, %{})
-      |> Enum.reduce(Map.new(Application.get_all_env(app)), fn
-        {key, {:value, value}}, env -> Map.put(env, key, value)
-        {key, :deleted}, env -> Map.delete(env, key)
-      end)
-      |> Enum.to_list()
-    end)
+    |> Mox.stub(:fetch_env!, &fetch_env!(overrides, &1, &2))
+    |> Mox.stub(:get_all_env, &get_all_env(overrides, &1))
 
     :ok
   end
@@ -173,6 +153,24 @@ defmodule Trogon.Test.Application do
       :error -> Application.fetch_env(app, key)
     end
   end
+
+  defp fetch_env!(overrides, app, key) do
+    case fetch_override(overrides, app, key) do
+      {:ok, value} -> value
+      :deleted -> raise __MODULE__.MissingEnvError, app: app, key: key
+      :error -> Application.fetch_env!(app, key)
+    end
+  end
+
+  defp get_all_env(overrides, app) do
+    overrides
+    |> Map.get(app, %{})
+    |> Enum.reduce(Map.new(Application.get_all_env(app)), &apply_override/2)
+    |> Enum.to_list()
+  end
+
+  defp apply_override({key, {:value, value}}, env), do: Map.put(env, key, value)
+  defp apply_override({key, :deleted}, env), do: Map.delete(env, key)
 
   defp fetch_override(overrides, app, key) do
     case overrides |> Map.get(app, %{}) |> Map.fetch(key) do

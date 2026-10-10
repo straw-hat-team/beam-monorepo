@@ -72,9 +72,12 @@ defmodule Trogon.Test.ApplicationTest do
       assert Mock.fetch_env(:trogon_test, :seeded_value) == :error
       refute Keyword.has_key?(Mock.get_all_env(:trogon_test), :seeded_value)
 
-      assert_raise ArgumentError, ~r/could not fetch application environment :seeded_value/, fn ->
-        Mock.fetch_env!(:trogon_test, :seeded_value)
-      end
+      error =
+        assert_raise TestApplication.MissingEnvError, fn ->
+          Mock.fetch_env!(:trogon_test, :seeded_value)
+        end
+
+      assert %{app: :trogon_test, key: :seeded_value} = error
     end
 
     test "put_env/3 brings the key back" do
