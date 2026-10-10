@@ -1,28 +1,33 @@
 defmodule Trogon.Test.ApplicationTest do
   use ExUnit.Case, async: true
 
+  import Mox
+
   alias Trogon.Test.Application, as: TestApplication
   alias Trogon.Test.Application.Mock
 
+  require TestApplication
+
+  setup :verify_on_exit!
   setup {TestApplication, :stub}
 
   describe "stub/1" do
     test "reads a configured key from the real Application env" do
-      value = Mock.get_env(:trogon_test, :seeded_value)
+      value = Mock.get_env(:trogon_test, :seeded_value, nil)
 
       assert value == "real value"
-    end
-
-    test "falls back to the default for a key the real env does not hold" do
-      value = Mock.get_env(:trogon_test, :does_not_exist, :default)
-
-      assert value == :default
     end
 
     test "fetches a configured key from the real Application env" do
       result = Mock.fetch_env(:trogon_test, :seeded_value)
 
       assert result == {:ok, "real value"}
+    end
+
+    test "fetches a configured key with fetch_env!/2 from the real Application env" do
+      value = Mock.fetch_env!(:trogon_test, :seeded_value)
+
+      assert value == "real value"
     end
 
     test "reads every key of the real Application env" do
@@ -32,140 +37,96 @@ defmodule Trogon.Test.ApplicationTest do
     end
   end
 
-  describe "put_env/3" do
-    test "replaces the value for the calling test" do
-      TestApplication.put_env(:trogon_test, :seeded_value, "overridden")
+  describe "expect_get_env/1" do
+    test "returns the expected value" do
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
 
-      value = Mock.fetch_env!(:trogon_test, :seeded_value)
+      value = Mock.get_env(:trogon_test, :seeded_value, :default)
 
       assert value == "overridden"
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value, :default)
     end
 
-    test "keeps earlier overrides of other keys" do
-      TestApplication.put_env(:trogon_test, :seeded_value, "overridden")
-      TestApplication.put_env(:trogon_test, :seeded_list, c: 3)
+    test "covers as many calls as times" do
+      TestApplication.expect_get_env(times: 2, returns: "overridden")
 
-      value = Mock.get_env(:trogon_test, :seeded_value)
+      values = [Mock.get_env(:trogon_test, :first, nil), Mock.get_env(:trogon_test, :second, nil)]
 
-      assert value == "overridden"
+      assert values == ["overridden", "overridden"]
+      TestApplication.assert_received_get_env(:trogon_test, :first)
+      TestApplication.assert_received_get_env(:trogon_test, :second)
+    end
+
+    test "rejects a call past times" do
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
+      Mock.get_env(:trogon_test, :seeded_value, nil)
+
+      assert_raise Mox.UnexpectedCallError, fn -> Mock.get_env(:trogon_test, :seeded_value, nil) end
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
     end
 
     test "leaves the real Application env untouched" do
-      TestApplication.put_env(:trogon_test, :seeded_value, "overridden")
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
+      Mock.get_env(:trogon_test, :seeded_value, nil)
 
       value = Application.get_env(:trogon_test, :seeded_value)
 
       assert value == "real value"
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
     end
   end
 
-  describe "merge_env/3" do
-    test "deep merges onto the real value" do
-      TestApplication.merge_env(:trogon_test, :seeded_list, b: 20, c: 3)
-
-      value = Mock.get_env(:trogon_test, :seeded_list)
-
-      assert value == [a: 1, b: 20, c: 3]
-    end
-
-    test "builds on an earlier override" do
-      TestApplication.merge_env(:trogon_test, :seeded_list, nested: [x: 1, y: 2])
-      TestApplication.merge_env(:trogon_test, :seeded_list, nested: [y: 20])
-
-      value = Mock.get_env(:trogon_test, :seeded_list)
-
-      assert value == [a: 1, b: 2, nested: [x: 1, y: 20]]
-    end
-
-    test "replaces a non-keyword value" do
-      TestApplication.merge_env(:trogon_test, :seeded_value, "replaced")
-
-      value = Mock.get_env(:trogon_test, :seeded_value)
-
-      assert value == "replaced"
-    end
-
-    test "merges onto nothing after delete_env/2" do
-      TestApplication.delete_env(:trogon_test, :seeded_list)
-      TestApplication.merge_env(:trogon_test, :seeded_list, c: 3)
-
-      value = Mock.get_env(:trogon_test, :seeded_list)
-
-      assert value == [c: 3]
-    end
-  end
-
-  describe "delete_env/2" do
-    test "makes get_env/3 fall back to the default" do
-      TestApplication.delete_env(:trogon_test, :seeded_value)
-
-      value = Mock.get_env(:trogon_test, :seeded_value, :default)
-
-      assert value == :default
-    end
-
-    test "makes fetch_env/2 report the key as missing" do
-      TestApplication.delete_env(:trogon_test, :seeded_value)
+  describe "expect_fetch_env/1" do
+    test "returns the expected result" do
+      TestApplication.expect_fetch_env(times: 1, returns: :error)
 
       result = Mock.fetch_env(:trogon_test, :seeded_value)
 
       assert result == :error
-    end
-
-    test "leaves the key out of get_all_env/1" do
-      TestApplication.delete_env(:trogon_test, :seeded_value)
-
-      env = Mock.get_all_env(:trogon_test)
-
-      refute Keyword.has_key?(env, :seeded_value)
-    end
-
-    test "makes fetch_env!/2 raise" do
-      TestApplication.delete_env(:trogon_test, :seeded_value)
-
-      assert_raise TestApplication.MissingEnvError,
-                   ":seeded_value was deleted from the :trogon_test application environment for this test",
-                   fn -> Mock.fetch_env!(:trogon_test, :seeded_value) end
-    end
-
-    test "is undone by put_env/3" do
-      TestApplication.delete_env(:trogon_test, :seeded_value)
-      TestApplication.put_env(:trogon_test, :seeded_value, "back")
-
-      value = Mock.get_env(:trogon_test, :seeded_value)
-
-      assert value == "back"
+      TestApplication.assert_received_fetch_env(:trogon_test, :seeded_value)
     end
   end
 
-  describe "get_all_env/1" do
-    test "applies overrides on top of the real env" do
-      TestApplication.put_env(:trogon_test, :seeded_value, "overridden")
-      TestApplication.put_env(:trogon_test, :extra, :added)
+  describe "expect_fetch_env!/1" do
+    test "returns the expected value" do
+      TestApplication.expect_fetch_env!(times: 1, returns: "overridden")
+
+      value = Mock.fetch_env!(:trogon_test, :seeded_value)
+
+      assert value == "overridden"
+      TestApplication.assert_received_fetch_env!(:trogon_test, :seeded_value)
+    end
+  end
+
+  describe "expect_get_all_env/1" do
+    test "returns the expected env" do
+      TestApplication.expect_get_all_env(times: 1, returns: [seeded_value: "overridden"])
 
       env = Mock.get_all_env(:trogon_test)
 
-      assert Enum.sort(env) == [extra: :added, seeded_list: [a: 1, b: 2], seeded_value: "overridden"]
+      assert env == [seeded_value: "overridden"]
+      TestApplication.assert_received_get_all_env(:trogon_test)
     end
   end
 
   describe "process ownership" do
     test "reaches the test's $callers" do
-      TestApplication.put_env(:trogon_test, :seeded_value, "overridden")
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
 
-      value = Task.await(Task.async(fn -> Mock.get_env(:trogon_test, :seeded_value) end))
+      value = Task.await(Task.async(fn -> Mock.get_env(:trogon_test, :seeded_value, nil) end))
 
       assert value == "overridden"
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
     end
 
     test "reaches a process allowed with Mox.allow/3" do
-      TestApplication.put_env(:trogon_test, :seeded_value, "overridden")
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
       parent = self()
 
       pid =
         spawn(fn ->
           receive do
-            :read -> send(parent, {:read, Mock.get_env(:trogon_test, :seeded_value)})
+            :read -> send(parent, {:read, Mock.get_env(:trogon_test, :seeded_value, nil)})
           end
         end)
 
@@ -174,6 +135,7 @@ defmodule Trogon.Test.ApplicationTest do
       send(pid, :read)
 
       assert_receive {:read, "overridden"}
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
     end
   end
 end
