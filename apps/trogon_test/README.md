@@ -75,12 +75,12 @@ Trogon.Test.allow(MyApp.Worker)
 start_supervised!(MyApp.Worker)
 ```
 
-## Report failures to a file
+## Report failures compactly
 
-`Trogon.Test.ReportFormatter` writes a compact plain-text report of the run to a file, for a tool or an agent to read instead of the terminal output. A run that passes writes one summary line. A failing test writes its location, the assertion or error that failed, the values the assertion compared that its code does not already show, its stacktrace without ExUnit's own frames, and the logs it captured. Run it next to the CLI formatter in `test/test_helper.exs`, so the terminal output stays the same:
+`Trogon.Test.ReportFormatter` writes a compact plain-text report of the run, for a tool or an agent to read instead of the CLI formatter's output. A run that passes writes one summary line. A failing test writes its location, the assertion or error that failed, the values the assertion compared that its code does not already show, its stacktrace without ExUnit's own frames, and the logs it captured. Run it in place of the CLI formatter, and the report goes to standard output, to read, pipe, or redirect like any other output:
 
-```elixir
-ExUnit.start(formatters: [ExUnit.CLIFormatter, Trogon.Test.ReportFormatter])
+```sh
+mix test --formatter Trogon.Test.ReportFormatter
 ```
 
-The report lands in `test-report.txt` by default, replaced on every run, so add it to `.gitignore`. The module documents the options for changing where it lands and whether captured logs are included.
+To keep the terminal output for people and write the report on the side, the module documents how to run it next to the CLI formatter with a `:path`.

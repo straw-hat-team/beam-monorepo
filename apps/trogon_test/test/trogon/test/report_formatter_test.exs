@@ -247,6 +247,17 @@ defmodule Trogon.Test.ReportFormatterTest do
   end
 
   describe "options" do
+    test "writes to standard output without a path" do
+      report =
+        ExUnit.CaptureIO.capture_io(fn ->
+          formatter = start_formatter([])
+          finish_test(formatter, passed())
+          finish_suite(formatter)
+        end)
+
+      assert report == "ALL PASSED | 1 tests, 1 passed | 5ms\n"
+    end
+
     test "writes to a path in a directory that does not exist yet", %{tmp_dir: tmp_dir} do
       path = Path.join([tmp_dir, "nested", "report.txt"])
 
@@ -263,7 +274,7 @@ defmodule Trogon.Test.ReportFormatterTest do
     end
 
     test "rejects a path that is not a string" do
-      assert_raise ArgumentError, ~r/:path to be a string/, fn ->
+      assert_raise ArgumentError, ~r/:path to be nil or a string/, fn ->
         ReportFormatter.init(trogon_test_report: [path: :report])
       end
     end

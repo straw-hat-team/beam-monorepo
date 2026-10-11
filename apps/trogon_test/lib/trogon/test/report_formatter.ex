@@ -1,7 +1,7 @@
 defmodule Trogon.Test.ReportFormatter do
   @moduledoc """
-  An ExUnit formatter that writes a compact plain-text report of the run to a
-  file, for a tool or an agent to read instead of the terminal output.
+  An ExUnit formatter that writes a compact plain-text report of the run, for a
+  tool or an agent to read instead of the CLI formatter's output.
 
   A passing test writes nothing, so a run that passes is one summary line. A
   failing test writes its location, the assertion or error that failed, the
@@ -9,10 +9,18 @@ defmodule Trogon.Test.ReportFormatter do
   stacktrace without ExUnit's own frames, and the logs it captured. A
   `setup_all` that fails is reported once, for its module.
 
-  Run it next to the CLI formatter in `test/test_helper.exs`, so the terminal
-  output stays the same:
+  Run it in place of the CLI formatter, and the report goes to standard output,
+  for the caller to read, pipe, or redirect like any other output:
 
-      ExUnit.start(formatters: [ExUnit.CLIFormatter, Trogon.Test.ReportFormatter])
+      mix test --formatter Trogon.Test.ReportFormatter
+
+  To keep the terminal output the same and read the report on the side, run it
+  next to the CLI formatter in `test/test_helper.exs` and give it a `:path`:
+
+      ExUnit.start(
+        formatters: [ExUnit.CLIFormatter, Trogon.Test.ReportFormatter],
+        trogon_test_report: [path: "tmp/test-report.txt"]
+      )
 
   A failing run writes:
 
@@ -28,14 +36,9 @@ defmodule Trogon.Test.ReportFormatter do
 
   Given under the `:trogon_test_report` key of the ExUnit configuration:
 
-      ExUnit.start(
-        formatters: [ExUnit.CLIFormatter, Trogon.Test.ReportFormatter],
-        trogon_test_report: [path: "tmp/test-report.txt", include_logs: false]
-      )
-
-    * `:path` - where the report is written, relative to the directory
-      `mix test` runs in. Defaults to `"test-report.txt"`. The file is
-      replaced on every run.
+    * `:path` - a file to write the report to instead of standard output,
+      relative to the directory `mix test` runs in. The file is replaced on
+      every run. Defaults to `nil`, standard output.
 
     * `:include_logs` - whether a failing test's captured logs are written
       under it. Defaults to `true`.
@@ -53,9 +56,8 @@ defmodule Trogon.Test.ReportFormatter do
   @impl GenServer
   def init(config) do
     {path, include_logs} = config |> Keyword.get(:trogon_test_report, []) |> options!()
-    path |> Path.dirname() |> File.mkdir_p!()
 
-    {:ok, %__MODULE__{device: File.open!(path, [:write, :utf8]), include_logs: include_logs, tally: %Tally{}}}
+    {:ok, %__MODULE__{device: open(path), include_logs: include_logs, tally: %Tally{}}}
   end
 
   @doc false
@@ -77,24 +79,34 @@ defmodule Trogon.Test.ReportFormatter do
 
   def handle_cast({:suite_finished, %{run: run_us}}, state) do
     write(state, Tally.format(state.tally, run_us))
-    File.close(state.device)
+    close(state.device)
     {:noreply, state}
   end
 
   def handle_cast(_event, state), do: {:noreply, state}
 
   defp options!(opts) do
-    opts = Keyword.validate!(opts, path: "test-report.txt", include_logs: true)
+    opts = Keyword.validate!(opts, path: nil, include_logs: true)
 
     case {opts[:path], opts[:include_logs]} do
-      {path, include_logs} when is_binary(path) and is_boolean(include_logs) ->
+      {path, include_logs} when (is_nil(path) or is_binary(path)) and is_boolean(include_logs) ->
         {path, include_logs}
 
       _invalid ->
         raise ArgumentError,
-              "expected :path to be a string and :include_logs a boolean, got: #{inspect(opts)}"
+              "expected :path to be nil or a string and :include_logs a boolean, got: #{inspect(opts)}"
     end
   end
+
+  defp open(nil), do: :stdio
+
+  defp open(path) do
+    path |> Path.dirname() |> File.mkdir_p!()
+    File.open!(path, [:write, :utf8])
+  end
+
+  defp close(:stdio), do: :ok
+  defp close(device), do: File.close(device)
 
   defp write(_state, nil), do: :ok
   defp write(state, iodata), do: IO.write(state.device, iodata)
