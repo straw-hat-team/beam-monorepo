@@ -1,7 +1,5 @@
 defmodule Trogon.Test.TestDateTime.DateTimeBehaviour do
-  @moduledoc """
-  The `DateTime` functions `Trogon.Test.MockDateTime` mocks.
-  """
+  @moduledoc false
 
   @callback utc_now() :: DateTime.t()
 end

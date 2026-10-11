@@ -103,6 +103,7 @@ defmodule Trogon.Test.MixProject do
       extras: [
         "README.md"
       ],
+      skip_code_autolink_to: &String.match?(&1, ~r/^c:Trogon\.Test\..+Behaviour\./),
       groups_for_extras: [
         "How-to": ~r/docs\/how-to\/.?/,
         Explanations: ~r/docs\/explanations\/.?/,

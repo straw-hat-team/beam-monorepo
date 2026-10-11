@@ -1,7 +1,5 @@
 defmodule Trogon.Test.TestProcess.ProcessBehaviour do
-  @moduledoc """
-  The `Process` functions `Trogon.Test.MockProcess` mocks.
-  """
+  @moduledoc false
 
   @callback send_after(dest :: pid() | atom(), msg :: term(), time :: non_neg_integer(), opts :: keyword()) ::
               reference()
