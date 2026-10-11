@@ -26,32 +26,34 @@ defmodule Trogon.Credo.Check.ExUnit.ApplicationEnvMutation do
       argument, one behind a boundary the project does not own, reads it through a facade
       the project compiles in: `Application` in every environment but test, and a mock a
       test can stub per process in test, so one test overrides one key without writing to
-      the table every other test reads too.
+      the table every other test reads too. `trogon_test` ships that mock, so the
+      project writes only the facade:
 
           # preferred
-          defmodule Acme.Config do
-            @application_mod Application.compile_env(:acme, :application_mod, Application)
+          defmodule Acme do
+            @application Application.compile_env(:acme, [__MODULE__, :application], Application)
 
-            defdelegate get_env(app, key, default \\\\ nil), to: @application_mod
+            defdelegate get_env(app, key, default \\\\ nil), to: @application
           end
 
           defmodule Acme.Billing do
             def tax_rate do
-              Acme.Config.get_env(:acme, :tax_rate, 0.0)
+              Acme.get_env(:acme, :tax_rate, 0.0)
             end
           end
 
+          # config/test.exs
+          config :acme, Acme, application: Trogon.Test.MockApplication
+
           defmodule Acme.BillingTest do
             use ExUnit.Case, async: true
-
-            setup do
-              Mox.stub_with(Acme.ConfigMock, Application)
-              Mox.stub(Acme.ConfigMock, :get_env, fn :acme, :tax_rate, _default -> 0.07 end)
-              :ok
-            end
+            use Trogon.Test
 
             test "charges the configured tax rate" do
+              TestApplication.expect_get_env(times: 1, returns: 0.07)
+
               assert Acme.Billing.tax_rate() == 0.07
+              TestApplication.assert_received_get_env(:acme, :tax_rate)
             end
           end
 

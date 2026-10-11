@@ -22,7 +22,8 @@ defmodule Trogon.Credo.Check.Commanded.SwappableNonDeterminism do
       `Ecto.UUID.generate/0` straight from a processor leaves no seam for a test to
       replace, so the rule is not "never", it is "never by calling the source directly":
       the value is read through a component the project can swap, a clock or an id
-      generator module, and the processor calls that instead.
+      generator module, and the processor calls that instead. `trogon_test` ships mocks
+      for `DateTime`, `:rand`, and `Uniq.UUID` that such a module can point at in test.
 
           # preferred
           defmodule Acme.Billing.EventHandler.InvoiceReminder do
