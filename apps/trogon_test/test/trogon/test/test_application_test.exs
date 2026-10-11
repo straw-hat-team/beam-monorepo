@@ -1,10 +1,10 @@
-defmodule Trogon.Test.ApplicationTest do
+defmodule Trogon.Test.TestApplicationTest do
   use ExUnit.Case, async: true
 
   import Mox
 
-  alias Trogon.Test.Application, as: TestApplication
-  alias Trogon.Test.Application.Mock
+  alias Trogon.Test.TestApplication
+  alias Trogon.Test.TestApplication.Mock
 
   require TestApplication
 

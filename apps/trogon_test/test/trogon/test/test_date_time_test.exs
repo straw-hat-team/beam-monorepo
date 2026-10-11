@@ -1,10 +1,10 @@
-defmodule Trogon.Test.DateTimeTest do
+defmodule Trogon.Test.TestDateTimeTest do
   use ExUnit.Case, async: true
 
   import Mox
 
-  alias Trogon.Test.DateTime, as: TestDateTime
-  alias Trogon.Test.DateTime.Mock
+  alias Trogon.Test.TestDateTime
+  alias Trogon.Test.TestDateTime.Mock
 
   require TestDateTime
 

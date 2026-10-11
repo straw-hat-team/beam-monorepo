@@ -1,7 +1,7 @@
-defmodule Trogon.Test.DateTime do
+defmodule Trogon.Test.TestDateTime do
   @moduledoc """
   A Mox behaviour for reading the current time, with
-  `Trogon.Test.DateTime.Mock` as its mock and helpers that expect a read and
+  `Trogon.Test.TestDateTime.Mock` as its mock and helpers that expect a read and
   assert it happened.
 
   Code that calls `DateTime.utc_now/0` directly returns a different value on
@@ -16,25 +16,25 @@ defmodule Trogon.Test.DateTime do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp, date_time: Trogon.Test.DateTime.Mock
+      config :my_app, MyApp, date_time: Trogon.Test.TestDateTime.Mock
 
   Each test stubs the mock to read the real clock, expects the reads it cares
   about with what they return, and asserts they happened:
 
       import Mox
 
-      require Trogon.Test.DateTime
+      require Trogon.Test.TestDateTime
 
       setup :verify_on_exit!
-      setup {Trogon.Test.DateTime, :stub}
+      setup {Trogon.Test.TestDateTime, :stub}
 
       test "stamps the invoice with the current time" do
-        Trogon.Test.DateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
+        Trogon.Test.TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
 
         invoice = MyApp.Billing.issue_invoice()
 
         assert invoice.issued_at == ~U[2026-01-01 00:00:00Z]
-        Trogon.Test.DateTime.assert_received_utc_now()
+        Trogon.Test.TestDateTime.assert_received_utc_now()
       end
 
   `expect_utc_now/1` takes:
@@ -45,17 +45,10 @@ defmodule Trogon.Test.DateTime do
   A call past `:times` raises `Mox.UnexpectedCallError`. Each expected call is
   recorded in the mailbox of the test that set it, for
   `assert_received_utc_now/0`, a macro that needs
-  `require Trogon.Test.DateTime`.
+  `require Trogon.Test.TestDateTime`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
-  allowed with `Mox.allow(Trogon.Test.DateTime.Mock, self(), pid)`.
-
-  > #### Do not alias this module without `as:` {: .warning}
-  >
-  > `alias Trogon.Test.DateTime` shadows the real `DateTime` module for the
-  > rest of that file. Give it another name instead:
-  >
-  >     alias Trogon.Test.DateTime, as: TestDateTime
+  allowed with `Mox.allow(Trogon.Test.TestDateTime.Mock, self(), pid)`.
   """
 
   alias Trogon.Test.Expectation
@@ -66,10 +59,10 @@ defmodule Trogon.Test.DateTime do
   @callback utc_now() :: DateTime.t()
 
   @doc """
-  Stubs `Trogon.Test.DateTime.Mock` to read the real clock.
+  Stubs `Trogon.Test.TestDateTime.Mock` to read the real clock.
 
   Takes the test context so it can be given to `setup/1` as
-  `setup {Trogon.Test.DateTime, :stub}`.
+  `setup {Trogon.Test.TestDateTime, :stub}`.
   """
   @spec stub(map()) :: :ok
   def stub(_context \\ %{}) do
@@ -95,25 +88,25 @@ defmodule Trogon.Test.DateTime do
   """
   defmacro assert_received_utc_now do
     quote do
-      ExUnit.Assertions.assert_received({Trogon.Test.DateTime, {:utc_now, []}})
+      ExUnit.Assertions.assert_received({Trogon.Test.TestDateTime, {:utc_now, []}})
     end
   end
 end
 
-defmodule Trogon.Test.DateTime.ElixirDateTime do
+defmodule Trogon.Test.TestDateTime.ElixirDateTime do
   @moduledoc false
-  @behaviour Trogon.Test.DateTime
+  @behaviour Trogon.Test.TestDateTime
 
   @impl true
   defdelegate utc_now(), to: DateTime
 end
 
-Mox.defmock(Trogon.Test.DateTime.Mock,
-  for: Trogon.Test.DateTime,
+Mox.defmock(Trogon.Test.TestDateTime.Mock,
+  for: Trogon.Test.TestDateTime,
   moduledoc: """
-  The Mox mock for `Trogon.Test.DateTime`.
+  The Mox mock for `Trogon.Test.TestDateTime`.
 
-  Stub it with `Trogon.Test.DateTime.stub/1`, then expect reads with
-  `Trogon.Test.DateTime.expect_utc_now/1`.
+  Stub it with `Trogon.Test.TestDateTime.stub/1`, then expect reads with
+  `Trogon.Test.TestDateTime.expect_utc_now/1`.
   """
 )

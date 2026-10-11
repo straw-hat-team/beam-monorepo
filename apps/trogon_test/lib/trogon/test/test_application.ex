@@ -1,7 +1,7 @@
-defmodule Trogon.Test.Application do
+defmodule Trogon.Test.TestApplication do
   @moduledoc """
   A Mox behaviour for the `Application` environment functions, with
-  `Trogon.Test.Application.Mock` as its mock and helpers that expect a read and
+  `Trogon.Test.TestApplication.Mock` as its mock and helpers that expect a read and
   assert on what it was given.
 
   `Application.put_env/3` writes to the application controller's table, the same
@@ -23,25 +23,25 @@ defmodule Trogon.Test.Application do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp, application: Trogon.Test.Application.Mock
+      config :my_app, MyApp, application: Trogon.Test.TestApplication.Mock
 
   Each test stubs the mock to read the real `Application`, expects the reads it
   cares about with what they return, and asserts on what they were given:
 
       import Mox
 
-      require Trogon.Test.Application
+      require Trogon.Test.TestApplication
 
       setup :verify_on_exit!
-      setup {Trogon.Test.Application, :stub}
+      setup {Trogon.Test.TestApplication, :stub}
 
       test "charges the configured tax rate" do
-        Trogon.Test.Application.expect_get_env(times: 1, returns: 0.07)
+        Trogon.Test.TestApplication.expect_get_env(times: 1, returns: 0.07)
 
         tax_rate = MyApp.Billing.tax_rate()
 
         assert tax_rate == 0.07
-        Trogon.Test.Application.assert_received_get_env(:my_app, :tax_rate)
+        Trogon.Test.TestApplication.assert_received_get_env(:my_app, :tax_rate)
       end
 
   Every `expect_*` function takes:
@@ -54,17 +54,10 @@ defmodule Trogon.Test.Application do
   `:times` raises `Mox.UnexpectedCallError`. Functions with no expectation keep
   reading the real `Application` through the stub. Each expected call is
   recorded in the mailbox of the test that set it, for the matching
-  `assert_received_*` macro, which needs `require Trogon.Test.Application`.
+  `assert_received_*` macro, which needs `require Trogon.Test.TestApplication`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
-  allowed with `Mox.allow(Trogon.Test.Application.Mock, self(), pid)`.
-
-  > #### Do not alias this module without `as:` {: .warning}
-  >
-  > `alias Trogon.Test.Application` shadows the real `Application` module for
-  > the rest of that file. Give it another name instead:
-  >
-  >     alias Trogon.Test.Application, as: TestApplication
+  allowed with `Mox.allow(Trogon.Test.TestApplication.Mock, self(), pid)`.
   """
 
   alias Trogon.Test.Expectation
@@ -82,10 +75,10 @@ defmodule Trogon.Test.Application do
   @callback get_all_env(app()) :: [{key(), value()}]
 
   @doc """
-  Stubs `Trogon.Test.Application.Mock` to read the real `Application`.
+  Stubs `Trogon.Test.TestApplication.Mock` to read the real `Application`.
 
   Takes the test context so it can be given to `setup/1` as
-  `setup {Trogon.Test.Application, :stub}`.
+  `setup {Trogon.Test.TestApplication, :stub}`.
   """
   @spec stub(map()) :: :ok
   def stub(_context \\ %{}) do
@@ -164,7 +157,7 @@ defmodule Trogon.Test.Application do
   """
   defmacro assert_received_get_env(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test.Application, {:get_env, [^app, ^key, _default]}})
+      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:get_env, [^app, ^key, _default]}})
     end
   end
 
@@ -173,7 +166,7 @@ defmodule Trogon.Test.Application do
   """
   defmacro assert_received_get_env(app, key, default) do
     quote bind_quoted: [app: app, key: key, default: default] do
-      ExUnit.Assertions.assert_received({Trogon.Test.Application, {:get_env, [^app, ^key, ^default]}})
+      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:get_env, [^app, ^key, ^default]}})
     end
   end
 
@@ -182,7 +175,7 @@ defmodule Trogon.Test.Application do
   """
   defmacro assert_received_fetch_env(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test.Application, {:fetch_env, [^app, ^key]}})
+      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:fetch_env, [^app, ^key]}})
     end
   end
 
@@ -191,7 +184,7 @@ defmodule Trogon.Test.Application do
   """
   defmacro assert_received_fetch_env!(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test.Application, {:fetch_env!, [^app, ^key]}})
+      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:fetch_env!, [^app, ^key]}})
     end
   end
 
@@ -200,14 +193,14 @@ defmodule Trogon.Test.Application do
   """
   defmacro assert_received_get_all_env(app) do
     quote bind_quoted: [app: app] do
-      ExUnit.Assertions.assert_received({Trogon.Test.Application, {:get_all_env, [^app]}})
+      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:get_all_env, [^app]}})
     end
   end
 end
 
-defmodule Trogon.Test.Application.ElixirApplication do
+defmodule Trogon.Test.TestApplication.ElixirApplication do
   @moduledoc false
-  @behaviour Trogon.Test.Application
+  @behaviour Trogon.Test.TestApplication
 
   @impl true
   defdelegate get_env(app, key, default), to: Application
@@ -222,12 +215,12 @@ defmodule Trogon.Test.Application.ElixirApplication do
   defdelegate get_all_env(app), to: Application
 end
 
-Mox.defmock(Trogon.Test.Application.Mock,
-  for: Trogon.Test.Application,
+Mox.defmock(Trogon.Test.TestApplication.Mock,
+  for: Trogon.Test.TestApplication,
   moduledoc: """
-  The Mox mock for `Trogon.Test.Application`.
+  The Mox mock for `Trogon.Test.TestApplication`.
 
-  Stub it with `Trogon.Test.Application.stub/1`, then expect reads with the
-  `Trogon.Test.Application` `expect_*` functions.
+  Stub it with `Trogon.Test.TestApplication.stub/1`, then expect reads with the
+  `Trogon.Test.TestApplication` `expect_*` functions.
   """
 )
