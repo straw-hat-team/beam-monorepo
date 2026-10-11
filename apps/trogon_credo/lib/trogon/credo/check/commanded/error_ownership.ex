@@ -111,6 +111,7 @@ defmodule Trogon.Credo.Check.Commanded.ErrorOwnership do
   alias Trogon.Credo.ModuleDeclaration
   alias Trogon.Credo.ModuleName
   alias Trogon.Credo.ModulePattern
+  alias Trogon.Credo.TestFile
 
   @message "Only the context that defines this error builds it; match on the error it " <>
              "returns instead of building it here."
@@ -122,7 +123,10 @@ defmodule Trogon.Credo.Check.Commanded.ErrorOwnership do
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    if test_file?(source_file.filename) do
+    # A test file stands in for the owner it stubs, since there is no way to make a
+    # test double match on an error the owner has not yet returned, and a file
+    # under `test/support` exists to build fixtures for the same reason.
+    if TestFile.test_file?(source_file.filename) do
       []
     else
       run_on_context(source_file, params)
@@ -146,21 +150,6 @@ defmodule Trogon.Credo.Check.Commanded.ErrorOwnership do
 
     Credo.Code.prewalk(source_file, &traverse(&1, &2, context), [])
   end
-
-  # A test file stands in for the owner it stubs, since there is no way to make a
-  # test double match on an error the owner has not yet returned, and a file
-  # under `test/support` exists to build fixtures for the same reason.
-  defp test_file?(filename) do
-    String.ends_with?(filename, "_test.exs") or test_support_file?(filename)
-  end
-
-  defp test_support_file?(filename) do
-    filename |> Path.split() |> under_test_support?()
-  end
-
-  defp under_test_support?(["test", "support" | _rest]), do: true
-  defp under_test_support?([_segment | rest]), do: under_test_support?(rest)
-  defp under_test_support?([]), do: false
 
   defp compile_owner!(pattern) do
     case ModulePattern.compile_owner_pattern(pattern) do
