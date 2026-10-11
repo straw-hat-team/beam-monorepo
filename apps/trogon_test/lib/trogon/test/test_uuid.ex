@@ -66,6 +66,8 @@ if Code.ensure_loaded?(Uniq.UUID) do
     alias Trogon.Test.Recorder
 
     @formats [:default, :raw, :hex, :urn, :slug]
+    # Never change this value: every UUID uuid5/1 returns derives from it, so a
+    # new namespace breaks every test that pinned one.
     @namespace "99ac87aa-bb2a-450c-9d9d-6f17084c27f6"
 
     @typedoc "Options every `expect_*` function takes."
