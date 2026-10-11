@@ -3,7 +3,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
 
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
-  alias TestSupport.CommandHandlerCaseFixtures.{
+  alias Trogon.Commanded.TestSupport.CommandHandlerCaseFixtures.{
     TestAggregate,
     TestCommand,
     TestEvent
@@ -133,7 +133,6 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
         )
       end
     end
-
   end
 
   defmodule PlainAggregate do

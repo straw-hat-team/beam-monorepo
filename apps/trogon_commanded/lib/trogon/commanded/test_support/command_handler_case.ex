@@ -50,8 +50,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
   use ExUnit.CaseTemplate
 
   alias Commanded.Aggregate.Multi
-  alias Commanded.Middleware.Pipeline
   alias Commanded.Middleware.ExtractAggregateIdentity
+  alias Commanded.Middleware.Pipeline
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
   using opts do
@@ -109,37 +109,51 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
   end
 
   def assert_events(initial_events, command, expected_events, aggregate_module, command_handler_module) do
-    run_and_assert(initial_events, command, aggregate_module, command_handler_module, fn
-      {:ok, _state, events} ->
-        assert List.wrap(events) == List.wrap(expected_events)
-
-      {:error, reason} ->
-        flunk("Expected success but got error: #{inspect(reason)}")
-    end)
+    initial_events
+    |> checked_run(command, aggregate_module, command_handler_module)
+    |> assert_events_result(expected_events)
   end
 
   def assert_state(initial_events, command, expected_state, aggregate_module, command_handler_module) do
-    run_and_assert(initial_events, command, aggregate_module, command_handler_module, fn
-      {:ok, state, _events} ->
-        assert state == expected_state
-
-      {:error, reason} ->
-        flunk("Expected success but got error: #{inspect(reason)}")
-    end)
+    initial_events
+    |> checked_run(command, aggregate_module, command_handler_module)
+    |> assert_state_result(expected_state)
   end
 
   def assert_error(initial_events, command, expected_error, aggregate_module, command_handler_module) do
-    run_and_assert(initial_events, command, aggregate_module, command_handler_module, fn
-      {:error, reason} -> assert reason == expected_error
-      {:ok, _state, _events} -> flunk("Expected error #{inspect(expected_error)}, but command succeeded")
-    end)
+    initial_events
+    |> checked_run(command, aggregate_module, command_handler_module)
+    |> assert_error_result(expected_error)
   end
 
-  defp run_and_assert(initial_events, command, aggregate_module, command_handler_module, assertion_fn) do
+  defp checked_run(initial_events, command, aggregate_module, command_handler_module) do
     assert is_list(initial_events), "Initial events must be a list of events"
     validate_identity_configuration(command, aggregate_module)
-    result = aggregate_run(aggregate_module, command_handler_module, initial_events, command)
-    assertion_fn.(result)
+    aggregate_run(aggregate_module, command_handler_module, initial_events, command)
+  end
+
+  defp assert_events_result({:ok, _state, events}, expected_events) do
+    assert List.wrap(events) == List.wrap(expected_events)
+  end
+
+  defp assert_events_result({:error, reason}, _expected_events) do
+    flunk("Expected success but got error: #{inspect(reason)}")
+  end
+
+  defp assert_state_result({:ok, state, _events}, expected_state) do
+    assert state == expected_state
+  end
+
+  defp assert_state_result({:error, reason}, _expected_state) do
+    flunk("Expected success but got error: #{inspect(reason)}")
+  end
+
+  defp assert_error_result({:error, reason}, expected_error) do
+    assert reason == expected_error
+  end
+
+  defp assert_error_result({:ok, _state, _events}, expected_error) do
+    flunk("Expected error #{inspect(expected_error)}, but command succeeded")
   end
 
   defp aggregate_run(aggregate_module, command_handler_module, initial_events, command) do
