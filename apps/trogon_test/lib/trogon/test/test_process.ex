@@ -36,8 +36,8 @@ defmodule Trogon.Test.TestProcess do
 
   `expect_send_after/1` takes:
 
-    * `:returns` - the timer reference the expected call returns. Defaults to a
-      new reference.
+    * `:returns` - the timer reference every expected call returns. Defaults to
+      a new reference for each call.
     * `:times` - how many calls the expectation covers. Defaults to `1`.
 
   `expect_sleep/1` takes `:times` and returns `:ok` without sleeping.
@@ -80,7 +80,7 @@ defmodule Trogon.Test.TestProcess do
   @spec expect_send_after(send_after_opts()) :: module()
   def expect_send_after(opts \\ []) do
     owner = self()
-    timer = opts |> Keyword.get_lazy(:returns, &make_ref/0) |> Expectation.accept!(&is_reference/1, "a reference")
+    timer = send_after_timer(opts)
 
     Mox.expect(MockProcess, :send_after, Expectation.times(opts), &record_send_after(owner, timer, &1, &2, &3, &4))
   end
@@ -130,18 +130,50 @@ defmodule Trogon.Test.TestProcess do
     end
   end
 
+  defp send_after_timer(opts) do
+    case Keyword.fetch(opts, :returns) do
+      {:ok, timer} ->
+        timer = Expectation.accept!(timer, &is_reference/1, "a reference")
+        fn -> timer end
+
+      :error ->
+        &make_ref/0
+    end
+  end
+
   defp record_send_after(owner, timer, dest, msg, time, opts) do
     check_dest!(dest)
-    check_time!(time)
     check_opts!(opts)
-    Expectation.record(owner, __MODULE__, {:send_after, [dest, msg, time, opts]}, timer)
+    check_time!(time, absolute?(opts))
+    Expectation.record(owner, __MODULE__, {:send_after, [dest, msg, time, opts]}, timer.())
   end
 
   defp check_dest!(dest) when is_pid(dest) or is_atom(dest), do: :ok
   defp check_dest!(dest), do: raise(ArgumentError, "expected dest to be a pid or an atom, got: #{inspect(dest)}")
 
-  defp check_time!(time) when is_integer(time) and time >= 0, do: :ok
-  defp check_time!(time), do: raise(ArgumentError, "expected time to be a non-negative integer, got: #{inspect(time)}")
+  defp check_time!(time, false) when is_integer(time) and time >= 0, do: :ok
+
+  defp check_time!(time, false),
+    do: raise(ArgumentError, "expected time to be a non-negative integer, got: #{inspect(time)}")
+
+  defp check_time!(time, true) when is_integer(time) do
+    if time >= vm_start_time() do
+      :ok
+    else
+      raise ArgumentError, "expected an absolute time to be no earlier than the VM start, got: #{inspect(time)}"
+    end
+  end
+
+  defp check_time!(time, true),
+    do: raise(ArgumentError, "expected an absolute time to be an integer, got: #{inspect(time)}")
+
+  defp vm_start_time do
+    System.convert_time_unit(:erlang.system_info(:start_time), :native, :millisecond)
+  end
+
+  defp absolute?(opts) do
+    opts |> Keyword.get_values(:abs) |> List.last(false)
+  end
 
   defp check_opts!(opts) do
     if is_list(opts) and Enum.all?(opts, &abs_option?/1) do

@@ -24,6 +24,9 @@ defmodule Trogon.Test.TestApplication do
 
       config :my_app, MyApp.Config, application: Trogon.Test.MockApplication
 
+  The mock has `get_env/3` and no `get_env/2`, so the facade always passes a
+  default, as the one above does through its default argument.
+
   `use Trogon.Test` stubs the mock to read the real `Application`. Each test
   expects the reads it cares about with what they return, and asserts on what
   they were given:

@@ -61,6 +61,29 @@ defmodule Trogon.Test.TestProcessTest do
       Trogon.Test.assert_empty_mailbox()
     end
 
+    test "returns a new reference for each call by default" do
+      TestProcess.expect_send_after(times: 2)
+
+      first = MockProcess.send_after(self(), :first, 1_000, [])
+      second = MockProcess.send_after(self(), :second, 1_000, [])
+
+      assert first != second
+      TestProcess.assert_received_send_after(self(), :first, 1_000)
+      TestProcess.assert_received_send_after(self(), :second, 1_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "returns the given reference for every call" do
+      timer = make_ref()
+      TestProcess.expect_send_after(times: 2, returns: timer)
+
+      assert MockProcess.send_after(self(), :first, 1_000, []) == timer
+      assert MockProcess.send_after(self(), :second, 1_000, []) == timer
+      TestProcess.assert_received_send_after(self(), :first, 1_000)
+      TestProcess.assert_received_send_after(self(), :second, 1_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "rejects a call past times" do
       TestProcess.expect_send_after(times: 1)
       MockProcess.send_after(self(), :tick, 1_000, [])
@@ -130,6 +153,40 @@ defmodule Trogon.Test.TestProcessTest do
 
       assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, 1_000, abs: 1) end
       assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, 1_000, abs: 1) end
+    end
+
+    test "accepts an absolute time from the monotonic clock, which can be negative, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+      time = System.monotonic_time(:millisecond)
+      Process.send_after(self(), :real_tick, time, abs: true)
+      assert_receive :real_tick
+
+      MockProcess.send_after(self(), :tick, time, abs: true)
+
+      TestProcess.assert_received_send_after(self(), :tick, time, abs: true)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects an absolute time before the VM start, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+      start = System.convert_time_unit(:erlang.system_info(:start_time), :native, :millisecond)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, start - 1, abs: true) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, start - 1, abs: true) end
+    end
+
+    test "rejects an absolute time that is not an integer, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, 1.5, abs: true) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, 1.5, abs: true) end
+    end
+
+    test "takes the last abs option, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, -1, abs: true, abs: false) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, -1, abs: true, abs: false) end
     end
 
     test "accepts a zero time, as Process.send_after/4 does" do
