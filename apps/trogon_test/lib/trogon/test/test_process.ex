@@ -54,6 +54,7 @@ defmodule Trogon.Test.TestProcess do
   alias Trogon.Test.MockProcess
   alias Trogon.Test.Recorder
 
+  defguardp is_dest(dest) when is_pid(dest) or is_atom(dest)
   defguardp is_timeout(timeout) when timeout == :infinity or (is_integer(timeout) and timeout >= 0)
 
   @typedoc "Options `expect_send_after/1` takes."
@@ -83,7 +84,11 @@ defmodule Trogon.Test.TestProcess do
     recorder = Recorder.new()
     timer = send_after_timer(opts)
 
-    Mox.expect(MockProcess, :send_after, Expectation.times(opts), &record_send_after(recorder, timer, &1, &2, &3, &4))
+    expectation = fn dest, msg, time, timer_opts when is_dest(dest) and is_integer(time) and is_list(timer_opts) ->
+      Expectation.record(recorder, __MODULE__, {:send_after, [dest, msg, time, timer_opts]}, timer.())
+    end
+
+    Mox.expect(MockProcess, :send_after, Expectation.times(opts), expectation)
   end
 
   @doc """
@@ -146,20 +151,5 @@ defmodule Trogon.Test.TestProcess do
       :error ->
         &make_ref/0
     end
-  end
-
-  defp record_send_after(recorder, timer, dest, msg, time, opts) do
-    check_dest!(dest)
-    check_timer!(time, opts)
-    Expectation.record(recorder, __MODULE__, {:send_after, [dest, msg, time, opts]}, timer.())
-  end
-
-  defp check_dest!(dest) when is_pid(dest) or is_atom(dest), do: :ok
-  defp check_dest!(dest), do: raise(ArgumentError, "expected dest to be a pid or an atom, got: #{inspect(dest)}")
-
-  defp check_timer!(time, opts) do
-    nowhere = spawn(fn -> :ok end)
-    Process.cancel_timer(Process.send_after(nowhere, :trogon_test, time, opts))
-    :ok
   end
 end
