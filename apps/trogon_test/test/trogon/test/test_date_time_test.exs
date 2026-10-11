@@ -60,6 +60,12 @@ defmodule Trogon.Test.TestDateTimeTest do
     end
   end
 
+  describe "returns" do
+    test "is required" do
+      assert_raise KeyError, fn -> TestDateTime.expect_utc_now(times: 1) end
+    end
+  end
+
   describe "process ownership" do
     test "reaches the test's $callers" do
       TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])

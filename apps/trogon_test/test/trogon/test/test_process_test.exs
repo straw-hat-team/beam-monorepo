@@ -189,6 +189,31 @@ defmodule Trogon.Test.TestProcessTest do
       assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, -1, abs: true, abs: false) end
     end
 
+    test "rejects an option other than abs, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, 1_000, foo: true) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, 1_000, foo: true) end
+    end
+
+    test "rejects options that are not a list, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, 1_000, %{abs: true}) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, 1_000, %{abs: true}) end
+    end
+
+    test "accepts a name nothing registered, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+      refute Process.whereis(__MODULE__.Nobody)
+      Process.cancel_timer(Process.send_after(__MODULE__.Nobody, :tick, 1_000))
+
+      MockProcess.send_after(__MODULE__.Nobody, :tick, 1_000, [])
+
+      TestProcess.assert_received_send_after(__MODULE__.Nobody, :tick, 1_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "accepts a zero time, as Process.send_after/4 does" do
       TestProcess.expect_send_after(times: 1)
       Process.send_after(self(), :real_tick, 0)
@@ -229,6 +254,28 @@ defmodule Trogon.Test.TestProcessTest do
 
       assert results == [:ok, :ok]
       TestProcess.assert_received_sleep(0)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "assert_received_*" do
+    test "fails on a call given other arguments" do
+      TestProcess.expect_send_after(times: 1)
+      TestProcess.expect_sleep(times: 1)
+
+      MockProcess.send_after(self(), :tick, 1_000, abs: false)
+      MockProcess.sleep(100)
+
+      assert_raise ExUnit.AssertionError, fn -> TestProcess.assert_received_send_after(self(), :tock, 1_000) end
+      assert_raise ExUnit.AssertionError, fn -> TestProcess.assert_received_send_after(self(), :tick, 2_000) end
+
+      assert_raise ExUnit.AssertionError, fn ->
+        TestProcess.assert_received_send_after(self(), :tick, 1_000, abs: true)
+      end
+
+      assert_raise ExUnit.AssertionError, fn -> TestProcess.assert_received_sleep(200) end
+      TestProcess.assert_received_send_after(self(), :tick, 1_000, abs: false)
+      TestProcess.assert_received_sleep(100)
       Trogon.Test.assert_empty_mailbox()
     end
   end

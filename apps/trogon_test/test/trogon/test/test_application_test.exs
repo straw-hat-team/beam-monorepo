@@ -85,6 +85,18 @@ defmodule Trogon.Test.TestApplicationTest do
     end
   end
 
+  describe "expect_fetch_env/1 with a value" do
+    test "returns the expected value" do
+      TestApplication.expect_fetch_env(times: 1, returns: {:ok, "overridden"})
+
+      result = MockApplication.fetch_env(:trogon_test, :seeded_value)
+
+      assert result == {:ok, "overridden"}
+      TestApplication.assert_received_fetch_env(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
   describe "expect_fetch_env!/1" do
     test "returns the expected value" do
       TestApplication.expect_fetch_env!(times: 1, returns: "overridden")
@@ -104,6 +116,82 @@ defmodule Trogon.Test.TestApplicationTest do
       env = MockApplication.get_all_env(:trogon_test)
 
       assert env == [seeded_value: "overridden"]
+      TestApplication.assert_received_get_all_env(:trogon_test)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "times" do
+    test "covers as many fetch_env/2 calls as times, and rejects one past it" do
+      TestApplication.expect_fetch_env(times: 2, returns: :error)
+
+      MockApplication.fetch_env(:trogon_test, :first)
+      MockApplication.fetch_env(:trogon_test, :second)
+
+      assert_raise Mox.UnexpectedCallError, fn -> MockApplication.fetch_env(:trogon_test, :third) end
+      TestApplication.assert_received_fetch_env(:trogon_test, :first)
+      TestApplication.assert_received_fetch_env(:trogon_test, :second)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "covers as many fetch_env!/2 calls as times, and rejects one past it" do
+      TestApplication.expect_fetch_env!(times: 2, returns: "overridden")
+
+      MockApplication.fetch_env!(:trogon_test, :first)
+      MockApplication.fetch_env!(:trogon_test, :second)
+
+      assert_raise Mox.UnexpectedCallError, fn -> MockApplication.fetch_env!(:trogon_test, :third) end
+      TestApplication.assert_received_fetch_env!(:trogon_test, :first)
+      TestApplication.assert_received_fetch_env!(:trogon_test, :second)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "covers as many get_all_env/1 calls as times, and rejects one past it" do
+      TestApplication.expect_get_all_env(times: 2, returns: [])
+
+      MockApplication.get_all_env(:first)
+      MockApplication.get_all_env(:second)
+
+      assert_raise Mox.UnexpectedCallError, fn -> MockApplication.get_all_env(:third) end
+      TestApplication.assert_received_get_all_env(:first)
+      TestApplication.assert_received_get_all_env(:second)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "returns" do
+    test "is required by every expectation" do
+      assert_raise KeyError, fn -> TestApplication.expect_get_env(times: 1) end
+      assert_raise KeyError, fn -> TestApplication.expect_fetch_env(times: 1) end
+      assert_raise KeyError, fn -> TestApplication.expect_fetch_env!(times: 1) end
+      assert_raise KeyError, fn -> TestApplication.expect_get_all_env(times: 1) end
+    end
+  end
+
+  describe "assert_received_*" do
+    test "fails on a call given other arguments" do
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
+      TestApplication.expect_fetch_env(times: 1, returns: :error)
+      TestApplication.expect_fetch_env!(times: 1, returns: "overridden")
+      TestApplication.expect_get_all_env(times: 1, returns: [])
+
+      MockApplication.get_env(:trogon_test, :seeded_value, :default)
+      MockApplication.fetch_env(:trogon_test, :seeded_value)
+      MockApplication.fetch_env!(:trogon_test, :seeded_value)
+      MockApplication.get_all_env(:trogon_test)
+
+      assert_raise ExUnit.AssertionError, fn -> TestApplication.assert_received_get_env(:trogon_test, :other) end
+
+      assert_raise ExUnit.AssertionError, fn ->
+        TestApplication.assert_received_get_env(:trogon_test, :seeded_value, :other)
+      end
+
+      assert_raise ExUnit.AssertionError, fn -> TestApplication.assert_received_fetch_env(:trogon_test, :other) end
+      assert_raise ExUnit.AssertionError, fn -> TestApplication.assert_received_fetch_env!(:trogon_test, :other) end
+      assert_raise ExUnit.AssertionError, fn -> TestApplication.assert_received_get_all_env(:other) end
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value, :default)
+      TestApplication.assert_received_fetch_env(:trogon_test, :seeded_value)
+      TestApplication.assert_received_fetch_env!(:trogon_test, :seeded_value)
       TestApplication.assert_received_get_all_env(:trogon_test)
       Trogon.Test.assert_empty_mailbox()
     end
