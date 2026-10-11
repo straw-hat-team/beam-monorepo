@@ -30,13 +30,13 @@ Code that calls `Application` or `DateTime` directly cannot be controlled per te
 
 ```elixir
 defmodule MyApp.Config do
-  @application Application.compile_env(:my_app, [MyApp, :application], Application)
+  @application Application.compile_env(:my_app, [__MODULE__, :application], Application)
 
   defdelegate get_env(app, key, default \\ nil), to: @application
 end
 
 defmodule MyApp.Clock do
-  @date_time Application.compile_env(:my_app, [MyApp, :date_time], DateTime)
+  @date_time Application.compile_env(:my_app, [__MODULE__, :date_time], DateTime)
 
   defdelegate utc_now(), to: @date_time
 end
@@ -50,9 +50,8 @@ Point each facade at its mock for the test environment:
 
 ```elixir
 # config/test.exs
-config :my_app, MyApp,
-  application: Trogon.Test.TestApplication.MockApplication,
-  date_time: Trogon.Test.TestDateTime.MockDateTime
+config :my_app, MyApp.Config, application: Trogon.Test.TestApplication.MockApplication
+config :my_app, MyApp.Clock, date_time: Trogon.Test.TestDateTime.MockDateTime
 ```
 
 Every other environment keeps calling the real modules, since the facade only swaps the module when the mock is configured.

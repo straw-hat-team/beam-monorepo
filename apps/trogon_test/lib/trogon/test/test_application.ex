@@ -16,14 +16,14 @@ defmodule Trogon.Test.TestApplication do
   every environment but test:
 
       defmodule MyApp.Config do
-        @application Application.compile_env(:my_app, [MyApp, :application], Application)
+        @application Application.compile_env(:my_app, [__MODULE__, :application], Application)
 
         defdelegate get_env(app, key, default \\\\ nil), to: @application
       end
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp, application: Trogon.Test.TestApplication.MockApplication
+      config :my_app, MyApp.Config, application: Trogon.Test.TestApplication.MockApplication
 
   Each test stubs the mock to read the real `Application`, expects the reads it
   cares about with what they return, and asserts on what they were given:

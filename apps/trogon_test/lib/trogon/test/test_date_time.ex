@@ -9,14 +9,14 @@ defmodule Trogon.Test.TestDateTime do
   facade the project compiles in, `DateTime` in every environment but test:
 
       defmodule MyApp.Clock do
-        @date_time Application.compile_env(:my_app, [MyApp, :date_time], DateTime)
+        @date_time Application.compile_env(:my_app, [__MODULE__, :date_time], DateTime)
 
         defdelegate utc_now(), to: @date_time
       end
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp, date_time: Trogon.Test.TestDateTime.MockDateTime
+      config :my_app, MyApp.Clock, date_time: Trogon.Test.TestDateTime.MockDateTime
 
   Each test stubs the mock to read the real clock, expects the reads it cares
   about with what they return, and asserts they happened:
