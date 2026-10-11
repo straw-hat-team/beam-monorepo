@@ -44,4 +44,20 @@ defmodule Trogon.ConfigurableTest do
   test "returns an empty configuration when nothing is configured" do
     assert Unconfigured.get_config() == []
   end
+
+  test "an unknown option fails the compilation" do
+    assert_raise NimbleOptions.ValidationError, ~r/unknown options \[:confg\]/, fn ->
+      defmodule Misspelled do
+        use Trogon.Configurable, confg: [site: "https://static.example"]
+      end
+    end
+  end
+
+  test "an option of the wrong type fails the compilation" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for :otp_app option/, fn ->
+      defmodule WrongType do
+        use Trogon.Configurable, otp_app: "my_app"
+      end
+    end
+  end
 end

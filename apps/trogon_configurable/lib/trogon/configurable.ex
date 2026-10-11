@@ -1,4 +1,16 @@
 defmodule Trogon.Configurable do
+  @options_schema NimbleOptions.new!(
+                    otp_app: [
+                      type: :atom,
+                      doc: "The OTP app whose environment holds the configuration, under the module's name."
+                    ],
+                    config: [
+                      type: :keyword_list,
+                      default: [],
+                      doc: "The static configuration."
+                    ]
+                  )
+
   @moduledoc """
   Defines a configurable module. A configurable module exposes a `get_config/1`
   function that returns its configuration, merged from three sources, where
@@ -8,6 +20,13 @@ defmodule Trogon.Configurable do
   * The `Config` of the OTP app, most likely used for environment-based values.
   * The `get_config/1` parameters, most likely used when you want to control
     the values at runtime.
+
+  The options are checked when the configurable module compiles, so a misspelled
+  or unknown option fails the build instead of being ignored.
+
+  ## Options
+
+  #{NimbleOptions.docs(@options_schema)}
 
   ### Static Configuration
 
@@ -65,6 +84,8 @@ defmodule Trogon.Configurable do
 
   defmacro __using__(opts) do
     quote do
+      Trogon.Configurable.validate_options!(unquote(opts))
+
       @doc """
       Returns the configuration for `#{inspect(__MODULE__)}`.
       """
@@ -74,6 +95,10 @@ defmodule Trogon.Configurable do
       end
     end
   end
+
+  @doc false
+  @spec validate_options!(keyword()) :: keyword()
+  def validate_options!(opts), do: NimbleOptions.validate!(opts, @options_schema)
 
   @doc false
   @spec get_config(module(), keyword(), keyword()) :: keyword()

@@ -39,6 +39,7 @@ defmodule Trogon.Configurable.MixProject do
 
   defp deps do
     [
+      {:nimble_options, "~> 1.0", runtime: false},
       {:trogon_test, in_umbrella: true, only: :test},
 
       # Tools
