@@ -4,6 +4,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
   alias Trogon.Commanded.TestSupport.CommandHandlerCaseFixtures.{
+    OtherPrefixAccount,
     TestAggregate,
     TestCommand,
     TestEvent
@@ -144,6 +145,17 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
 
     def execute(_aggregate, %CreateAccount{} = command) do
       %AccountCreated{uuid: command.uuid, name: command.name}
+    end
+  end
+
+  describe "an aggregate not loaded yet" do
+    test "still has its identity configuration validated" do
+      :code.purge(OtherPrefixAccount)
+      :code.delete(OtherPrefixAccount)
+
+      assert_raise ExUnit.AssertionError, ~r/Identity prefix mismatch/, fn ->
+        CommandHandlerCase.assert_events([], %CreateAccount{uuid: "test123", name: "Test"}, [], OtherPrefixAccount, nil)
+      end
     end
   end
 

@@ -234,6 +234,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
 
   defp validate_identity_configuration(command, aggregate_module) do
     command_module = command.__struct__
+    Code.ensure_loaded(command_module)
+    Code.ensure_loaded(aggregate_module)
 
     command_has_identity? =
       function_exported?(command_module, :aggregate_identifier, 0) and

@@ -116,4 +116,18 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixtures do
       %TestEvent{id: "single", name: "single_event"}
     end
   end
+
+  defmodule OtherPrefixAccount do
+    use Trogon.Commanded.Aggregate,
+      identifier: :uuid,
+      identity_prefix: "other-"
+
+    embedded_schema do
+      field :name, :string
+    end
+
+    def apply(aggregate, _event), do: aggregate
+
+    def execute(_aggregate, _command), do: []
+  end
 end
