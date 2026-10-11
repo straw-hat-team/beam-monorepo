@@ -45,6 +45,9 @@
     },
     "apps/trogon_test": {
       "component": "trogon_test"
+    },
+    "apps/trogon_configurable": {
+      "component": "trogon_configurable"
     }
   },
   "plugins": [
