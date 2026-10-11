@@ -109,6 +109,15 @@ defmodule Trogon.Test.AIFormatterTest do
       assert report =~ "  Showing 1 of 1 message in the mailbox\n  received: {:charged, 2}\n"
     end
 
+    test "writes a message in the mailbox without truncating it", %{tmp_dir: tmp_dir} do
+      send(self(), {:charged, Enum.to_list(1..100)})
+
+      report = run_failure(tmp_dir, fn -> assert_received {:charged, []} end)
+
+      assert report =~ "100]}\n"
+      refute report =~ "..."
+    end
+
     test "writes the message of an exception", %{tmp_dir: tmp_dir} do
       report = run_failure(tmp_dir, fn -> raise "boom" end)
 
@@ -318,6 +327,17 @@ defmodule Trogon.Test.AIFormatterTest do
 
       assert report =~ "FAIL test charges the configured tax rate %{currency: :usd}\n"
       assert report =~ "FAIL setup_all MyApp.BillingTest %{currency: :eur}\n"
+    end
+
+    test "writes the parameters without truncating them", %{tmp_dir: tmp_dir} do
+      parameters = %{rates: Enum.to_list(1..100)}
+
+      report =
+        run(tmp_dir, fn formatter ->
+          finish_test(formatter, %{failed([failure(fn -> raise "boom" end)]) | parameters: parameters})
+        end)
+
+      assert report =~ "FAIL test charges the configured tax rate #{inspect(parameters, limit: :infinity)}\n"
     end
   end
 

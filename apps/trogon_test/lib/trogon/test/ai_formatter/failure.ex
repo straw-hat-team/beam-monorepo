@@ -6,6 +6,7 @@ defmodule Trogon.Test.AIFormatter.Failure do
   @no_value :ex_unit_no_meaningful_value
   @indent "  "
   @compared [:==, :===]
+  @whole [limit: :infinity, printable_limit: :infinity]
 
   @spec format_test(ExUnit.Test.t(), Path.t(), boolean()) :: iodata() | nil
   def format_test(%ExUnit.Test{state: {:failed, failures}} = test, root, include_logs) do
@@ -33,7 +34,7 @@ defmodule Trogon.Test.AIFormatter.Failure do
   def format_module(%ExUnit.TestModule{}, _root), do: nil
 
   defp format_parameters(parameters) when map_size(parameters) == 0, do: []
-  defp format_parameters(parameters), do: [" ", inspect(parameters)]
+  defp format_parameters(parameters), do: [" ", inspect(parameters, @whole)]
 
   defp format_failures([failure], test_module, root), do: format_failure(failure, test_module, root)
 
@@ -95,7 +96,7 @@ defmodule Trogon.Test.AIFormatter.Failure do
 
   defp format_change({path, left, right}) do
     indent(
-      "at #{inspect(path, charlists: :as_lists)}\n  left:  #{format_changed(left)}\n  right: #{format_changed(right)}"
+      "at #{inspect(path, [charlists: :as_lists] ++ @whole)}\n  left:  #{format_changed(left)}\n  right: #{format_changed(right)}"
     )
   end
 
@@ -113,12 +114,12 @@ defmodule Trogon.Test.AIFormatter.Failure do
   defp format_side(_label, _value, true), do: []
   defp format_side(label, value, false), do: indent(label <> inspect_whole(value))
 
-  defp inspect_whole(value), do: inspect(value, pretty: true, limit: :infinity, printable_limit: :infinity)
+  defp inspect_whole(value), do: inspect(value, [pretty: true] ++ @whole)
 
   # ExUnit's message counts the messages in the mailbox, but only the context
   # holds them.
   defp format_mailbox({:mailbox, _pins, messages}) do
-    for message <- messages, do: indent("received: " <> inspect(message, limit: 50))
+    for message <- messages, do: indent("received: " <> inspect_whole(message))
   end
 
   defp format_mailbox(_context), do: []
