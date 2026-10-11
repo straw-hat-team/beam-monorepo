@@ -8,10 +8,6 @@
 
 **This is for teams that maintain more than one Elixir repository and want their test suites to run concurrently without each project rebuilding its own test support.** It pairs with `trogon_credo`'s check for application environment mutation in tests, which flags the same `Application.put_env/3` calls this package replaces.
 
-## How-to
-
-### Install trogon_test
-
 Add it to your test dependencies in `mix.exs`:
 
 ```elixir
@@ -24,7 +20,7 @@ end
 
 Keep it `only: :test`. Nothing outside the test environment needs it: each facade below reads the real module everywhere else, so `trogon_test` and Mox never ship with your release.
 
-### Wire a facade
+## Wire a facade
 
 Code that calls `Application` or `DateTime` directly cannot be controlled per test. Call them through a module your project compiles in instead, the real module in every environment but test:
 
@@ -44,7 +40,7 @@ end
 
 Call the facade from the rest of the project wherever it would otherwise call `Application.get_env/2,3` or `DateTime.utc_now/0`.
 
-### Configure config/test.exs
+## Configure config/test.exs
 
 Point each facade at its mock for the test environment:
 
@@ -56,7 +52,7 @@ config :my_app, MyApp.Clock, date_time: Trogon.Test.MockDateTime
 
 Every other environment keeps calling the real modules, since the facade only swaps the module when the mock is configured.
 
-### Expect a call in a test
+## Expect a call in a test
 
 Stub the mock in `setup`, expect the calls the test cares about with what they return, then assert on what they were given. Require each module for its `assert_received_*` macros, and `Trogon.Test` for `assert_empty_mailbox/0`. The `Test` prefix keeps an alias from shadowing the real `Application` or `DateTime`:
 
@@ -96,7 +92,7 @@ Every `expect_*` function takes `returns:`, the value the call returns, and `tim
 
 Each expected call is sent to the test process, so the matching `assert_received_*` macro checks what the code under test passed. Every mock sends under the same `Trogon.Test` tag, so `Trogon.Test.assert_empty_mailbox/0` at the end of the test fails on any call the test did not assert on, whichever mock recorded it. No `on_exit` callback is needed, since nothing outside the test process changed.
 
-### Allow a process
+## Allow a process
 
 A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` started with `start_link` for instance, does not, until the test allows it with `Mox.allow/3` on each mock it calls:
 
