@@ -8,8 +8,8 @@ defmodule Trogon.Test.Expectation do
   def returns!(opts), do: Keyword.fetch!(opts, :returns)
 
   @spec record(pid(), module(), {atom(), [term()]}, returns) :: returns when returns: term()
-  def record(owner, tag, operation, returns) do
-    send(owner, {tag, operation})
+  def record(owner, source, operation, returns) do
+    send(owner, {Trogon.Test, {source, operation}})
     returns
   end
 end

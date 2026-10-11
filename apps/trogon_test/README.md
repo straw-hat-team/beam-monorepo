@@ -58,7 +58,7 @@ Every other environment keeps calling the real modules, since the facade only sw
 
 ### Expect a call in a test
 
-Stub the mock in `setup`, expect the calls the test cares about with what they return, then assert on what they were given. Require each module for its `assert_received_*` macros. The `Test` prefix keeps an alias from shadowing the real `Application` or `DateTime`:
+Stub the mock in `setup`, expect the calls the test cares about with what they return, then assert on what they were given. Require each module for its `assert_received_*` macros, and `Trogon.Test` for `assert_empty_mailbox/0`. The `Test` prefix keeps an alias from shadowing the real `Application` or `DateTime`:
 
 ```elixir
 defmodule MyApp.BillingTest do
@@ -71,6 +71,7 @@ defmodule MyApp.BillingTest do
 
   require TestApplication
   require TestDateTime
+  require Trogon.Test
 
   setup :verify_on_exit!
   setup {TestApplication, :stub}
@@ -86,13 +87,14 @@ defmodule MyApp.BillingTest do
     assert invoice.issued_at == ~U[2026-01-01 00:00:00Z]
     TestApplication.assert_received_get_env(:my_app, :tax_rate)
     TestDateTime.assert_received_utc_now()
+    Trogon.Test.assert_empty_mailbox()
   end
 end
 ```
 
 Every `expect_*` function takes `returns:`, the value the call returns, and `times:`, how many calls it covers, `1` by default. An expectation covers every call to its function whatever arguments it is given, and a call past `times:` raises `Mox.UnexpectedCallError`. Functions with no expectation keep calling the real module through the stub.
 
-Each expected call is sent to the test process, so the matching `assert_received_*` macro checks what the code under test passed. No `on_exit` callback is needed, since nothing outside the test process changed.
+Each expected call is sent to the test process, so the matching `assert_received_*` macro checks what the code under test passed. Every mock sends under the same `Trogon.Test` tag, so `Trogon.Test.assert_empty_mailbox/0` at the end of the test fails on any call the test did not assert on, whichever mock recorded it. No `on_exit` callback is needed, since nothing outside the test process changed.
 
 ### Allow a process
 

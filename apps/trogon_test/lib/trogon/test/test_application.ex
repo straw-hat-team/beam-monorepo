@@ -30,6 +30,7 @@ defmodule Trogon.Test.TestApplication do
 
       import Mox
 
+      require Trogon.Test
       require Trogon.Test.TestApplication
 
       setup :verify_on_exit!
@@ -42,6 +43,7 @@ defmodule Trogon.Test.TestApplication do
 
         assert tax_rate == 0.07
         Trogon.Test.TestApplication.assert_received_get_env(:my_app, :tax_rate)
+        Trogon.Test.assert_empty_mailbox()
       end
 
   Every `expect_*` function takes:
@@ -158,7 +160,9 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_get_env(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:get_env, [^app, ^key, _default]}})
+      ExUnit.Assertions.assert_received(
+        {Trogon.Test, {Trogon.Test.TestApplication, {:get_env, [^app, ^key, _default]}}}
+      )
     end
   end
 
@@ -167,7 +171,9 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_get_env(app, key, default) do
     quote bind_quoted: [app: app, key: key, default: default] do
-      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:get_env, [^app, ^key, ^default]}})
+      ExUnit.Assertions.assert_received(
+        {Trogon.Test, {Trogon.Test.TestApplication, {:get_env, [^app, ^key, ^default]}}}
+      )
     end
   end
 
@@ -176,7 +182,7 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_fetch_env(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:fetch_env, [^app, ^key]}})
+      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:fetch_env, [^app, ^key]}}})
     end
   end
 
@@ -185,7 +191,7 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_fetch_env!(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:fetch_env!, [^app, ^key]}})
+      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:fetch_env!, [^app, ^key]}}})
     end
   end
 
@@ -194,7 +200,7 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_get_all_env(app) do
     quote bind_quoted: [app: app] do
-      ExUnit.Assertions.assert_received({Trogon.Test.TestApplication, {:get_all_env, [^app]}})
+      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:get_all_env, [^app]}}})
     end
   end
 end

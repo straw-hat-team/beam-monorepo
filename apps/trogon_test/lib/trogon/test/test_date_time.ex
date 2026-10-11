@@ -23,6 +23,7 @@ defmodule Trogon.Test.TestDateTime do
 
       import Mox
 
+      require Trogon.Test
       require Trogon.Test.TestDateTime
 
       setup :verify_on_exit!
@@ -35,6 +36,7 @@ defmodule Trogon.Test.TestDateTime do
 
         assert invoice.issued_at == ~U[2026-01-01 00:00:00Z]
         Trogon.Test.TestDateTime.assert_received_utc_now()
+        Trogon.Test.assert_empty_mailbox()
       end
 
   `expect_utc_now/1` takes:
@@ -89,7 +91,7 @@ defmodule Trogon.Test.TestDateTime do
   """
   defmacro assert_received_utc_now do
     quote do
-      ExUnit.Assertions.assert_received({Trogon.Test.TestDateTime, {:utc_now, []}})
+      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestDateTime, {:utc_now, []}}})
     end
   end
 end

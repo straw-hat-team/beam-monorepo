@@ -7,6 +7,7 @@ defmodule Trogon.Test.TestDateTimeTest do
   alias Trogon.Test.TestDateTime
 
   require TestDateTime
+  require Trogon.Test
 
   setup :verify_on_exit!
   setup {TestDateTime, :stub}
@@ -29,6 +30,7 @@ defmodule Trogon.Test.TestDateTimeTest do
 
       assert now == ~U[2026-01-01 00:00:00Z]
       TestDateTime.assert_received_utc_now()
+      Trogon.Test.assert_empty_mailbox()
     end
 
     test "covers as many calls as times" do
@@ -39,6 +41,7 @@ defmodule Trogon.Test.TestDateTimeTest do
       assert times == [~U[2026-01-01 00:00:00Z], ~U[2026-01-01 00:00:00Z]]
       TestDateTime.assert_received_utc_now()
       TestDateTime.assert_received_utc_now()
+      Trogon.Test.assert_empty_mailbox()
     end
 
     test "rejects a call past times" do
@@ -47,6 +50,7 @@ defmodule Trogon.Test.TestDateTimeTest do
 
       assert_raise Mox.UnexpectedCallError, fn -> MockDateTime.utc_now() end
       TestDateTime.assert_received_utc_now()
+      Trogon.Test.assert_empty_mailbox()
     end
 
     test "rejects a value that is not a DateTime" do
@@ -62,6 +66,7 @@ defmodule Trogon.Test.TestDateTimeTest do
 
       assert now == ~U[2026-01-01 00:00:00Z]
       TestDateTime.assert_received_utc_now()
+      Trogon.Test.assert_empty_mailbox()
     end
   end
 end

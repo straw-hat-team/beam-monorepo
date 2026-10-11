@@ -7,6 +7,7 @@ defmodule Trogon.Test.TestApplicationTest do
   alias Trogon.Test.TestApplication
 
   require TestApplication
+  require Trogon.Test
 
   setup :verify_on_exit!
   setup {TestApplication, :stub}
@@ -45,6 +46,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert value == "overridden"
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value, :default)
+      Trogon.Test.assert_empty_mailbox()
     end
 
     test "covers as many calls as times" do
@@ -55,6 +57,7 @@ defmodule Trogon.Test.TestApplicationTest do
       assert values == ["overridden", "overridden"]
       TestApplication.assert_received_get_env(:trogon_test, :first)
       TestApplication.assert_received_get_env(:trogon_test, :second)
+      Trogon.Test.assert_empty_mailbox()
     end
 
     test "rejects a call past times" do
@@ -63,6 +66,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert_raise Mox.UnexpectedCallError, fn -> MockApplication.get_env(:trogon_test, :seeded_value, nil) end
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
     end
 
     test "leaves the real Application env untouched" do
@@ -73,6 +77,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert value == "real value"
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
     end
   end
 
@@ -84,6 +89,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert result == :error
       TestApplication.assert_received_fetch_env(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
     end
   end
 
@@ -95,6 +101,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert value == "overridden"
       TestApplication.assert_received_fetch_env!(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
     end
   end
 
@@ -106,6 +113,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert env == [seeded_value: "overridden"]
       TestApplication.assert_received_get_all_env(:trogon_test)
+      Trogon.Test.assert_empty_mailbox()
     end
   end
 
@@ -117,6 +125,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert value == "overridden"
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
     end
 
     test "reaches a process allowed with Mox.allow/3" do
@@ -136,6 +145,7 @@ defmodule Trogon.Test.TestApplicationTest do
 
       assert_receive {:read, "overridden"}
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
     end
   end
 end
