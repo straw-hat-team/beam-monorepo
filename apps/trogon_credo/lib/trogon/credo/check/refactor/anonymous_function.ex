@@ -1,0 +1,177 @@
+defmodule Trogon.Credo.Check.Refactor.AnonymousFunction do
+  use Credo.Check,
+    base_priority: :low,
+    category: :refactor,
+    param_defaults: [
+      max_clauses: 0,
+      max_expressions: 0
+    ],
+    explanations: [
+      check: """
+      An anonymous function has no name, so nothing in the code says what it is
+      for. A named function does, it can be documented and tested on its own,
+      and it can be passed with a capture, which keeps the call site short.
+
+      The code in this example ...
+
+          Map.update(aliases, name, target, fn
+            ^target -> target
+            _other -> :ambiguous
+          end)
+
+      ... should be refactored to ...
+
+          Map.update(aliases, name, target, &merge_target(&1, target))
+
+          defp merge_target(target, target), do: target
+          defp merge_target(_existing, _target), do: :ambiguous
+
+      A capture is not reported when it says by name what it reaches for,
+      either a function, `&merge_target/2` and `&merge_target(&1, target)`, or a
+      field of its argument, `& &1.id` and `& &1.user.id`.
+
+      A capture that names nothing is reported like any other anonymous
+      function, whether it computes, `&(&1 * 2)`, builds a term, `&{&1, &1}`,
+      branches, `&(if &1, do: :ok)` and `&(case &1 do _ -> :ok end)`, or calls
+      the function it is handed, `& &1.()`. Otherwise writing
+      `fn item -> item * 2 end` as `&(&1 * 2)` would be enough to silence this
+      check without naming anything.
+
+      An anonymous function that returns its argument, `& &1` and
+      `fn value -> value end`, is reported with a message naming
+      `&Function.identity/1`, since the standard library already has a name for
+      it and there is nothing to extract.
+
+      Both parameters count against a single anonymous function, which is
+      reported when it exceeds either one. The defaults of `0` report every
+      anonymous function, so relaxing this check is a matter of raising the
+      limit that a project is willing to live with.
+
+      An anonymous function written inside a `quote` block is reported, since a
+      named function is still reachable from wherever the macro expands, as long
+      as it is a public function of the module that defines the macro.
+      """,
+      params: [
+        max_clauses: """
+        The number of clauses an anonymous function may have. The default `0`
+        reports every anonymous function, since every one of them has at least
+        one clause. Set it to `1` to report only an anonymous function that
+        pattern matches across several clauses.
+        """,
+        max_expressions: """
+        The number of expressions the body of any one clause may have. The
+        default `0` reports every anonymous function. Set it to `1` to allow a
+        single expression body, or to `:infinity` to leave body size alone.
+        """
+      ]
+    ]
+
+  @control_flow [:if, :unless]
+
+  @doc false
+  @impl true
+  def run(%SourceFile{} = source_file, params) do
+    issue_meta = IssueMeta.for(source_file, params)
+
+    limits = %{
+      max_clauses: Params.get(params, :max_clauses, __MODULE__),
+      max_expressions: Params.get(params, :max_expressions, __MODULE__)
+    }
+
+    Credo.Code.prewalk(source_file, &traverse(&1, &2, issue_meta, limits))
+  end
+
+  defp traverse({:fn, meta, clauses} = ast, issues, issue_meta, limits) when is_list(clauses) do
+    report_if_over_limit(ast, issues, issue_meta, meta, length(clauses), widest_body(clauses), limits)
+  end
+
+  defp traverse({:&, _meta, [position]} = ast, issues, _issue_meta, _limits)
+       when is_integer(position) do
+    {ast, issues}
+  end
+
+  defp traverse({:&, meta, [body]} = ast, issues, issue_meta, limits) do
+    if named?(body) do
+      {ast, issues}
+    else
+      report_if_over_limit(ast, issues, issue_meta, meta, 1, expressions(body), limits)
+    end
+  end
+
+  defp traverse(ast, issues, _issue_meta, _limits), do: {ast, issues}
+
+  defp report_if_over_limit(ast, issues, issue_meta, meta, clauses, expressions, limits) do
+    if over?(clauses, limits.max_clauses) or over?(expressions, limits.max_expressions) do
+      {ast, [issue_for(issue_meta, ast, meta) | issues]}
+    else
+      {ast, issues}
+    end
+  end
+
+  defp named?({:/, _meta, [{name, _, nil}, arity]})
+       when is_atom(name) and is_integer(arity) do
+    true
+  end
+
+  defp named?({:/, _meta, [{{:., _, [_module, name]}, _, []}, arity]})
+       when is_atom(name) and is_integer(arity) do
+    true
+  end
+
+  defp named?({{:., _meta, [_target, name]}, _call_meta, args})
+       when is_atom(name) and is_list(args) do
+    true
+  end
+
+  defp named?({name, _meta, args}) when is_atom(name) and is_list(args) do
+    arity = length(args)
+
+    not Macro.operator?(name, arity) and not Macro.special_form?(name, arity) and
+      name not in @control_flow
+  end
+
+  defp named?(_body), do: false
+
+  defp over?(_count, :infinity), do: false
+  defp over?(count, limit), do: count > limit
+
+  defp widest_body(clauses) do
+    Enum.reduce(clauses, 0, &max(body_size(&1), &2))
+  end
+
+  defp body_size({:->, _meta, [_args, body]}), do: expressions(body)
+  defp body_size(_clause), do: 0
+
+  defp expressions({:__block__, _meta, expressions}), do: length(expressions)
+  defp expressions(_body), do: 1
+
+  defp issue_for(issue_meta, ast, meta) do
+    format_issue(
+      issue_meta,
+      message: message_for(ast),
+      trigger: trigger_for(ast),
+      line_no: meta[:line],
+      column: meta[:column]
+    )
+  end
+
+  defp message_for(ast) do
+    if identity?(ast) do
+      "Prefer `&Function.identity/1` over an anonymous function that returns its argument."
+    else
+      "Prefer a named function over an anonymous function."
+    end
+  end
+
+  defp identity?({:&, _meta, [{:&, _position_meta, [1]}]}), do: true
+
+  defp identity?({:fn, _meta, [{:->, _clause_meta, [[{name, _, context}], {name, _, context}]}]})
+       when is_atom(name) and is_atom(context) do
+    true
+  end
+
+  defp identity?(_ast), do: false
+
+  defp trigger_for({:fn, _meta, _clauses}), do: "fn"
+  defp trigger_for({:&, _meta, _body}), do: "&"
+end

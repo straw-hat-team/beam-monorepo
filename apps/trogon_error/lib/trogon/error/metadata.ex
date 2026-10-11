@@ -1,0 +1,249 @@
+defmodule Trogon.Error.Metadata do
+  @moduledoc """
+  A structured container for error metadata with support for visibility controls.
+
+  This module provides a wrapper around metadata entries, where each entry
+  is a `MetadataValue` struct containing both the value and its visibility level.
+
+  ## Examples
+
+      iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123", "action" => "login"})
+      iex> metadata["user_id"].value
+      "123"
+      iex> metadata["user_id"].visibility
+      :INTERNAL
+
+  """
+
+  alias Trogon.Error.MetadataValue
+
+  @enforce_keys [:entries]
+  defstruct [:entries]
+
+  @type t :: %__MODULE__{entries: %{String.t() => MetadataValue.t()}}
+
+  @typedoc """
+  Raw input format for creating Metadata via `new/1`.
+
+  Values without explicit visibility default to `:INTERNAL`.
+  See `t:Trogon.Error.MetadataValue.raw/0` for value formats.
+
+      %{
+        "user_id" => "123",                  # visibility: :INTERNAL (default)
+        "api_key" => {"secret", :PRIVATE}    # visibility: :PRIVATE (explicit)
+      }
+  """
+  @type raw :: %{String.t() => MetadataValue.raw()}
+
+  @doc """
+  Guard that checks if metadata is empty (has no entries).
+
+  ## Examples
+
+      iex> import Trogon.Error.Metadata, only: [is_empty_metadata: 1]
+      iex> empty = Trogon.Error.Metadata.new()
+      iex> is_empty_metadata(empty)
+      true
+
+      iex> import Trogon.Error.Metadata, only: [is_empty_metadata: 1]
+      iex> with_data = Trogon.Error.Metadata.new(%{"key" => "value"})
+      iex> is_empty_metadata(with_data)
+      false
+
+  """
+  defguard is_empty_metadata(metadata) when is_struct(metadata, __MODULE__) and map_size(metadata.entries) == 0
+
+  @behaviour Access
+
+  @doc """
+  Fetches a metadata entry by key.
+
+  ## Examples
+
+      iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123"})
+      iex> Trogon.Error.Metadata.fetch(metadata, "user_id")
+      {:ok, %Trogon.Error.MetadataValue{value: "123", visibility: :INTERNAL}}
+
+      iex> metadata = Trogon.Error.Metadata.new(%{})
+      iex> Trogon.Error.Metadata.fetch(metadata, "missing")
+      :error
+
+  """
+  @impl Access
+  def fetch(%__MODULE__{entries: entries}, key) do
+    Map.fetch(entries, key)
+  end
+
+  @doc """
+  Gets and updates a metadata entry.
+
+  ## Examples
+
+      iex> metadata = Trogon.Error.Metadata.new(%{"count" => "1"})
+      iex> {old_value, new_metadata} = Trogon.Error.Metadata.get_and_update(metadata, "count", fn old ->
+      ...>   {old, %Trogon.Error.MetadataValue{value: "2", visibility: :INTERNAL}}
+      ...> end)
+      iex> old_value.value
+      "1"
+      iex> new_metadata["count"].value
+      "2"
+
+  """
+  @impl Access
+  def get_and_update(%__MODULE__{entries: entries} = metadata, key, fun) do
+    {value, new_entries} = Map.get_and_update(entries, key, fun)
+    {value, %{metadata | entries: new_entries}}
+  end
+
+  @doc """
+  Removes and returns a metadata entry by key.
+
+  ## Examples
+
+      iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123", "action" => "login"})
+      iex> {value, new_metadata} = Trogon.Error.Metadata.pop(metadata, "user_id")
+      iex> value.value
+      "123"
+      iex> map_size(new_metadata.entries)
+      1
+
+  """
+  @impl Access
+  def pop(%__MODULE__{entries: entries} = metadata, key) do
+    {value, new_entries} = Map.pop(entries, key)
+    {value, %{metadata | entries: new_entries}}
+  end
+
+  @doc """
+  Creates an empty Metadata struct.
+
+  ## Examples
+
+      iex> Trogon.Error.Metadata.new()
+      %Trogon.Error.Metadata{entries: %{}}
+
+  """
+  @spec new() :: t()
+  def new do
+    %__MODULE__{entries: %{}}
+  end
+
+  @doc """
+  Creates a Metadata struct from a map. See `t:raw/0` for accepted input formats.
+
+  ## Examples
+
+      iex> metadata = Trogon.Error.Metadata.new(%{"user_id" => "123", "secret" => {"api-key", :PRIVATE}})
+      iex> metadata["user_id"].visibility
+      :INTERNAL
+      iex> metadata["secret"].visibility
+      :PRIVATE
+
+  """
+  @spec new(%{term() => MetadataValue.t() | {term(), MetadataValue.visibility()} | term()}) :: t()
+  def new(entries) do
+    %__MODULE__{entries: Map.new(entries, &to_entry/1)}
+  end
+
+  @typedoc """
+  Value strategy from proto field options.
+
+  - `{:default, value}` — fallback when the runtime field is empty
+  - `{:fixed, value}` — always used, runtime field is ignored
+  - `nil` — use the runtime field value as-is
+  """
+  @type value_policy :: {:default, String.t()} | {:fixed, String.t()} | nil
+
+  @doc """
+  Creates a Metadata struct from precomputed field specs and a proto struct.
+
+  Each field spec is a `{json_name, atom_key, visibility, value_policy}` tuple
+  produced at compile time. Builds `MetadataValue` entries in a single pass.
+  """
+  @spec from_field_specs([{String.t(), atom(), MetadataValue.visibility(), value_policy()}], struct()) :: t()
+  def from_field_specs(field_specs, proto) when is_list(field_specs) and is_struct(proto) do
+    %__MODULE__{entries: Map.new(field_specs, &field_spec_to_entry(&1, proto))}
+  end
+
+  defp field_spec_to_entry({name, _atom_key, visibility, {:fixed, value}}, _proto) do
+    {name, %MetadataValue{value: value, visibility: visibility}}
+  end
+
+  defp field_spec_to_entry({name, atom_key, visibility, {:default, default}}, proto) do
+    value = Map.get(proto, atom_key)
+    value = if value in [nil, ""], do: default, else: value
+    {name, %MetadataValue{value: value, visibility: visibility}}
+  end
+
+  defp field_spec_to_entry({name, atom_key, visibility, nil}, proto) do
+    {name, %MetadataValue{value: Map.get(proto, atom_key), visibility: visibility}}
+  end
+
+  @doc """
+  Merges two Metadata structs. The second argument takes precedence for duplicate keys.
+
+  ## Examples
+
+      iex> metadata1 = Trogon.Error.Metadata.new(%{"user_id" => "123", "action" => "login"})
+      iex> metadata2 = Trogon.Error.Metadata.new(%{"user_id" => "456", "session" => "abc"})
+      iex> merged = Trogon.Error.Metadata.merge(metadata1, metadata2)
+      iex> merged["user_id"].value
+      "456"
+      iex> map_size(merged.entries)
+      3
+
+  """
+  @spec merge(t(), t()) :: t()
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2)
+      when map_size(m1.entries) == 0 and map_size(m2.entries) == 0,
+      do: %__MODULE__{entries: %{}}
+
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2) when map_size(m2.entries) == 0, do: m1
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2) when map_size(m1.entries) == 0, do: m2
+
+  def merge(%__MODULE__{} = m1, %__MODULE__{} = m2) do
+    %__MODULE__{entries: Map.merge(m1.entries, m2.entries)}
+  end
+
+  defp to_entry({key, %MetadataValue{} = value}) do
+    {entry_key(key), value}
+  end
+
+  defp to_entry({key, {value, visibility}}) do
+    {entry_key(key), MetadataValue.new(value, visibility)}
+  end
+
+  defp to_entry({key, value}) do
+    {entry_key(key), MetadataValue.new(value)}
+  end
+
+  defp entry_key(key) when is_binary(key), do: key
+  defp entry_key(key), do: to_string(key)
+end
+
+defimpl Enumerable, for: Trogon.Error.Metadata do
+  def count(%Trogon.Error.Metadata{entries: entries}) do
+    {:ok, map_size(entries)}
+  end
+
+  def member?(%Trogon.Error.Metadata{entries: entries}, {key, value}) do
+    {:ok, Map.has_key?(entries, key) and Map.get(entries, key) == value}
+  end
+
+  def member?(%Trogon.Error.Metadata{entries: entries}, key) when is_binary(key) do
+    {:ok, Map.has_key?(entries, key)}
+  end
+
+  def member?(_, _) do
+    {:ok, false}
+  end
+
+  def reduce(%Trogon.Error.Metadata{entries: entries}, acc, fun) do
+    Enumerable.Map.reduce(entries, acc, fun)
+  end
+
+  def slice(%Trogon.Error.Metadata{entries: entries}) do
+    entries_list = Map.to_list(entries)
+    {:ok, length(entries_list), &Enum.slice(entries_list, &1, &2)}
+  end
+end

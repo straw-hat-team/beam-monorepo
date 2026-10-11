@@ -9,10 +9,11 @@
 # move said applications out of the umbrella.
 import Config
 
-# Sample configuration:
-#
-#     config :logger, :console,
-#       level: :info,
-#       format: "$date $time [$level] $metadata$message\n",
-#       metadata: [:user_id]
-#
+if config_env() == :test do
+  config :trogon_proto, Trogon.Proto.Env, system: Trogon.Proto.TestSupport.SystemAdapter.Mock
+
+  config :trogon_configurable, Trogon.Configurable, application: Trogon.Test.MockApplication
+
+  config :trogon_test, :seeded_value, "real value"
+  config :trogon_test, :seeded_list, a: 1, b: 2
+end

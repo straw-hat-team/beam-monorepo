@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package acme.value_namespace.v1;
+
+import "trogon/uuid/v1/options.proto";
+
+// Per-value namespace override - takes precedence over enum and file level.
+message ValueNamespaceId {
+  enum IdentityVersion {
+    option (trogon.uuid.v1.enum).namespace = {dns: "enum-level.acme.com"};
+
+    IDENTITY_VERSION_UNSPECIFIED = 0;
+
+    // V1 uses the enum-level namespace (no override)
+    IDENTITY_VERSION_V1 = 1 [(trogon.uuid.v1.enum_value).format = {
+      template: "value/{value_id}"
+    }];
+
+    // V2 overrides with its own namespace
+    IDENTITY_VERSION_V2 = 2 [(trogon.uuid.v1.enum_value).format = {
+      namespace: {dns: "value-level.acme.com"}
+      template: "value/{value_id}"
+    }];
+  }
+
+  string value = 1;
+}

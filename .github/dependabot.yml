@@ -1,11 +1,16 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: '/'
+    directory: "/"
     schedule:
-      interval: 'daily'
+      interval: "daily"
 
   - package-ecosystem: mix
-    directory: '/'
+    directory: "/"
     schedule:
       interval: daily
+    groups:
+      prod:
+        dependency-type: production
+      dev:
+        dependency-type: development

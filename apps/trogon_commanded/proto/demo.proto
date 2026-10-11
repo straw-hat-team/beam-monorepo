@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package trogon.commanded.demo;
+
+message AccountOpened {
+  string id = 1;
+  string account_number = 2;
+}
+
+message AccountClosed {
+  string id = 1;
+}
+
+message TransferInitiated {
+  string id = 1;
+  string from_account = 2;
+  string to_account = 3;
+  int64 amount = 4;
+}

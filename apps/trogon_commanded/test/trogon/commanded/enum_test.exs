@@ -1,0 +1,291 @@
+defmodule Trogon.Commanded.EnumTest do
+  use ExUnit.Case, async: true
+
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountType
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.ObjectTypeEnum
+  alias Trogon.Commanded.TestSupport.CommandRouterExample.ObjectTypeExceptUnspecifiedEnum
+
+  describe "new/1" do
+    test "returns a value object" do
+      assert {:ok, value} = BankAccountType.new(:business)
+      assert value == %BankAccountType{value: :business}
+    end
+
+    test "returns a value object when passing a map" do
+      assert {:ok, value} = BankAccountType.new(%{value: :business})
+      assert value == %BankAccountType{value: :business}
+    end
+
+    test "returns an error when a validation fails" do
+      assert {:error, changeset} = BankAccountType.new(nil)
+      assert %{value: ["can't be blank"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
+    end
+
+    test "with an invalid value" do
+      assert {:error, changeset} = BankAccountType.new(:invalid)
+      assert %{value: ["is invalid"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
+    end
+  end
+
+  describe "new!/1" do
+    test "creates a value object" do
+      assert %BankAccountType{value: :business} = BankAccountType.new!(:business)
+    end
+
+    test "creates a value object when passing a map" do
+      assert %BankAccountType{value: :business} = BankAccountType.new!(%{value: :business})
+    end
+
+    test "raises an error when a validation fails" do
+      assert_raise Ecto.InvalidChangesetError, fn ->
+        BankAccountType.new!(nil)
+      end
+    end
+
+    test "raises an error with an invalid value" do
+      assert_raise Ecto.InvalidChangesetError, fn ->
+        BankAccountType.new!(:invalid)
+      end
+    end
+  end
+
+  test "values/0" do
+    assert BankAccountType.values() == [:business, :personal]
+  end
+
+  test "specific enum values" do
+    assert BankAccountType.business() == %BankAccountType{value: :business}
+    assert BankAccountType.personal() == %BankAccountType{value: :personal}
+  end
+
+  describe "type/1" do
+    test "returns the type of the enum" do
+      assert BankAccountType.type() == :string
+    end
+  end
+
+  describe "cast/1" do
+    test "casts a map" do
+      assert BankAccountType.cast(%{value: :business}) == {:ok, %BankAccountType{value: :business}}
+    end
+
+    test "casts atom values" do
+      assert BankAccountType.cast(:business) == {:ok, %BankAccountType{value: :business}}
+      assert BankAccountType.cast(:personal) == {:ok, %BankAccountType{value: :personal}}
+      assert BankAccountType.cast(:invalid) == :error
+    end
+
+    test "casts string values" do
+      assert BankAccountType.cast("business") == {:ok, %BankAccountType{value: :business}}
+      assert BankAccountType.cast("personal") == {:ok, %BankAccountType{value: :personal}}
+      assert BankAccountType.cast("invalid") == :error
+    end
+
+    test "casts existing struct" do
+      existing = %BankAccountType{value: :business}
+      assert BankAccountType.cast(existing) == {:ok, existing}
+    end
+  end
+
+  describe "load/1" do
+    test "loads string values" do
+      assert BankAccountType.load("business") == {:ok, %BankAccountType{value: :business}}
+      assert BankAccountType.load("personal") == {:ok, %BankAccountType{value: :personal}}
+      assert BankAccountType.load("invalid") == :error
+    end
+
+    test "returns error for non-string values" do
+      assert BankAccountType.load(:business) == :error
+      assert BankAccountType.load(123) == :error
+      assert BankAccountType.load(%{}) == :error
+    end
+  end
+
+  describe "dump/1" do
+    test "dumps struct to string" do
+      assert BankAccountType.dump(%BankAccountType{value: :business}) == {:ok, "business"}
+      assert BankAccountType.dump(%BankAccountType{value: :personal}) == {:ok, "personal"}
+    end
+
+    test "returns error for invalid values" do
+      assert BankAccountType.dump(%BankAccountType{value: :invalid}) == :error
+      assert BankAccountType.dump("business") == :error
+      assert BankAccountType.dump(:business) == :error
+      assert BankAccountType.dump(%{}) == :error
+    end
+  end
+
+  describe "equal?/2" do
+    test "returns true for matching values" do
+      assert BankAccountType.equal?(%BankAccountType{value: :business}, %BankAccountType{value: :business})
+      assert BankAccountType.equal?(%BankAccountType{value: :personal}, %BankAccountType{value: :personal})
+    end
+
+    test "returns false for different values" do
+      refute BankAccountType.equal?(%BankAccountType{value: :business}, %BankAccountType{value: :personal})
+    end
+
+    test "returns false for non-struct values" do
+      refute BankAccountType.equal?(%BankAccountType{value: :business}, :business)
+      refute BankAccountType.equal?(:business, %BankAccountType{value: :business})
+      refute BankAccountType.equal?("business", "business")
+    end
+  end
+
+  describe "Jason.Encoder" do
+    test "encodes to the value" do
+      assert Jason.encode!(%BankAccountType{value: :business}) == ~s("business")
+    end
+  end
+
+  test "works with embedded schemas" do
+    expected_value = %Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountOpened{
+      uuid: "123",
+      type: %Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountOpened.BankAccountType{value: :business}
+    }
+
+    given_value =
+      Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountOpened.new!(%{
+        uuid: "123",
+        type: Trogon.Commanded.TestSupport.CommandRouterExample.BankAccountType.new!(:business)
+      })
+
+    assert expected_value == given_value
+  end
+
+  describe "proto-driven enum" do
+    test "values/0 returns proto enum values sorted by number" do
+      assert ObjectTypeEnum.values() == [
+               :OBJECT_TYPE_UNSPECIFIED,
+               :OBJECT_TYPE_TICKET,
+               :OBJECT_TYPE_WORKSPACE
+             ]
+    end
+
+    test "new/1 with a valid proto enum value" do
+      assert {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}} =
+               ObjectTypeEnum.new(:OBJECT_TYPE_TICKET)
+    end
+
+    test "new/1 with an invalid value" do
+      assert {:error, changeset} = ObjectTypeEnum.new(:INVALID)
+      assert %{value: ["is invalid"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
+    end
+
+    test "cast/1 with atom" do
+      assert ObjectTypeEnum.cast(:OBJECT_TYPE_TICKET) ==
+               {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}}
+    end
+
+    test "cast/1 with string" do
+      assert ObjectTypeEnum.cast("OBJECT_TYPE_TICKET") ==
+               {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}}
+    end
+
+    test "load/1 with string" do
+      assert ObjectTypeEnum.load("OBJECT_TYPE_TICKET") ==
+               {:ok, %ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}}
+    end
+
+    test "dump/1" do
+      assert ObjectTypeEnum.dump(%ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}) ==
+               {:ok, "OBJECT_TYPE_TICKET"}
+    end
+
+    test "Jason.Encoder" do
+      assert Jason.encode!(%ObjectTypeEnum{value: :OBJECT_TYPE_TICKET}) ==
+               ~s("OBJECT_TYPE_TICKET")
+    end
+  end
+
+  describe "filtered proto-driven enum" do
+    test "values/0 drops the values given to :except" do
+      assert ObjectTypeExceptUnspecifiedEnum.values() == [
+               :OBJECT_TYPE_TICKET,
+               :OBJECT_TYPE_WORKSPACE
+             ]
+    end
+
+    test "new/1 rejects a value dropped by :except" do
+      assert {:error, changeset} = ObjectTypeExceptUnspecifiedEnum.new(:OBJECT_TYPE_UNSPECIFIED)
+      assert %{value: ["is invalid"]} = Trogon.Commanded.TestSupport.errors_on(changeset)
+    end
+
+    test "cast/1 rejects the string form of a value dropped by :except" do
+      assert ObjectTypeExceptUnspecifiedEnum.cast("OBJECT_TYPE_UNSPECIFIED") == :error
+    end
+
+    test "load/1 rejects the string form of a value dropped by :except" do
+      assert ObjectTypeExceptUnspecifiedEnum.load("OBJECT_TYPE_UNSPECIFIED") == :error
+    end
+
+    test "raises when :except names a value the proto enum does not define" do
+      assert_raise ArgumentError, ~r/does not define the enum values: \[:OBJECT_TYPE_MISSING\]/, fn ->
+        defmodule UnknownExceptEnum do
+          use Trogon.Commanded.Enum,
+            proto: {Acme.Type.V1.ObjectType, except: [:OBJECT_TYPE_MISSING]}
+        end
+      end
+    end
+
+    test "raises when :except leaves no values" do
+      assert_raise ArgumentError, ~r/left an empty enum/, fn ->
+        defmodule EmptyProtoEnum do
+          use Trogon.Commanded.Enum,
+            proto:
+              {Acme.Type.V1.ObjectType,
+               except: [
+                 :OBJECT_TYPE_UNSPECIFIED,
+                 :OBJECT_TYPE_TICKET,
+                 :OBJECT_TYPE_WORKSPACE
+               ]}
+        end
+      end
+    end
+
+    test "raises on an unknown :proto option" do
+      assert_raise ArgumentError, ~r/unknown option :drop/, fn ->
+        defmodule UnknownProtoOptionEnum do
+          use Trogon.Commanded.Enum,
+            proto: {Acme.Type.V1.ObjectType, drop: [:OBJECT_TYPE_UNSPECIFIED]}
+        end
+      end
+    end
+
+    test "raises when :proto is not a protobuf enum module" do
+      assert_raise ArgumentError, ~r/expected :proto to be a protobuf enum module/, fn ->
+        defmodule NotAProtoEnum do
+          use Trogon.Commanded.Enum, proto: Trogon.Commanded.TestSupport
+        end
+      end
+    end
+
+    test "raises when both :values and :proto are given" do
+      assert_raise ArgumentError, ~r/expected either :values or :proto, got both/, fn ->
+        defmodule ValuesAndProtoEnum do
+          use Trogon.Commanded.Enum,
+            values: [:business],
+            proto: Acme.Type.V1.ObjectType
+        end
+      end
+    end
+
+    test "raises when :values is given alongside a nil :proto" do
+      assert_raise ArgumentError, ~r/expected either :values or :proto, got both/, fn ->
+        defmodule ValuesAndNilProtoEnum do
+          use Trogon.Commanded.Enum,
+            values: [:business],
+            proto: nil
+        end
+      end
+    end
+
+    test "raises when :proto is nil" do
+      assert_raise ArgumentError, ~r/expected :proto to be a protobuf enum module, got: nil/, fn ->
+        defmodule NilProtoEnum do
+          use Trogon.Commanded.Enum, proto: nil
+        end
+      end
+    end
+  end
+end

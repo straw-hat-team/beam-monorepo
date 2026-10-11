@@ -1,0 +1,1115 @@
+defmodule Trogon.ErrorTest do
+  alias Trogon.Error.TestSupport
+  alias Trogon.Error.{Metadata, MetadataValue}
+
+  use ExUnit.Case, async: true
+  doctest Trogon.Error
+
+  test "creates error with default values" do
+    error = TestSupport.TestError.new!()
+    assert error.__exception__ == true
+    assert error.specversion == 1
+    assert error.code == :UNKNOWN
+    assert error.message == "unknown error"
+    assert error.domain == "com.test.app"
+    assert error.reason == "TEST_ERROR"
+    assert error.metadata == %Trogon.Error.Metadata{entries: %{}}
+    assert error.causes == []
+    assert error.visibility == :INTERNAL
+    refute error.subject
+    refute error.id
+    refute error.time
+  end
+
+  test "creates error with custom values" do
+    error = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123"}))
+    assert error.code == :UNKNOWN
+    assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :INTERNAL}}}
+    assert error.visibility == :INTERNAL
+  end
+
+  test "both exception/1 and new!/1 work identically" do
+    opts = [metadata: Metadata.new(%{key: "value"})]
+    error1 = TestSupport.TestError.exception(opts)
+    error2 = TestSupport.TestError.new!(opts)
+    assert error1 == error2
+    assert error1.code == :UNKNOWN
+    assert error1.message == "unknown error"
+    assert error1.metadata == %Metadata{entries: %{"key" => %MetadataValue{value: "value", visibility: :INTERNAL}}}
+  end
+
+  test "converts atom messages to strings at compile time" do
+    cancelled_error = TestSupport.CancelledError.new!()
+    assert cancelled_error.message == "the operation was cancelled"
+    not_found_error = TestSupport.NotFoundError.new!(metadata: Metadata.new(%{resource_id: "user:123"}))
+    assert not_found_error.message == "resource not found"
+
+    assert not_found_error.metadata ==
+             %Metadata{
+               entries: %{
+                 "resource" => %MetadataValue{value: "user", visibility: :INTERNAL},
+                 "resource_id" => %MetadataValue{value: "user:123", visibility: :INTERNAL}
+               }
+             }
+  end
+
+  test "uses string messages directly at compile time" do
+    error = TestSupport.CustomMessageError.new!()
+    assert error.message == "This is a custom string message"
+  end
+
+  test "creates validation error with subject" do
+    error =
+      TestSupport.ValidationError.new!(
+        subject: "/data/currency",
+        metadata: Metadata.new(%{valid_currencies: "[\"USD\", \"EUR\"]"})
+      )
+
+    assert error.subject == "/data/currency"
+    assert error.domain == "com.test.app"
+    assert error.reason == "VALIDATION_FAILED"
+
+    assert error.metadata ==
+             %Metadata{
+               entries: %{
+                 "valid_currencies" => %MetadataValue{value: "[\"USD\", \"EUR\"]", visibility: :INTERNAL}
+               }
+             }
+  end
+
+  test "wraps causes in a validation error" do
+    currency_error =
+      TestSupport.InvalidCurrencyError.new!(
+        subject: "/data/currency",
+        metadata: Metadata.new(%{valid_currencies: "[\"USD\"]"})
+      )
+
+    test_error = TestSupport.TestError.new!()
+
+    validation_error =
+      TestSupport.ValidationError.new!(
+        code: :INVALID_ARGUMENT,
+        causes: [currency_error, test_error]
+      )
+
+    assert length(validation_error.causes) == 2
+    assert hd(validation_error.causes) == currency_error
+    assert hd(tl(validation_error.causes)) == test_error
+    assert hd(validation_error.causes).subject == "/data/currency"
+  end
+
+  test "wraps an error as a cause" do
+    original_error = TestSupport.TestError.new!(code: :NOT_FOUND)
+    wrapped_error = TestSupport.PreconditionError.new!(causes: [original_error])
+    assert wrapped_error.code == :FAILED_PRECONDITION
+    assert wrapped_error.message == "failed precondition"
+    assert length(wrapped_error.causes) == 1
+    assert hd(wrapped_error.causes) == original_error
+  end
+
+  test "creates error with all optional fields" do
+    time = DateTime.utc_now()
+
+    error =
+      TestSupport.TestError.new!(
+        id: "err-123",
+        time: time,
+        source_id: "instance-abc",
+        localized_message: %{locale: "fr-CA", message: "Service non disponible"},
+        retry_info: %{retry_offset: Duration.new!(second: 60)},
+        debug_info: %{
+          stack_entries: ["line 1", "line 2"],
+          detail: "Request processing failed at validation step"
+        }
+      )
+
+    assert error.id == "err-123"
+    assert error.time == time
+    assert error.source_id == "instance-abc"
+    assert error.localized_message == %{locale: "fr-CA", message: "Service non disponible"}
+    assert error.retry_info.retry_offset == Duration.new!(second: 60)
+    assert error.debug_info.detail == "Request processing failed at validation step"
+  end
+
+  test "uses compile-time defaults" do
+    error = TestSupport.CompileTimeError.new!()
+    assert error.code == :NOT_FOUND
+    assert error.message == "This is a compile-time message"
+    assert error.visibility == :INTERNAL
+  end
+
+  test "uses compile-time help option" do
+    error = TestSupport.HelpfulError.new!()
+
+    assert error.help == %{
+             links: [
+               %{description: "API Docs", url: "https://example.com/docs"}
+             ]
+           }
+  end
+
+  test "raises error with default values" do
+    assert_raise TestSupport.TestError, fn ->
+      raise TestSupport.TestError
+    end
+  end
+
+  test "raises error with metadata" do
+    assert_raise TestSupport.TestError, fn ->
+      raise TestSupport.TestError, metadata: Metadata.new(%{request_id: "abc123"})
+    end
+  end
+
+  test "raises error with runtime options" do
+    try do
+      raise TestSupport.TestError,
+        metadata: Metadata.new(%{user_id: "123"}),
+        subject: "/users/123"
+    rescue
+      error in TestSupport.TestError ->
+        assert error.code == :UNKNOWN
+        assert error.message == "unknown error"
+        assert error.metadata == %Metadata{entries: %{"user_id" => %MetadataValue{value: "123", visibility: :INTERNAL}}}
+        assert error.subject == "/users/123"
+        assert error.domain == "com.test.app"
+        assert error.reason == "TEST_ERROR"
+    end
+  end
+
+  test "raises validation error with subject" do
+    try do
+      raise TestSupport.InvalidCurrencyError,
+        subject: "/data/currency",
+        metadata: Metadata.new(%{valid_currencies: ~s(["USD", "EUR"])})
+    rescue
+      error in TestSupport.InvalidCurrencyError ->
+        assert error.code == :UNKNOWN
+        assert error.message == "invalid argument provided"
+        assert error.subject == "/data/currency"
+
+        assert error.metadata ==
+                 %Metadata{
+                   entries: %{
+                     "valid_currencies" => %MetadataValue{value: ~s(["USD", "EUR"]), visibility: :INTERNAL}
+                   }
+                 }
+
+        assert error.domain == "com.test.currency"
+        assert error.reason == "INVALID_CURRENCY"
+    end
+  end
+
+  test "raises error with causes" do
+    original_error = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123"}))
+
+    try do
+      raise TestSupport.ValidationError,
+        causes: [original_error],
+        metadata: Metadata.new(%{validation_context: "user_creation"})
+    rescue
+      error in TestSupport.ValidationError ->
+        assert error.code == :UNKNOWN
+        assert error.message == "invalid argument provided"
+
+        assert error.metadata ==
+                 %Metadata{
+                   entries: %{
+                     "validation_context" => %MetadataValue{value: "user_creation", visibility: :INTERNAL}
+                   }
+                 }
+
+        assert length(error.causes) == 1
+        assert hd(error.causes) == original_error
+    end
+  end
+
+  test "raises error with debug info" do
+    assert_raise TestSupport.TestError, fn ->
+      raise TestSupport.TestError,
+        debug_info: %{
+          stack_entries: ["line 1", "line 2"],
+          detail: "Request processing failed at validation step"
+        }
+    end
+  end
+
+  test "can re-raise caught exception" do
+    original_error = TestSupport.TestError.new!()
+
+    assert_raise TestSupport.TestError, fn ->
+      raise original_error
+    end
+  end
+
+  test "preserves runtime error properties when raising" do
+    try do
+      raise TestSupport.TestError,
+        metadata: Metadata.new(%{user_id: "123", context: "login"}),
+        subject: "/auth/login",
+        retry_info: %{retry_offset: Duration.new!(second: 30)},
+        localized_message: %{locale: "en-US", message: "Login failed"}
+    rescue
+      error in TestSupport.TestError ->
+        assert error.code == :UNKNOWN
+        assert error.message == "unknown error"
+        assert error.visibility == :INTERNAL
+
+        assert error.metadata ==
+                 %Metadata{
+                   entries: %{
+                     "user_id" => %MetadataValue{value: "123", visibility: :INTERNAL},
+                     "context" => %MetadataValue{value: "login", visibility: :INTERNAL}
+                   }
+                 }
+
+        assert error.subject == "/auth/login"
+        assert error.retry_info.retry_offset == Duration.new!(second: 30)
+        assert error.localized_message == %{locale: "en-US", message: "Login failed"}
+        assert error.specversion == 1
+    end
+  end
+
+  test "validates required fields" do
+    assert_raise NimbleOptions.ValidationError, ~r/required :domain option not found/, fn ->
+      defmodule MissingDomainError do
+        use Trogon.Error,
+          reason: "MISSING_DOMAIN",
+          message: "Missing domain"
+      end
+    end
+
+    assert_raise ArgumentError, "Invalid domain: nil", fn ->
+      Trogon.Error.new!(reason: "missing_domain")
+    end
+
+    assert_raise ArgumentError, "Invalid reason: nil", fn ->
+      Trogon.Error.new!(domain: "com.test")
+    end
+  end
+
+  test "validates invalid code values" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for :code option/, fn ->
+      defmodule InvalidCodeError do
+        use Trogon.Error,
+          domain: "com.test",
+          reason: "INVALID_CODE",
+          message: "Invalid code",
+          code: :invalid_code_value
+      end
+    end
+
+    assert_raise ArgumentError, ~r/Invalid code: :INVALID_CODE/, fn ->
+      Trogon.Error.new!(
+        domain: "com.test",
+        reason: "test",
+        code: :INVALID_CODE
+      )
+    end
+  end
+
+  test "validates invalid visibility values" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for :visibility option/, fn ->
+      defmodule InvalidVisibilityError do
+        use Trogon.Error,
+          domain: "com.test",
+          reason: "INVALID_VISIBILITY",
+          message: "Invalid visibility",
+          visibility: :invalid_visibility
+      end
+    end
+  end
+
+  test "validates message type" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for :message option/, fn ->
+      defmodule InvalidMessageError do
+        use Trogon.Error,
+          domain: "com.test",
+          reason: "INVALID_MESSAGE",
+          message: 123
+      end
+    end
+  end
+
+  test "validates metadata type" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for :metadata option/, fn ->
+      defmodule InvalidMetadataError do
+        use Trogon.Error,
+          domain: "com.test",
+          reason: "INVALID_METADATA",
+          message: "Invalid metadata",
+          metadata: "not a map"
+      end
+    end
+  end
+
+  test "validates metadata key types" do
+    assert_raise NimbleOptions.ValidationError,
+                 ~r/invalid map in :metadata option.*expected string, got: :atom_key/,
+                 fn ->
+                   defmodule InvalidMetadataKeyError do
+                     use Trogon.Error,
+                       domain: "com.test",
+                       reason: "INVALID_METADATA_KEY",
+                       message: "Invalid metadata key",
+                       metadata: %{atom_key: "value"}
+                   end
+                 end
+  end
+
+  test "validates metadata value types" do
+    assert_raise NimbleOptions.ValidationError, ~r/invalid value for map key "key": expected.*got: 123/, fn ->
+      defmodule InvalidMetadataValueError do
+        use Trogon.Error,
+          domain: "com.test",
+          reason: "INVALID_METADATA_VALUE",
+          message: "Invalid metadata value",
+          metadata: %{"key" => 123}
+      end
+    end
+  end
+
+  test "validates tuple format visibility values" do
+    assert_raise NimbleOptions.ValidationError,
+                 ~r/expected one of \[:INTERNAL, :PRIVATE, :PUBLIC\], got: :invalid_visibility/,
+                 fn ->
+                   defmodule InvalidTupleVisibilityError do
+                     use Trogon.Error,
+                       domain: "com.test",
+                       reason: "INVALID_TUPLE_VISIBILITY",
+                       message: "Invalid tuple visibility",
+                       metadata: %{"key" => {"value", :invalid_visibility}}
+                   end
+                 end
+  end
+
+  test "accepts valid metadata with simple values" do
+    error = TestSupport.NotFoundError.new!()
+    assert error.metadata["resource"].visibility == :INTERNAL
+    assert error.metadata["resource"].value == "user"
+
+    error_with_runtime = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123", action: "login"}))
+    assert error_with_runtime.metadata["user_id"].visibility == :INTERNAL
+    assert error_with_runtime.metadata["action"].visibility == :INTERNAL
+    assert error_with_runtime.metadata["user_id"].value == "123"
+    assert error_with_runtime.metadata["action"].value == "login"
+  end
+
+  test "supports tuple format for specifying visibility" do
+    error =
+      TestSupport.TestError.new!(
+        metadata:
+          Metadata.new(%{
+            "resource" => "user",
+            "api_key" => {"secret-key-123", :PRIVATE},
+            "user_id" => {"user-123", :PUBLIC}
+          })
+      )
+
+    assert error.metadata["resource"].visibility == :INTERNAL
+    assert error.metadata["resource"].value == "user"
+
+    assert error.metadata["api_key"].visibility == :PRIVATE
+    assert error.metadata["api_key"].value == "secret-key-123"
+
+    assert error.metadata["user_id"].visibility == :PUBLIC
+    assert error.metadata["user_id"].value == "user-123"
+  end
+
+  test "accepts valid compile-time metadata with tuple format" do
+    error = TestSupport.ValidTupleMetadataError.new!()
+    assert error.metadata["simple"].visibility == :INTERNAL
+    assert error.metadata["simple"].value == "value"
+    assert error.metadata["with_visibility"].visibility == :PRIVATE
+    assert error.metadata["with_visibility"].value == "secret"
+  end
+
+  describe "to_msg/1" do
+    test "converts error atom or string to string" do
+      assert Trogon.Error.to_msg("random message") == "random message"
+      assert Trogon.Error.to_msg(:CANCELLED) == "the operation was cancelled"
+      assert Trogon.Error.to_msg(:UNKNOWN) == "unknown error"
+      assert Trogon.Error.to_msg(:INVALID_ARGUMENT) == "invalid argument provided"
+      assert Trogon.Error.to_msg(:DEADLINE_EXCEEDED) == "deadline exceeded"
+      assert Trogon.Error.to_msg(:NOT_FOUND) == "resource not found"
+      assert Trogon.Error.to_msg(:ALREADY_EXISTS) == "resource already exists"
+      assert Trogon.Error.to_msg(:PERMISSION_DENIED) == "permission denied"
+      assert Trogon.Error.to_msg(:RESOURCE_EXHAUSTED) == "resource exhausted"
+      assert Trogon.Error.to_msg(:FAILED_PRECONDITION) == "failed precondition"
+      assert Trogon.Error.to_msg(:ABORTED) == "operation aborted"
+      assert Trogon.Error.to_msg(:OUT_OF_RANGE) == "out of range"
+      assert Trogon.Error.to_msg(:UNIMPLEMENTED) == "not implemented"
+      assert Trogon.Error.to_msg(:INTERNAL) == "internal error"
+      assert Trogon.Error.to_msg(:UNAVAILABLE) == "service unavailable"
+      assert Trogon.Error.to_msg(:DATA_LOSS) == "data loss or corruption"
+      assert Trogon.Error.to_msg(:UNAUTHENTICATED) == "unauthenticated"
+    end
+  end
+
+  describe "to_code_int/1" do
+    test "converts code atom or error struct to integer" do
+      assert Trogon.Error.to_code_int(:CANCELLED) == 1
+      assert Trogon.Error.to_code_int(:UNKNOWN) == 2
+      assert Trogon.Error.to_code_int(:INVALID_ARGUMENT) == 3
+      assert Trogon.Error.to_code_int(:DEADLINE_EXCEEDED) == 4
+      assert Trogon.Error.to_code_int(:NOT_FOUND) == 5
+      assert Trogon.Error.to_code_int(:ALREADY_EXISTS) == 6
+      assert Trogon.Error.to_code_int(:PERMISSION_DENIED) == 7
+      assert Trogon.Error.to_code_int(:RESOURCE_EXHAUSTED) == 8
+      assert Trogon.Error.to_code_int(:FAILED_PRECONDITION) == 9
+      assert Trogon.Error.to_code_int(:ABORTED) == 10
+      assert Trogon.Error.to_code_int(:OUT_OF_RANGE) == 11
+      assert Trogon.Error.to_code_int(:UNIMPLEMENTED) == 12
+      assert Trogon.Error.to_code_int(:INTERNAL) == 13
+      assert Trogon.Error.to_code_int(:UNAVAILABLE) == 14
+      assert Trogon.Error.to_code_int(:DATA_LOSS) == 15
+      assert Trogon.Error.to_code_int(:UNAUTHENTICATED) == 16
+      error = TestSupport.CompileTimeError.new!()
+      assert Trogon.Error.to_code_int(error) == 5
+    end
+  end
+
+  describe "to_http_status_code/1" do
+    test "converts code atom to HTTP status code" do
+      assert Trogon.Error.to_http_status_code(:CANCELLED) == 499
+      assert Trogon.Error.to_http_status_code(:UNKNOWN) == 500
+      assert Trogon.Error.to_http_status_code(:INVALID_ARGUMENT) == 400
+      assert Trogon.Error.to_http_status_code(:DEADLINE_EXCEEDED) == 504
+      assert Trogon.Error.to_http_status_code(:NOT_FOUND) == 404
+      assert Trogon.Error.to_http_status_code(:ALREADY_EXISTS) == 409
+      assert Trogon.Error.to_http_status_code(:PERMISSION_DENIED) == 403
+      assert Trogon.Error.to_http_status_code(:RESOURCE_EXHAUSTED) == 429
+      assert Trogon.Error.to_http_status_code(:FAILED_PRECONDITION) == 400
+      assert Trogon.Error.to_http_status_code(:ABORTED) == 409
+      assert Trogon.Error.to_http_status_code(:OUT_OF_RANGE) == 400
+      assert Trogon.Error.to_http_status_code(:UNIMPLEMENTED) == 501
+      assert Trogon.Error.to_http_status_code(:INTERNAL) == 500
+      assert Trogon.Error.to_http_status_code(:UNAVAILABLE) == 503
+      assert Trogon.Error.to_http_status_code(:DATA_LOSS) == 500
+      assert Trogon.Error.to_http_status_code(:UNAUTHENTICATED) == 401
+    end
+
+    test "converts error struct to HTTP status code" do
+      error = TestSupport.CompileTimeError.new!()
+      assert Trogon.Error.to_http_status_code(error) == 404
+    end
+  end
+
+  describe "message/1" do
+    test "formats the error message" do
+      error = TestSupport.HelpfulError.new!(source_id: "")
+
+      assert Exception.message(error) == """
+             helpful error
+               visibility: :INTERNAL
+               domain: com.test.help
+               reason: HELPFUL_ERROR
+               code: :UNKNOWN
+             - API Docs: https://example.com/docs\
+             """
+
+      error = TestSupport.TestError.new!(metadata: Metadata.new(%{user_id: "123"}))
+
+      assert Exception.message(error) == """
+             unknown error
+               visibility: :INTERNAL
+               domain: com.test.app
+               reason: TEST_ERROR
+               code: :UNKNOWN
+               metadata:
+                 - user_id: 123 visibility=INTERNAL\
+             """
+    end
+
+    test "handles empty maps correctly in message formatting" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.test.empty",
+          reason: "empty_map_test",
+          message: "test message",
+          debug_info: %{},
+          retry_info: %{}
+        )
+
+      message = Exception.message(error)
+
+      assert message == """
+             test message
+               visibility: :INTERNAL
+               domain: com.test.empty
+               reason: empty_map_test
+               code: :UNKNOWN\
+             """
+    end
+  end
+
+  describe "update_help_links/2" do
+    test "passes the error and appends links using the caller-provided order" do
+      error = TestSupport.HelpfulError.new!()
+
+      error = Trogon.Error.update_help_links(error, &update_help_links(&1, &2, :ai_agent))
+
+      assert error.help == %{
+               links: [
+                 %{description: "API Docs", url: "https://example.com/docs"},
+                 %{
+                   description: "HELPFUL_ERROR",
+                   url: "https://docs.example.com/errors/com.test.help/HELPFUL_ERROR/ai_agent"
+                 }
+               ]
+             }
+    end
+
+    test "normalizes missing help links to an empty list" do
+      error = TestSupport.TestError.new!()
+      error = Trogon.Error.update_help_links(error, &prepend_priority_help_links/2)
+
+      assert error.help == %{
+               links: [
+                 %{description: "Priority Docs", url: "https://example.com/priority"}
+               ]
+             }
+    end
+
+    test "replaces the links with the updater result" do
+      error = TestSupport.HelpfulError.new!()
+      error = Trogon.Error.update_help_links(error, &replace_help_links/2)
+
+      assert error.help == %{
+               links: [
+                 %{description: "Replacement Docs", url: "https://example.com/replacement"}
+               ]
+             }
+    end
+  end
+
+  defp update_help_links(err, links, principal_type) do
+    url = "https://docs.example.com/errors/#{err.domain}/#{err.reason}/#{principal_type}"
+    links ++ [%{description: err.reason, url: url}]
+  end
+
+  defp prepend_priority_help_links(_err, links) do
+    [%{description: "Priority Docs", url: "https://example.com/priority"} | links]
+  end
+
+  defp replace_help_links(_err, _links) do
+    [%{description: "Replacement Docs", url: "https://example.com/replacement"}]
+  end
+
+  describe "is_trogon_error?/1" do
+    test "returns true for Trogon errors" do
+      error = TestSupport.TestError.new!()
+      assert TestSupport.trogon_error?(error)
+      refute TestSupport.trogon_error?(%{})
+      refute TestSupport.trogon_error?(:something_went_wrong)
+    end
+  end
+
+  describe "new!/1 instance creation" do
+    test "creates error instance with minimum required fields" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.external.service",
+          reason: "api_error"
+        )
+
+      assert %Trogon.Error{} = error
+      assert error.domain == "com.external.service"
+      assert error.reason == "api_error"
+      assert error.code == :UNKNOWN
+      assert error.message == "unknown error"
+      assert error.visibility == :INTERNAL
+      assert error.specversion == 1
+      assert error.__trogon_error__ == true
+      assert %Trogon.Error.Metadata{} = error.metadata
+      assert error.causes == []
+      assert error.subject == nil
+    end
+
+    test "validates runtime visibility option" do
+      assert_raise ArgumentError, "Invalid visibility: :invalid_visibility", fn ->
+        Trogon.Error.new!(
+          domain: "com.test.runtime",
+          reason: "test_error",
+          visibility: :invalid_visibility
+        )
+      end
+    end
+
+    test "creates error instance with all template options" do
+      metadata = Trogon.Error.Metadata.new(%{"key" => "value"})
+
+      error =
+        Trogon.Error.new!(
+          domain: "com.stripe.payment",
+          reason: "card_declined",
+          code: :INVALID_ARGUMENT,
+          message: "Your card was declined",
+          visibility: :PUBLIC,
+          metadata: metadata
+        )
+
+      assert error.domain == "com.stripe.payment"
+      assert error.reason == "card_declined"
+      assert error.code == :INVALID_ARGUMENT
+      assert error.message == "Your card was declined"
+      assert error.visibility == :PUBLIC
+      assert error.metadata == metadata
+    end
+
+    test "creates error instance with instance options" do
+      time = DateTime.utc_now()
+
+      error =
+        Trogon.Error.new!(
+          domain: "com.external.api",
+          reason: "rate_limit",
+          subject: "user-123",
+          id: "error-456",
+          time: time,
+          source_id: "api-gateway",
+          debug_info: %{stack_entries: ["line 1"], detail: "debug info"}
+        )
+
+      assert error.subject == "user-123"
+      assert error.id == "error-456"
+      assert error.time == time
+      assert error.source_id == "api-gateway"
+      assert error.debug_info == %{stack_entries: ["line 1"], detail: "debug info"}
+    end
+
+    test "handles metadata properly" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.payment.service",
+          reason: "payment_failed",
+          metadata: Trogon.Error.Metadata.new(%{"service" => "payment"})
+        )
+
+      assert error.metadata["service"].value == "payment"
+      assert error.metadata["service"].visibility == :INTERNAL
+    end
+
+    test "error instance behaves like template errors" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.external.api",
+          reason: "timeout",
+          message: "Request timed out"
+        )
+
+      assert_raise Trogon.Error, ~r/^Request timed out/, fn ->
+        raise error
+      end
+
+      message = Exception.message(error)
+      assert String.starts_with?(message, "Request timed out")
+      assert String.contains?(message, "com.external.api")
+      assert String.contains?(message, "timeout")
+    end
+
+    test "accepts unknown instance options gracefully" do
+      error =
+        Trogon.Error.new!(
+          domain: "com.test.unknown",
+          reason: "unknown_fields",
+          custom_field: "custom_value",
+          external_id: "ext-123",
+          unknown_option: %{data: "some data"}
+        )
+
+      assert %Trogon.Error{} = error
+      assert error.domain == "com.test.unknown"
+      assert error.reason == "unknown_fields"
+    end
+
+    test "creates error compatible with external service data" do
+      external_data = %{
+        "domain" => "com.stripe.payment",
+        "reason" => "card_declined",
+        "code" => "INVALID_ARGUMENT",
+        "message" => "Your card was declined by the issuer",
+        "metadata" => %{
+          "decline_code" => "generic_decline",
+          "charge_id" => "ch_abc123"
+        }
+      }
+
+      metadata =
+        Trogon.Error.Metadata.new(%{
+          "decline_code" => external_data["metadata"]["decline_code"],
+          "charge_id" => external_data["metadata"]["charge_id"]
+        })
+
+      error =
+        Trogon.Error.new!(
+          domain: external_data["domain"],
+          reason: external_data["reason"],
+          code: String.to_atom(external_data["code"]),
+          message: external_data["message"],
+          metadata: metadata
+        )
+
+      assert error.domain == "com.stripe.payment"
+      assert error.reason == "card_declined"
+      assert error.code == :INVALID_ARGUMENT
+      assert error.message == "Your card was declined by the issuer"
+      assert error.metadata["decline_code"].value == "generic_decline"
+      assert error.metadata["charge_id"].value == "ch_abc123"
+    end
+  end
+
+  describe "metadata/0 delegate function" do
+    test "delegates to Metadata.new/0" do
+      result = Trogon.Error.metadata()
+      expected = Trogon.Error.Metadata.new()
+
+      assert result == expected
+      assert %Trogon.Error.Metadata{} = result
+      assert result.entries == %{}
+    end
+  end
+
+  describe "template and instance error compatibility" do
+    test "both patterns produce compatible error structures" do
+      compile_time_error = TestSupport.TestError.new!(metadata: Trogon.Error.Metadata.new(%{"source" => "internal"}))
+
+      runtime_error =
+        Trogon.Error.new!(
+          domain: "com.external.api",
+          reason: "timeout",
+          metadata: Trogon.Error.Metadata.new(%{"source" => "external"})
+        )
+
+      assert compile_time_error.__trogon_error__ == runtime_error.__trogon_error__
+      assert compile_time_error.specversion == runtime_error.specversion
+      assert is_struct(compile_time_error.metadata, Trogon.Error.Metadata)
+      assert is_struct(runtime_error.metadata, Trogon.Error.Metadata)
+    end
+
+    test "pattern matching distinguishes between error sources" do
+      internal_error = TestSupport.TestError.new!()
+      external_error = Trogon.Error.new!(domain: "com.external", reason: "api_error")
+
+      assert %TestSupport.TestError{} = internal_error
+      assert %Trogon.Error{} = external_error
+
+      assert_raise TestSupport.TestError, fn -> raise internal_error end
+      assert_raise Trogon.Error, ~r/unknown error/, fn -> raise external_error end
+    end
+  end
+
+  describe "proto struct as metadata on non-proto error" do
+    test "raises when passing a proto struct to a non-proto error" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-789"}
+
+      assert_raise Protocol.UndefinedError, ~r/protocol Enumerable not implemented/, fn ->
+        TestSupport.TestError.new!(metadata: proto)
+      end
+    end
+  end
+
+  describe "resolve_template_opts!/1" do
+    test "passes through manual options with nil proto module" do
+      opts = [domain: "com.test", reason: "test", message: "test", code: :UNKNOWN]
+
+      assert Trogon.Error.resolve_template_opts!(opts) == {nil, nil, opts}
+    end
+
+    test "rejects proto-exclusive options alongside proto" do
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:domain\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, domain: "override")
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:reason\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, reason: "override")
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:message\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, message: "override")
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:code\]/, fn ->
+        Trogon.Error.resolve_template_opts!(proto: SomeModule, code: :UNKNOWN)
+      end
+    end
+
+    test "rejects multiple proto-exclusive options at once" do
+      assert_raise ArgumentError, ~r/mutually exclusive with/, fn ->
+        Trogon.Error.resolve_template_opts!(
+          proto: SomeModule,
+          domain: "override",
+          reason: "override"
+        )
+      end
+    end
+
+    test "allows non-exclusive options alongside proto" do
+      assert_raise UndefinedFunctionError, fn ->
+        Trogon.Error.resolve_template_opts!(
+          proto: SomeModule,
+          metadata: %{"key" => "value"}
+        )
+      end
+    end
+  end
+
+  describe "use Trogon.Error, proto:" do
+    defmodule ProtoUserNotFoundError do
+      use Trogon.Error, proto: Acme.Test.V1.UserNotFoundError
+    end
+
+    defmodule ProtoInternalServerError do
+      use Trogon.Error, proto: Acme.Test.V1.InternalServerError
+    end
+
+    defmodule ProtoUserNotFoundWithMetadataError do
+      use Trogon.Error,
+        proto: Acme.Test.V1.UserNotFoundError,
+        metadata: %{"extra" => "compile-time-value"}
+    end
+
+    test "derives all template fields from proto extension" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.domain == "com.acme.users"
+      assert error.reason == "user_not_found"
+      assert error.message == "The requested user was not found"
+      assert error.code == :NOT_FOUND
+      assert error.specversion == 1
+      assert error.__trogon_error__ == true
+    end
+
+    test "derives visibility from proto template" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.visibility == :PUBLIC
+    end
+
+    test "derives help links from proto template" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.help == %{links: [%{url: "https://docs.acme.com/users", description: "User API Docs"}]}
+    end
+
+    test "derives private visibility from proto template" do
+      error = ProtoInternalServerError.new!()
+
+      assert error.visibility == :PRIVATE
+    end
+
+    test "works with different proto error definitions" do
+      error = ProtoInternalServerError.new!()
+
+      assert error.domain == "com.acme.system"
+      assert error.reason == "internal_server_error"
+      assert error.message == "An internal server error occurred"
+      assert error.code == :INTERNAL
+    end
+
+    test "merges compile-time metadata alongside proto" do
+      error = ProtoUserNotFoundWithMetadataError.new!()
+
+      assert error.domain == "com.acme.users"
+      assert error.reason == "user_not_found"
+      assert error.code == :NOT_FOUND
+      assert error.visibility == :PUBLIC
+      assert error.metadata["resource"].value == "user"
+      assert error.metadata["extra"].value == "compile-time-value"
+    end
+
+    test "derives default metadata from proto template" do
+      error = ProtoUserNotFoundError.new!()
+
+      assert error.metadata["resource"].value == "user"
+      assert error.metadata["resource"].visibility == :PUBLIC
+      assert error.metadata["tenant_kind"].value == "internal"
+      assert error.metadata["tenant_kind"].visibility == :PRIVATE
+    end
+
+    test "compile-time metadata overrides proto template metadata on key collision" do
+      defmodule ProtoUserNotFoundOverrideError do
+        use Trogon.Error,
+          proto: Acme.Test.V1.UserNotFoundError,
+          metadata: %{"resource" => "override-resource"}
+      end
+
+      error = ProtoUserNotFoundOverrideError.new!()
+
+      assert error.metadata["resource"].value == "override-resource"
+    end
+
+    test "rejects proto-exclusive options alongside proto" do
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:domain\]/, fn ->
+        defmodule ConflictDomainError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            domain: "override"
+        end
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:code\]/, fn ->
+        defmodule ConflictCodeError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            code: :UNKNOWN
+        end
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:visibility\]/, fn ->
+        defmodule ConflictVisibilityError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            visibility: :PUBLIC
+        end
+      end
+
+      assert_raise ArgumentError, ~r/mutually exclusive with \[:help\]/, fn ->
+        defmodule ConflictHelpError do
+          use Trogon.Error,
+            proto: Acme.Test.V1.UserNotFoundError,
+            help: %{links: []}
+        end
+      end
+    end
+
+    test "supports runtime metadata" do
+      error =
+        ProtoUserNotFoundError.new!(metadata: Trogon.Error.Metadata.new(%{"user_id" => "user-123"}))
+
+      assert error.metadata["user_id"].value == "user-123"
+    end
+
+    test "merges compile-time and runtime metadata" do
+      error =
+        ProtoUserNotFoundWithMetadataError.new!(metadata: Trogon.Error.Metadata.new(%{"user_id" => "user-456"}))
+
+      assert error.metadata["extra"].value == "compile-time-value"
+      assert error.metadata["user_id"].value == "user-456"
+    end
+
+    test "supports raise/rescue" do
+      assert_raise ProtoUserNotFoundError, fn ->
+        raise ProtoUserNotFoundError
+      end
+
+      try do
+        raise ProtoUserNotFoundError,
+          metadata: Trogon.Error.Metadata.new(%{"user_id" => "123"})
+      rescue
+        error in ProtoUserNotFoundError ->
+          assert error.domain == "com.acme.users"
+          assert error.code == :NOT_FOUND
+          assert error.metadata["user_id"].value == "123"
+      end
+    end
+
+    test "supports all runtime instance options" do
+      time = DateTime.utc_now()
+
+      error =
+        ProtoUserNotFoundError.new!(
+          subject: "/users/123",
+          id: "err-abc",
+          time: time,
+          source_id: "api-gateway",
+          causes: [ProtoInternalServerError.new!()],
+          localized_message: %{locale: "es", message: "Usuario no encontrado"},
+          retry_info: %{retry_offset: Duration.new!(second: 30)},
+          debug_info: %{stack_entries: ["line 1"], detail: "user lookup failed"}
+        )
+
+      assert error.subject == "/users/123"
+      assert error.id == "err-abc"
+      assert error.time == time
+      assert error.source_id == "api-gateway"
+      assert length(error.causes) == 1
+      assert error.localized_message == %{locale: "es", message: "Usuario no encontrado"}
+      assert error.retry_info == %{retry_offset: Duration.new!(second: 30)}
+      assert error.debug_info == %{stack_entries: ["line 1"], detail: "user lookup failed"}
+    end
+
+    test "exception/1 and new!/1 produce identical results" do
+      opts = [metadata: Trogon.Error.Metadata.new(%{"user_id" => "123"})]
+
+      error1 = ProtoUserNotFoundError.exception(opts)
+      error2 = ProtoUserNotFoundError.new!(opts)
+
+      assert error1 == error2
+    end
+
+    test "formats error message" do
+      error = ProtoUserNotFoundError.new!()
+      message = Exception.message(error)
+
+      assert String.contains?(message, "The requested user was not found")
+      assert String.contains?(message, "com.acme.users")
+      assert String.contains?(message, "user_not_found")
+    end
+
+    test "accepts proto struct as metadata" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-789"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["userId"].value == "user-789"
+    end
+
+    test "converts annotated proto struct fields to metadata entries" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc", internal_trace: "trace-123"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["userId"].value == "user-abc"
+      assert error.metadata["userId"].visibility == :PUBLIC
+      refute Map.has_key?(error.metadata.entries, "internalTrace")
+    end
+
+    test "still accepts regular Metadata alongside proto-backed errors" do
+      error =
+        ProtoUserNotFoundError.new!(metadata: Trogon.Error.Metadata.new(%{"user_id" => "regular"}))
+
+      assert error.metadata["user_id"].value == "regular"
+    end
+
+    test "uses default_value when proto field is empty" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["service"].value == "user-api"
+    end
+
+    test "uses proto field value when present over default_value" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc", service: "billing-api"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["service"].value == "billing-api"
+    end
+
+    test "uses fixed value regardless of proto field value" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc", region: "eu-west-1"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["region"].value == "us-east-1"
+    end
+
+    test "uses fixed value when proto field is empty" do
+      proto = %Acme.Test.V1.UserNotFoundError{user_id: "user-abc"}
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["region"].value == "us-east-1"
+    end
+
+    test "respects per-field visibility from proto extensions" do
+      proto = %Acme.Test.V1.UserNotFoundError{
+        user_id: "user-abc",
+        internal_trace: "trace-123",
+        service: "billing-api"
+      }
+
+      error = ProtoUserNotFoundError.new!(metadata: proto)
+
+      assert error.metadata["userId"].visibility == :PUBLIC
+      refute Map.has_key?(error.metadata.entries, "internalTrace")
+      assert error.metadata["service"].visibility == :PUBLIC
+      assert error.metadata["region"].visibility == :PUBLIC
+    end
+  end
+end

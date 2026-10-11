@@ -1,0 +1,68 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "changelog-sections": [
+    {
+      "type": "feat",
+      "section": "Features",
+      "hidden": false
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes",
+      "hidden": false
+    }
+  ],
+  "packages": {
+    "apps/trogon_commanded": {
+      "component": "trogon_commanded"
+    },
+    "apps/trogon_result": {
+      "component": "trogon_result"
+    },
+    "apps/trogon_error": {
+      "component": "trogon_error"
+    },
+    "apps/trogon_typeprovider": {
+      "component": "trogon_typeprovider"
+    },
+    "apps/trogon_proto": {
+      "component": "trogon_proto"
+    },
+    "apps/trogon_object_id": {
+      "component": "trogon_object_id"
+    },
+    "apps/trogon_ecto": {
+      "component": "trogon_ecto"
+    },
+    "apps/trogon_dispatcher": {
+      "component": "trogon_dispatcher"
+    },
+    "apps/eventstore_dashboard": {
+      "component": "eventstore_dashboard"
+    },
+    "apps/trogon_credo": {
+      "component": "trogon_credo"
+    },
+    "apps/trogon_test": {
+      "component": "trogon_test"
+    },
+    "apps/trogon_configurable": {
+      "component": "trogon_configurable"
+    }
+  },
+  "plugins": [
+    {
+      "type": "sentence-case"
+    }
+  ],
+  "tag-separator": "@",
+  "include-v-in-tag": true,
+  "include-component-in-tag": true,
+  "release-type": "elixir",
+  "draft": false,
+  "draft-pull-request": false,
+  "prerelease": false,
+  "pull-request-header": "An automated release has been created for you.",
+  "separate-pull-requests": true,
+  "signoff": "SHT Bot <61149376+sht-bot@users.noreply.github.com>"
+}

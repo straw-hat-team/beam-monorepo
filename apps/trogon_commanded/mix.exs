@@ -1,0 +1,158 @@
+defmodule Trogon.Commanded.MixProject do
+  use Mix.Project
+
+  @app :trogon_commanded
+  @version "1.3.1"
+  @elixir_version "~> 1.18"
+  @source_url "https://github.com/straw-hat-team/beam-monorepo"
+
+  def project do
+    [
+      build_path: "../../_build",
+      config_path: "../../config/config.exs",
+      deps_path: "../../deps",
+      lockfile: "../../mix.lock",
+      name: "Trogon.Commanded",
+      description: "Extend Commanded package",
+      app: @app,
+      version: @version,
+      elixir: @elixir_version,
+      elixirc_paths: elixirc_paths(Mix.env()),
+      start_permanent: Mix.env() == :prod,
+      deps: deps(),
+      aliases: aliases(),
+      test_coverage: test_coverage(),
+      package: package(),
+      docs: docs(),
+      dialyzer: dialyzer()
+    ]
+  end
+
+  def cli do
+    [preferred_envs: preferred_cli_env()]
+  end
+
+  def application do
+    [
+      extra_applications: [:logger]
+    ]
+  end
+
+  defp deps do
+    [
+      {:commanded, "~> 1.2"},
+      {:uniq, "~> 0.1"},
+      {:jason, "~> 1.2", optional: true},
+      {:ecto, "~> 3.6"},
+      {:polymorphic_embed, "~> 5.0"},
+      {:protobuf, "~> 0.16", optional: true},
+      trogon_proto_dep(),
+      trogon_object_id_dep(),
+
+      # Tools
+      {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
+      {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:excoveralls, ">= 0.0.0", only: [:test], runtime: false},
+      {:ex_doc, ">= 0.0.0", only: [:dev], runtime: false}
+    ]
+  end
+
+  # Hex consumers compile this file from deps/, so the Hex branch must be the
+  # default. Umbrella mode is opt-in via mise.toml locally and the
+  # mix-in-umbrella-deps input in CI.
+  defp trogon_proto_dep do
+    if System.get_env("MIX_IN_UMBRELLA_DEPS") == "true" do
+      {:trogon_proto, in_umbrella: true}
+    else
+      {:trogon_proto, "~> 0.4", optional: true}
+    end
+  end
+
+  defp trogon_object_id_dep do
+    if System.get_env("MIX_IN_UMBRELLA_DEPS") == "true" do
+      {:trogon_object_id, in_umbrella: true}
+    else
+      {:trogon_object_id, "~> 0.1"}
+    end
+  end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
+  defp aliases do
+    [
+      test: ["test --trace"]
+    ]
+  end
+
+  defp test_coverage do
+    [tool: ExCoveralls]
+  end
+
+  defp preferred_cli_env do
+    [
+      "coveralls.html": :test,
+      "coveralls.json": :test,
+      "coveralls.github": :test,
+      coveralls: :test
+    ]
+  end
+
+  defp dialyzer do
+    [
+      plt_core_path: "priv/plts",
+      ignore_warnings: ".dialyzer_ignore.exs"
+    ]
+  end
+
+  defp package do
+    [
+      name: @app,
+      files: [
+        ".formatter.exs",
+        "lib",
+        "mix.exs",
+        "README*",
+        "LICENSE*"
+      ],
+      maintainers: ["Yordis Prieto"],
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => @source_url
+      }
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      homepage_url: @source_url,
+      source_url_pattern: "#{@source_url}/blob/#{@app}@v#{@version}/apps/#{@app}/%{path}#L%{line}",
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
+      extras: [
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      groups_for_modules: [
+        Struct: [
+          Trogon.Commanded.ValueObject,
+          Trogon.Commanded.Entity,
+          Trogon.Commanded.Aggregate,
+          Trogon.Commanded.Command,
+          Trogon.Commanded.Event,
+          Trogon.Commanded.Enum
+        ],
+        "Test Support": [~r/TestSupport/]
+      ],
+      nest_modules_by_prefix: [
+        Trogon.Commanded,
+        Trogon.Commanded.TestSupport
+      ],
+      groups_for_extras: [
+        "How-to": ~r/docs\/how-to\/.?/,
+        Explanations: ~r/docs\/explanations\/.?/,
+        References: ~r/docs\/references\/.?/
+      ]
+    ]
+  end
+end

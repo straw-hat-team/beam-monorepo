@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package acme.type.v1;
+
+import "trogon/stream/v1alpha1/options.proto";
+
+enum StreamType {
+  STREAM_TYPE_UNSPECIFIED = 0;
+  STREAM_TYPE_BANK_ACCOUNT = 1 [(trogon.stream.v1alpha1.enum_value).prefix = "bank-account"];
+  STREAM_TYPE_ORDER = 2 [(trogon.stream.v1alpha1.enum_value) = {
+    prefix: "order",
+    separator: "#"
+  }];
+}

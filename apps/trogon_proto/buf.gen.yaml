@@ -1,0 +1,12 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+inputs:
+  - module: buf.build/trogonstack/trogon-proto:v0.17.0
+plugins:
+  - local: protoc-gen-elixir
+    out: lib/__generated__
+    opt:
+      - gen_descriptors=true
+      - include_docs=true

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package acme.order.v1;
+
+import "trogon/uuid/v1/options.proto";
+
+// Order identity with DNS namespace and multi-key template.
+message OrderId {
+  enum IdentityVersion {
+    option (trogon.uuid.v1.enum).namespace = {dns: "acme.example.com"};
+
+    IDENTITY_VERSION_UNSPECIFIED = 0;
+    IDENTITY_VERSION_V1 = 1 [(trogon.uuid.v1.enum_value).format = {
+      template: "order/{customer_id}/{order_number}"
+    }];
+  }
+
+  string value = 1;
+}

@@ -1,0 +1,8 @@
+version: v2
+managed:
+  enabled: true
+plugins:
+  - local: protoc-gen-elixir
+    out: test/support/proto
+    opt:
+      - package_prefix=Trogon.Commanded.TestSupport

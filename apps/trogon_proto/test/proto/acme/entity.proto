@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package acme.entity.v1;
+
+import "trogon/uuid/v1/options.proto";
+
+// Entity identity with custom UUID namespace.
+message EntityId {
+  enum IdentityVersion {
+    option (trogon.uuid.v1.enum).namespace = {uuid: "550e8400-e29b-41d4-a716-446655440000"};
+
+    IDENTITY_VERSION_UNSPECIFIED = 0;
+    IDENTITY_VERSION_V1 = 1 [(trogon.uuid.v1.enum_value).format = {
+      template: "entity/{entity_id}"
+    }];
+  }
+
+  string value = 1;
+}

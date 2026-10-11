@@ -1,0 +1,739 @@
+defmodule Trogon.Result do
+  @moduledoc """
+  Handles `t:t/0` responses. Inspired by Rust `std::result::Result` package.
+  """
+
+  alias Trogon.Result.ErrUnwrapError
+  alias Trogon.Result.OkUnwrapError
+  alias Trogon.Result.ExpectedError
+
+  @typedoc """
+  An Ok result with a specific value type.
+  """
+  @type ok(value) :: {:ok, value}
+
+  @typedoc """
+  An Ok result with any value type.
+  """
+  @type ok :: ok(any())
+
+  @typedoc """
+  An Error result with a specific reason type.
+  """
+  @type err(reason) :: {:error, reason}
+
+  @typedoc """
+  An Error result with any reason type.
+  """
+  @type err :: err(any())
+
+  @typedoc """
+  A Result Tuple with specific ok and error types.
+
+  ## Examples
+
+      @type fetch_user_error :: :not_found | :db_error
+      @spec fetch_user(integer()) :: Trogon.Result.t(User.t(), fetch_user_error())
+      def fetch_user(id), do: ...
+
+  """
+  @type t(ok_value, err_reason) :: ok(ok_value) | err(err_reason)
+
+  @typedoc """
+  A Result Tuple with any value types.
+  """
+  @type t :: t(any(), any())
+
+  @typedoc """
+  A predicate function that takes a value and returns a boolean.
+  """
+  @type predicate(a) :: (a -> boolean())
+
+  @typedoc """
+  A mapper function that transforms a value from type `a` to type `b`.
+  """
+  @type mapper(a, b) :: (a -> b)
+
+  @typedoc """
+  A side-effect function used for tapping into values without transforming them.
+  """
+  @type tap_func(a) :: (a -> any())
+
+  @typedoc """
+  A lazy function that produces a value when called with no arguments.
+  """
+  @type lazy(a) :: (-> a)
+
+  @doc """
+  Wraps a value into an `t:ok/1` result.
+
+      iex> Trogon.Result.ok(42)
+      {:ok, 42}
+  """
+  @spec ok(value) :: ok(value) when value: any()
+  def ok(value), do: {:ok, value}
+
+  @doc """
+  Wraps a value into an `t:err/1` result.
+
+      iex> Trogon.Result.err("oops")
+      {:error, "oops"}
+  """
+  @spec err(reason) :: err(reason) when reason: any()
+  def err(reason), do: {:error, reason}
+
+  @doc """
+  Returns true if the argument is a `t:ok/0`.
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.ok?()
+      true
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.ok?()
+      false
+  """
+  @spec ok?(value :: t()) :: boolean()
+  def ok?({:ok, _}), do: true
+  def ok?({:error, _}), do: false
+
+  @doc """
+  Returns true if the result is `t:ok/0` and the value inside of it matches a predicate.
+
+      iex> is_meaning_of_life = fn x -> x == 42 end
+      ...> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.ok_and?(is_meaning_of_life)
+      true
+
+      iex> is_meaning_of_life = fn x -> x == 42 end
+      ...> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.ok_and?(is_meaning_of_life)
+      false
+  """
+  @spec ok_and?(value :: t(a, any()), predicate :: predicate(a)) :: boolean() when a: any()
+  def ok_and?({:error, _}, _func), do: false
+  def ok_and?({:ok, val}, func), do: func.(val) == true
+
+  @doc """
+  Returns true if the argument is an `t:err/0`.
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.err?()
+      false
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.err?()
+      true
+  """
+  @spec err?(value :: t()) :: boolean()
+  def err?({:ok, _}), do: false
+  def err?({:error, _}), do: true
+
+  @doc """
+  Returns true if the result is `t:err/0` and the value inside of it matches a predicate.
+
+      iex> is_not_found = fn err -> err == :not_found end
+      ...> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.err_and?(is_not_found)
+      false
+
+      iex> is_not_found = fn err -> err == :not_found end
+      ...> :not_found
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.err_and?(is_not_found)
+      true
+  """
+  @spec err_and?(value :: t(any(), e), predicate :: predicate(e)) :: boolean() when e: any()
+  def err_and?({:ok, _}, _func), do: false
+  def err_and?({:error, val}, func), do: func.(val) == true
+
+  @doc """
+  Is valid if and only if an `t:ok/0` is supplied.
+
+      iex> check = fn
+      ...>   val when Trogon.Result.is_ok_result(val) -> true
+      ...>   _ -> false
+      ...> end
+      ...> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> check.()
+      true
+
+      iex> check = fn
+      ...>   val when Trogon.Result.is_ok_result(val) -> true
+      ...>   _ -> false
+      ...> end
+      ...> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> check.()
+      false
+  """
+  @spec is_ok_result(value :: any) :: Macro.t()
+  defguard is_ok_result(val) when is_tuple(val) and elem(val, 0) == :ok
+
+  @doc """
+  Is valid if and only if an `t:err/0` is supplied.
+
+      iex> check = fn
+      ...>   val when Trogon.Result.is_err_result(val) -> true
+      ...>   _ -> false
+      ...> end
+      ...> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> check.()
+      false
+
+      iex> check = fn
+      ...>   val when Trogon.Result.is_err_result(val) -> true
+      ...>   _ -> false
+      ...> end
+      ...> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> check.()
+      true
+  """
+  @spec is_err_result(value :: any) :: Macro.t()
+  defguard is_err_result(val) when is_tuple(val) and elem(val, 0) == :error
+
+  @doc """
+  Returns true if the `t:ok/0` result contains the given value.
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.contains_ok?(42)
+      true
+
+      iex> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.contains_ok?(42)
+      false
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.contains_ok?(42)
+      false
+  """
+  @spec contains_ok?(result :: t(a, any()), value :: a) :: boolean() when a: any()
+  def contains_ok?({:error, _}, _), do: false
+  def contains_ok?({:ok, value}, value), do: true
+  def contains_ok?({:ok, _}, _), do: false
+
+  @doc """
+  Returns true if the `t:err/0` result contains the given value.
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.contains_err?("oops")
+      true
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.contains_err?("nop")
+      false
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.contains_err?("ops")
+      false
+  """
+  @spec contains_err?(result :: t(any(), e), value :: e) :: boolean() when e: any()
+  def contains_err?({:ok, _}, _), do: false
+  def contains_err?({:error, value}, value), do: true
+  def contains_err?({:error, _}, _), do: false
+
+  @doc """
+  When the value contained in an `t:ok/0` result then applies a function or returns the mapped value, wrapping the
+  returning value in a `t:ok/0`, propagating the `t:err/0` result as it is.
+
+  > #### Avoid Wrapping {: .info}
+  > If you want to avoid the wrap then use `Trogon.Result.when_ok/2` instead.
+
+      iex> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok(42)
+      {:ok, 42}
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_ok(42)
+      {:error, "oops"}
+
+  You can also pass a function to achieve lazy evaluation:
+
+      iex> meaning_of_life = fn x -> x * 2 end
+      ...> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok(meaning_of_life)
+      {:ok, 42}
+  """
+  @spec map_ok(result :: t(a, e), on_ok :: mapper(a, b)) :: t(b, e) when a: any(), b: any(), e: any()
+  @spec map_ok(result :: t(a, e), on_ok :: b) :: t(b, e) when a: any(), b: any(), e: any()
+  def map_ok({:ok, val}, on_ok) when is_function(on_ok), do: ok(on_ok.(val))
+  def map_ok({:ok, _val}, value), do: ok(value)
+  def map_ok({:error, _} = error, _on_ok), do: error
+
+  @doc ~S"""
+  Applies a `on_ok` function to the contained value if `t:ok/0` otherwise applies a `on_err` function or return the
+  `on_err` value if `t:err/0`.
+
+      iex> meaning_of_life = fn x -> x * 2 end
+      ...> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, 84)
+      42
+
+      iex> meaning_of_life = fn x -> x * 2 end
+      ...> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, 84)
+      84
+
+  > #### Lazy Evaluation {: .info}
+  > It is recommended to pass a function as the default value, which is lazily evaluated.
+
+      iex> meaning_of_life = fn x -> x * 2 end
+      ...> went_wrong = fn reason -> "something went wrong because #{reason}" end
+      ...> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, went_wrong)
+      42
+
+      iex> meaning_of_life = fn x -> x * 2 end
+      ...> went_wrong = fn reason -> "something went wrong because #{reason}" end
+      ...> "a sleepy bear"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_ok_or(meaning_of_life, went_wrong)
+      "something went wrong because a sleepy bear"
+  """
+  @spec map_ok_or(result :: t(a, e), on_ok :: mapper(a, b), on_error :: mapper(e, b) | b) :: b
+        when a: any(), b: any(), e: any()
+  def map_ok_or({:ok, val}, on_ok, _), do: on_ok.(val)
+  def map_ok_or({:error, reason}, _, on_error) when is_function(on_error), do: on_error.(reason)
+  def map_ok_or({:error, _}, _, on_error), do: on_error
+
+  @doc """
+  Applies a function or returns the value when a `t:ok/0` is given, or propagates the error.
+
+      iex> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.when_ok(42)
+      42
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.when_ok(42)
+      {:error, "oops"}
+
+  You can also pass a function to achieve lazy evaluation:
+
+      iex> meaning_of_life = fn x -> x * 2 end
+      ...> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.when_ok(meaning_of_life)
+      42
+  """
+  @spec when_ok(result :: t(a, e), on_ok :: mapper(a, b)) :: err(e) | b when a: any(), b: any(), e: any()
+  @spec when_ok(result :: t(a, e), on_ok :: b) :: err(e) | b when a: any(), b: any(), e: any()
+  def when_ok({:ok, val}, on_ok) when is_function(on_ok), do: on_ok.(val)
+  def when_ok({:ok, _val}, value), do: value
+  def when_ok({:error, _} = error, _), do: error
+
+  @doc """
+  Do an `and` with a `t:ok/0`.
+
+  When passing two `t:ok/0` result, it returns the second `t:ok/0` value. When a `t:ok/0` and a `t:err/0` result, then
+  returns the `t:err/0`. Otherwise, when passing two `t:err/0` result, it returns the earliest `t:err/0`.
+
+      iex> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.ok(42))
+      {:ok, 42}
+
+      iex> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.err("something went wrong"))
+      {:error, "something went wrong"}
+
+      iex> "something went wrong"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.ok(42))
+      {:error, "something went wrong"}
+
+      iex> "something went wrong"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_ok(Trogon.Result.err("late error"))
+      {:error, "something went wrong"}
+  """
+  @spec and_ok(first_result :: t(any(), e), second_result :: t(b, e)) :: t(b, e)
+        when b: any(), e: any()
+  def and_ok({:ok, _}, {:ok, _} = second_result), do: second_result
+  def and_ok({:ok, _}, {:error, _} = second_result), do: second_result
+  def and_ok({:error, _} = first_result, {:ok, _}), do: first_result
+  def and_ok({:error, _} = first_result, {:error, _}), do: first_result
+
+  @doc """
+  Returns the contained `t:ok/0` value or a provided default.
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.unwrap_ok(21)
+      42
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.unwrap_ok(21)
+      21
+
+  > #### Lazy Evaluation {: .info}
+  > It is recommended to pass a function as the default value, which is lazily evaluated.
+
+      iex> say_hello_world = fn _x -> "hello, world!" end
+      ...> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.unwrap_ok(say_hello_world)
+      42
+
+      iex> say_hello_world = fn _x -> "hello, world!" end
+      ...> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.unwrap_ok(say_hello_world)
+      "hello, world!"
+  """
+  @spec unwrap_ok(result :: t(a, e), on_error :: mapper(e, a)) :: a when a: any(), e: any()
+  @spec unwrap_ok(result :: t(a, e), on_error :: a) :: a when a: any(), e: any()
+  def unwrap_ok({:ok, v}, _), do: v
+  def unwrap_ok({:error, reason}, on_error) when is_function(on_error), do: on_error.(reason)
+  def unwrap_ok({:error, _reason}, on_error), do: on_error
+
+  @doc """
+  Unwrap an `t:ok/0` result, or raise an exception.
+
+      iex> try do
+      ...>   42
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.unwrap_ok!()
+      ...> rescue
+      ...>   Trogon.Result.OkUnwrapError -> "was a unwrap failure"
+      ...> end
+      42
+
+      iex> try do
+      ...>   "oops"
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.unwrap_ok!()
+      ...> rescue
+      ...>   Trogon.Result.OkUnwrapError -> "was a unwrap failure"
+      ...> end
+      "was a unwrap failure"
+  """
+  @spec unwrap_ok!(result :: t(a, any())) :: a | no_return when a: any()
+  def unwrap_ok!({:ok, val}), do: val
+  def unwrap_ok!({:error, reason}), do: raise(OkUnwrapError, reason: reason)
+
+  @doc """
+  Returns the contained `t:ok/0` value, or raise an exception with the given error message.
+
+      iex> try do
+      ...>   21
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.expect_ok!("expected 42")
+      ...> rescue
+      ...>   e -> e.message
+      ...> end
+      "expected 42"
+
+      iex> try do
+      ...>   42
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.expect_ok!("expected 42")
+      ...> rescue
+      ...>   _ -> "was a unwrap failure"
+      ...> end
+      42
+  """
+  @spec expect_ok!(result :: t(a, any()), message :: String.t()) :: a | no_return when a: any()
+  def expect_ok!({:ok, val}, _message), do: val
+  def expect_ok!({:error, reason}, message), do: raise(ExpectedError, message: message, value: reason)
+
+  @doc ~S"""
+  Tap into `t:ok/0` results.
+
+      iex> success_log = fn x -> "Success #{x}" end
+      ...> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.tap_ok(success_log)
+      {:ok, 42}
+  """
+  @spec tap_ok(result :: t(a, e), func :: tap_func(a)) :: t(a, e) when a: any(), e: any()
+  def tap_ok(result, func), do: map_ok(result, &tap(&1, func))
+
+  @doc ~S"""
+  When the value contained in an `t:err/0` result then applies a function or returns the mapped value, wrapping the
+  returning value in a `t:err/0`, propagating the `t:ok/0` result as it is.
+
+  > #### Avoid Wrapping {: .info}
+  > If you want to avoid the wrap then use `Trogon.Result.when_err/2` instead.
+
+        iex> 21
+        ...> |> Trogon.Result.err()
+        ...> |> Trogon.Result.map_err("must be 42")
+        {:error, "must be 42"}
+
+        iex> 42
+        ...> |> Trogon.Result.ok()
+        ...> |> Trogon.Result.map_err("must be 42")
+        {:ok, 42}
+
+  You can also pass a function to achieve lazy evaluation:
+
+      iex> meaning_of_life = fn x -> "must be 42 instead of #{x}" end
+      ...> 21
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.map_err(meaning_of_life)
+      {:error, "must be 42 instead of 21"}
+  """
+  @spec map_err(result :: t(a, e1), on_error :: mapper(e1, e2)) :: t(a, e2)
+        when a: any(), e1: any(), e2: any()
+  @spec map_err(result :: t(a, e1), on_error :: e2) :: t(a, e2) when a: any(), e1: any(), e2: any()
+  def map_err({:ok, _} = result, _), do: result
+  def map_err({:error, reason}, on_error) when is_function(on_error), do: err(on_error.(reason))
+  def map_err({:error, _}, reason), do: err(reason)
+
+  @doc """
+  Applies a function or returns the value if the result is `t:err/0`, otherwise returns the `t:ok/0` value.
+
+      iex> "something wrong happened"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.when_err("ooops")
+      "ooops"
+
+      iex> 2
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.when_err("ooops")
+      {:ok, 2}
+
+  You can also pass a function to achieve lazy evaluation:
+
+      iex> failure = fn _error -> "lazy ooops" end
+      ...> "something wrong happened"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.when_err(failure)
+      "lazy ooops"
+  """
+  @spec when_err(result :: t(a, e), on_err :: mapper(e, b)) :: ok(a) | b when a: any(), b: any(), e: any()
+  @spec when_err(result :: t(a, e), on_err :: b) :: ok(a) | b when a: any(), b: any(), e: any()
+  def when_err({:ok, _} = resp, _), do: resp
+  def when_err({:error, reason}, on_err) when is_function(on_err), do: on_err.(reason)
+  def when_err({:error, _}, value), do: value
+
+  @doc """
+  Do an `and` with a `t:err/0`.
+
+  When passing any `t:ok/0` result, it returns the first `t:ok/0` value. Otherwise, when passing two `t:err/0` results,
+  then returns the second `t:err/0`.
+
+      iex> 21
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_err(Trogon.Result.ok(42))
+      {:ok, 21}
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.and_err(Trogon.Result.err("something went wrong"))
+      {:ok, 42}
+
+      iex> "something went wrong"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_err(Trogon.Result.ok(42))
+      {:ok, 42}
+
+      iex> "something went wrong"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.and_err(Trogon.Result.err("late error"))
+      {:error, "late error"}
+  """
+  @spec and_err(first_result :: t(a, any()), second_result :: t(a, e)) :: t(a, e)
+        when a: any(), e: any()
+  def and_err({:ok, _} = first_result, {:ok, _}), do: first_result
+  def and_err({:ok, _} = first_result, {:error, _}), do: first_result
+  def and_err({:error, _}, {:ok, _} = second_result), do: second_result
+  def and_err({:error, _}, {:error, _} = second_result), do: second_result
+
+  @doc """
+  Unwrap an `t:err/0` result, or raise an exception.
+
+      iex> try do
+      ...>   "oops"
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.unwrap_err!()
+      ...> rescue
+      ...>   Trogon.Result.ErrUnwrapError -> "was a unwrap failure"
+      ...> end
+      "oops"
+
+      iex> try do
+      ...>   42
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.unwrap_err!()
+      ...> rescue
+      ...>   Trogon.Result.ErrUnwrapError -> "was a unwrap failure"
+      ...> end
+      "was a unwrap failure"
+  """
+  @spec unwrap_err!(result :: t(any(), e)) :: e | no_return when e: any()
+  def unwrap_err!({:ok, val}), do: raise(ErrUnwrapError, value: val)
+  def unwrap_err!({:error, reason}), do: reason
+
+  @doc """
+  Returns the contained `t:ok/0` value, or raise an exception with the given error message.
+
+      iex> try do
+      ...>   42
+      ...>   |> Trogon.Result.ok()
+      ...>   |> Trogon.Result.expect_err!("expected a oops")
+      ...> rescue
+      ...>   e -> e.message
+      ...> end
+      "expected a oops"
+
+      iex> try do
+      ...>   "oops"
+      ...>   |> Trogon.Result.err()
+      ...>   |> Trogon.Result.expect_err!("expected a oops")
+      ...> rescue
+      ...>   _ -> "was a unwrap failure"
+      ...> end
+      "oops"
+  """
+  @spec expect_err!(result :: t(any(), e), message :: String.t()) :: e | no_return when e: any()
+  def expect_err!({:error, reason}, _message), do: reason
+  def expect_err!({:ok, val}, message), do: raise(ExpectedError, message: message, value: val)
+
+  @doc ~S"""
+  Tap into `t:err/0` results.
+
+      iex> failure_log = fn err -> "Failure because #{err}" end
+      ...> "ooopsy"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.tap_err(failure_log)
+      {:error, "ooopsy"}
+  """
+  @spec tap_err(result :: t(a, e), func :: tap_func(e)) :: t(a, e) when a: any(), e: any()
+  def tap_err(result, func), do: map_err(result, &tap(&1, func))
+
+  @doc ~S"""
+  When `nil` is passed then calls the `on_nil` function and wrap the result into a `t:err/0`. When `t:t/0` is passed
+  then returns it as it is. Otherwise, wraps the value into a `t:ok/0`.
+
+      iex> Trogon.Result.reject_nil(nil, "ooopps")
+      {:error, "ooopps"}
+
+      iex> Trogon.Result.reject_nil(42, "ooopps")
+      {:ok, 42}
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.reject_nil("ooopps")
+      {:ok, 42}
+
+      iex> "my error"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.reject_nil("ooopps")
+      {:error, "my error"}
+
+  > #### Lazy Evaluation {: .info}
+  > It is recommended to pass a function as the default value, which is lazily evaluated.
+
+      iex> new_error = fn -> "ooops" end
+      ...> Trogon.Result.reject_nil(nil, new_error)
+      {:error, "ooops"}
+  """
+  @spec reject_nil(value :: a | nil | t(a, e), on_nil :: e | lazy(e)) :: t(a, e)
+        when a: any(), e: any()
+  def reject_nil(nil, on_nil) when is_function(on_nil), do: err(on_nil.())
+  def reject_nil(nil, on_nil), do: err(on_nil)
+  def reject_nil({:ok, _} = response, _), do: response
+  def reject_nil({:error, _} = response, _), do: response
+  def reject_nil(value, _), do: ok(value)
+
+  @doc """
+  Converts from a nested `t:t/0` to flatten `t:t/0`.
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.flatten()
+      {:ok, 42}
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.flatten()
+      {:error, {:ok, 42}}
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.flatten()
+      {:error, "oops"}
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.flatten()
+      {:error, {:error, "oops"}}
+  """
+  @spec flatten(result :: t(t(a, e), e)) :: t(a, e) when a: any(), e: any()
+  def flatten(value), do: when_ok(value, &Function.identity/1)
+
+  @doc """
+  Iterate over `t:t/0` list unwrapping the `t:ok/0` values. It fails at the first `t:err/0`.
+
+      iex> Trogon.Result.collect([
+      ...>   Trogon.Result.ok(21),
+      ...>   Trogon.Result.ok(42),
+      ...>   Trogon.Result.ok(84),
+      ...> ])
+      {:ok, [21,42,84]}
+
+      iex> Trogon.Result.collect([
+      ...>   Trogon.Result.ok(21),
+      ...>   Trogon.Result.err("oops"),
+      ...>   Trogon.Result.ok(84),
+      ...> ])
+      {:error, "oops"}
+  """
+  @spec collect(Enumerable.t(t(a, e))) :: t([a], e) when a: any(), e: any()
+  def collect(result_list) do
+    result_list
+    |> Enum.map(&unwrap_ok!/1)
+    |> ok()
+  rescue
+    err in OkUnwrapError ->
+      err(err.reason)
+  end
+
+  @doc """
+  Returns the contained `t:ok/0` value or `t:error/0` value from a `t:t/0`.
+
+      iex> 42
+      ...> |> Trogon.Result.ok()
+      ...> |> Trogon.Result.unwrap()
+      42
+
+      iex> "oops"
+      ...> |> Trogon.Result.err()
+      ...> |> Trogon.Result.unwrap()
+      "oops"
+  """
+  @spec unwrap(result :: t(a, a)) :: a when a: any()
+  def unwrap({:ok, v}), do: v
+  def unwrap({:error, v}), do: v
+end
