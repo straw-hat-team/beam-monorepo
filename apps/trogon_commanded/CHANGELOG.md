@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## [1.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.2.0...trogon_commanded@v1.3.0) (2026-10-10)
+## [1.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.2.0...trogon_commanded@v1.3.0) (2026-10-11)
 
 
 ### Features
