@@ -42,6 +42,9 @@
     },
     "apps/trogon_credo": {
       "component": "trogon_credo"
+    },
+    "apps/trogon_test": {
+      "component": "trogon_test"
     }
   },
   "plugins": [
