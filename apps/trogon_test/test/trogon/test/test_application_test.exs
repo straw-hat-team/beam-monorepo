@@ -226,6 +226,28 @@ defmodule Trogon.Test.TestApplicationTest do
       assert_raise FunctionClauseError, fn -> MockApplication.get_all_env("trogon_test") end
     end
 
+    test "accepts a key that is not an atom, as Application does with a warning" do
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
+      TestApplication.expect_fetch_env(times: 1, returns: :error)
+      TestApplication.expect_fetch_env!(times: 1, returns: "overridden")
+
+      warnings =
+        ExUnit.CaptureIO.capture_io(:stderr, fn ->
+          Application.get_env(:trogon_test, "seeded_value")
+          Application.fetch_env(:trogon_test, "seeded_value")
+          assert_raise ArgumentError, ~r/was not set/, fn -> Application.fetch_env!(:trogon_test, "seeded_value") end
+        end)
+
+      assert warnings =~ "seeded_value"
+      MockApplication.get_env(:trogon_test, "seeded_value", nil)
+      MockApplication.fetch_env(:trogon_test, "seeded_value")
+      MockApplication.fetch_env!(:trogon_test, "seeded_value")
+      TestApplication.assert_received_get_env(:trogon_test, "seeded_value")
+      TestApplication.assert_received_fetch_env(:trogon_test, "seeded_value")
+      TestApplication.assert_received_fetch_env!(:trogon_test, "seeded_value")
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "rejects fetch_env/2 returns: other than {:ok, value} or :error, which Application.fetch_env/2 never returns" do
       results = [Application.fetch_env(:trogon_test, :seeded_value), Application.fetch_env(:trogon_test, :missing)]
 

@@ -23,18 +23,21 @@ defmodule Trogon.Test.TestDateTime do
       use Trogon.Test
 
       test "stamps the invoice with the current time" do
-        TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
+        TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00.000000Z])
 
         invoice = MyApp.Billing.issue_invoice()
 
-        assert invoice.issued_at == ~U[2026-01-01 00:00:00Z]
+        assert invoice.issued_at == ~U[2026-01-01 00:00:00.000000Z]
         TestDateTime.assert_received_utc_now()
         Trogon.Test.assert_empty_mailbox()
       end
 
   `expect_utc_now/1` takes:
 
-    * `:returns` - the `DateTime` the expected call returns. Required.
+    * `:returns` - the `DateTime` the expected call returns. Required. It must
+      be in `Etc/UTC` with microsecond precision, such as
+      `~U[2026-01-01 00:00:00.000000Z]`, since `DateTime.utc_now/0` never
+      returns anything else.
     * `:times` - how many calls the expectation covers. Defaults to `1`.
 
   A call past `:times` raises `Mox.UnexpectedCallError`. Each expected call is
@@ -70,7 +73,7 @@ defmodule Trogon.Test.TestDateTime do
   @spec expect_utc_now(expect_opts()) :: module()
   def expect_utc_now(opts) do
     recorder = Recorder.new()
-    datetime = Expectation.returns!(opts, &utc_date_time?/1, "a DateTime in Etc/UTC")
+    datetime = Expectation.returns!(opts, &utc_date_time?/1, "a DateTime in Etc/UTC with microsecond precision")
 
     Mox.expect(MockDateTime, :utc_now, Expectation.times(opts), fn ->
       Expectation.record(recorder, __MODULE__, {:utc_now, []}, datetime)
@@ -86,6 +89,15 @@ defmodule Trogon.Test.TestDateTime do
     end
   end
 
-  defp utc_date_time?(%DateTime{time_zone: "Etc/UTC"}), do: true
+  defp utc_date_time?(%DateTime{
+         calendar: Calendar.ISO,
+         time_zone: "Etc/UTC",
+         zone_abbr: "UTC",
+         utc_offset: 0,
+         std_offset: 0,
+         microsecond: {_microsecond, 6}
+       }),
+       do: true
+
   defp utc_date_time?(_value), do: false
 end

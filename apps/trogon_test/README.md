@@ -54,12 +54,12 @@ defmodule MyApp.BillingTest do
 
   test "stamps the invoice with the configured tax rate and the current time" do
     TestApplication.expect_get_env(times: 1, returns: 0.07)
-    TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
+    TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00.000000Z])
 
     invoice = MyApp.Billing.issue_invoice()
 
     assert invoice.tax_rate == 0.07
-    assert invoice.issued_at == ~U[2026-01-01 00:00:00Z]
+    assert invoice.issued_at == ~U[2026-01-01 00:00:00.000000Z]
     TestApplication.assert_received_get_env(:my_app, :tax_rate)
     TestDateTime.assert_received_utc_now()
     Trogon.Test.assert_empty_mailbox()
@@ -67,7 +67,7 @@ defmodule MyApp.BillingTest do
 end
 ```
 
-Every `expect_*` function takes `returns:`, the value the call returns, and `times:`, how many calls it covers, `1` by default. An expectation covers every call to its function whatever arguments it is given, and a call past `times:` raises `Mox.UnexpectedCallError`. Functions with no expectation keep calling the real module through the stub. An expected call still rejects the arguments the real function rejects, raising the same exception, and `expect_*` rejects a `returns:` the real function never returns, so a test cannot pass on a call that would crash or misbehave in production. `TestProcess.expect_send_after/1` never schedules the message and defaults `returns:` to a new reference, so the test sends the message itself when it wants the timer to fire. `TestProcess.expect_sleep/1` takes only `times:` and returns `:ok` without sleeping.
+Every `expect_*` function takes `returns:`, the value the call returns, and `times:`, how many calls it covers, `1` by default. An expectation covers every call to its function whatever arguments it is given, and a call past `times:` raises `Mox.UnexpectedCallError`. Functions with no expectation keep calling the real module through the stub. An expected call still rejects the arguments the real function rejects, raising the same exception, and `expect_*` rejects a `returns:` the real function never returns, so a test cannot pass on a call that would crash or misbehave in production. `TestDateTime.expect_utc_now/1` therefore takes a `DateTime` with microsecond precision, such as `~U[2026-01-01 00:00:00.000000Z]`, because that is all `DateTime.utc_now/0` returns. `TestProcess.expect_send_after/1` never schedules the message and defaults `returns:` to a new reference, so the test sends the message itself when it wants the timer to fire. `TestProcess.expect_sleep/1` takes only `times:` and returns `:ok` without sleeping.
 
 Each expected call is sent to the test process, so the matching `assert_received_*` macro checks what the code under test passed. Every mock sends under the same `Trogon.Test` tag, so `Trogon.Test.assert_empty_mailbox/0` at the end of the test fails on any call the test did not assert on, whichever mock recorded it. No `on_exit` callback is needed, since nothing outside the test process changed.
 

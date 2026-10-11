@@ -150,46 +150,16 @@ defmodule Trogon.Test.TestProcess do
 
   defp record_send_after(recorder, timer, dest, msg, time, opts) do
     check_dest!(dest)
-    check_opts!(opts)
-    check_time!(time, absolute?(opts))
+    check_timer!(time, opts)
     Expectation.record(recorder, __MODULE__, {:send_after, [dest, msg, time, opts]}, timer.())
   end
 
   defp check_dest!(dest) when is_pid(dest) or is_atom(dest), do: :ok
   defp check_dest!(dest), do: raise(ArgumentError, "expected dest to be a pid or an atom, got: #{inspect(dest)}")
 
-  defp check_time!(time, false) when is_integer(time) and time >= 0, do: :ok
-
-  defp check_time!(time, false),
-    do: raise(ArgumentError, "expected time to be a non-negative integer, got: #{inspect(time)}")
-
-  defp check_time!(time, true) when is_integer(time) do
-    if time >= vm_start_time() do
-      :ok
-    else
-      raise ArgumentError, "expected an absolute time to be no earlier than the VM start, got: #{inspect(time)}"
-    end
+  defp check_timer!(time, opts) do
+    nowhere = spawn(fn -> :ok end)
+    Process.cancel_timer(Process.send_after(nowhere, :trogon_test, time, opts))
+    :ok
   end
-
-  defp check_time!(time, true),
-    do: raise(ArgumentError, "expected an absolute time to be an integer, got: #{inspect(time)}")
-
-  defp vm_start_time do
-    System.convert_time_unit(:erlang.system_info(:start_time), :native, :millisecond)
-  end
-
-  defp absolute?(opts) do
-    opts |> Keyword.get_values(:abs) |> List.last(false)
-  end
-
-  defp check_opts!(opts) do
-    if is_list(opts) and Enum.all?(opts, &abs_option?/1) do
-      :ok
-    else
-      raise ArgumentError, "expected opts to be a list of abs: boolean, got: #{inspect(opts)}"
-    end
-  end
-
-  defp abs_option?({:abs, abs}), do: is_boolean(abs)
-  defp abs_option?(_option), do: false
 end
