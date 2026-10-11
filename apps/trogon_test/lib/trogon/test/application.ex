@@ -89,7 +89,7 @@ defmodule Trogon.Test.Application do
   """
   @spec stub(map()) :: :ok
   def stub(_context \\ %{}) do
-    Mox.stub_with(__MODULE__.Mock, __MODULE__.Real)
+    Mox.stub_with(__MODULE__.Mock, __MODULE__.ElixirApplication)
     :ok
   end
 
@@ -205,7 +205,7 @@ defmodule Trogon.Test.Application do
   end
 end
 
-defmodule Trogon.Test.Application.Real do
+defmodule Trogon.Test.Application.ElixirApplication do
   @moduledoc false
   @behaviour Trogon.Test.Application
 

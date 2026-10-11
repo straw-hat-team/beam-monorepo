@@ -73,7 +73,7 @@ defmodule Trogon.Test.DateTime do
   """
   @spec stub(map()) :: :ok
   def stub(_context \\ %{}) do
-    Mox.stub_with(__MODULE__.Mock, __MODULE__.Real)
+    Mox.stub_with(__MODULE__.Mock, __MODULE__.ElixirDateTime)
     :ok
   end
 
@@ -100,7 +100,7 @@ defmodule Trogon.Test.DateTime do
   end
 end
 
-defmodule Trogon.Test.DateTime.Real do
+defmodule Trogon.Test.DateTime.ElixirDateTime do
   @moduledoc false
   @behaviour Trogon.Test.DateTime
 
