@@ -21,6 +21,31 @@ defmodule Trogon.Test do
       end
   """
 
+  @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime]
+
+  @typedoc """
+  A process to allow: its pid, or the name it registers under.
+  """
+  @type process :: pid() | atom() | {:global, term()} | {:via, module(), term()}
+
+  @doc """
+  Allows a process to use the expectations and stubs the calling test set on
+  every `Trogon.Test` mock.
+
+  The test's `$callers`, such as a `Task`, need no allowance. A process started
+  another way, such as a `GenServer` under a supervisor, does. A name is looked
+  up each time the process calls a mock, so a test can allow a process before
+  it starts:
+
+      Trogon.Test.allow(MyApp.Worker)
+      start_supervised!(MyApp.Worker)
+  """
+  @spec allow(process()) :: :ok
+  def allow(process) do
+    owner = self()
+    Enum.each(@mocks, &Mox.allow(&1, owner, fn -> GenServer.whereis(process) end))
+  end
+
   @doc """
   Asserts that the test asserted on every call a `Trogon.Test` mock recorded.
 

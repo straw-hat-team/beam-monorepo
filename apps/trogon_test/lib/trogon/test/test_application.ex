@@ -59,7 +59,7 @@ defmodule Trogon.Test.TestApplication do
   `assert_received_*` macro, which needs `require Trogon.Test.TestApplication`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
-  allowed with `Mox.allow(Trogon.Test.MockApplication, self(), pid)`.
+  allowed with `Trogon.Test.allow/1`.
   """
 
   alias Trogon.Test.Expectation

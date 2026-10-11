@@ -94,10 +94,9 @@ Each expected call is sent to the test process, so the matching `assert_received
 
 ## Allow a process
 
-A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` started with `start_link` for instance, does not, until the test allows it with `Mox.allow/3` on each mock it calls:
+A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` under a supervisor for instance, does not, until the test allows it on every mock with `Trogon.Test.allow/1`. Pass its pid, or the name it registers under. A name is looked up each time the process calls a mock, so the test can allow a process before it starts:
 
 ```elixir
-{:ok, worker} = MyApp.Worker.start_link()
-Mox.allow(Trogon.Test.MockApplication, self(), worker)
-Mox.allow(Trogon.Test.MockDateTime, self(), worker)
+Trogon.Test.allow(MyApp.Worker)
+start_supervised!(MyApp.Worker)
 ```

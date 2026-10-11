@@ -50,7 +50,7 @@ defmodule Trogon.Test.TestDateTime do
   `require Trogon.Test.TestDateTime`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
-  allowed with `Mox.allow(Trogon.Test.MockDateTime, self(), pid)`.
+  allowed with `Trogon.Test.allow/1`.
   """
 
   alias Trogon.Test.Expectation
