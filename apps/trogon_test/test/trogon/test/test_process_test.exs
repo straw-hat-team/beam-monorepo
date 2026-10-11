@@ -10,6 +10,12 @@ defmodule Trogon.Test.TestProcessTest do
 
       assert_receive :tick
     end
+
+    test "sleeps with the real Process" do
+      result = MockProcess.sleep(0)
+
+      assert result == :ok
+    end
   end
 
   describe "expect_send_after/1" do
@@ -61,6 +67,38 @@ defmodule Trogon.Test.TestProcessTest do
 
       assert_raise Mox.UnexpectedCallError, fn -> MockProcess.send_after(self(), :tick, 1_000, []) end
       TestProcess.assert_received_send_after(self(), :tick, 1_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "expect_sleep/1" do
+    test "returns without sleeping" do
+      TestProcess.expect_sleep(times: 1)
+
+      result = MockProcess.sleep(:infinity)
+
+      assert result == :ok
+      TestProcess.assert_received_sleep(:infinity)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "covers as many calls as times" do
+      TestProcess.expect_sleep(times: 2)
+
+      MockProcess.sleep(100)
+      MockProcess.sleep(200)
+
+      TestProcess.assert_received_sleep(100)
+      TestProcess.assert_received_sleep(200)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects a call past times" do
+      TestProcess.expect_sleep(times: 1)
+      MockProcess.sleep(100)
+
+      assert_raise Mox.UnexpectedCallError, fn -> MockProcess.sleep(100) end
+      TestProcess.assert_received_sleep(100)
       Trogon.Test.assert_empty_mailbox()
     end
   end
