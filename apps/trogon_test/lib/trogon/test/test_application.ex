@@ -1,7 +1,7 @@
 defmodule Trogon.Test.TestApplication do
   @moduledoc """
   A Mox behaviour for the `Application` environment functions, with
-  `Trogon.Test.TestApplication.Mock` as its mock and helpers that expect a read and
+  `Trogon.Test.TestApplication.MockApplication` as its mock and helpers that expect a read and
   assert on what it was given.
 
   `Application.put_env/3` writes to the application controller's table, the same
@@ -23,7 +23,7 @@ defmodule Trogon.Test.TestApplication do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp, application: Trogon.Test.TestApplication.Mock
+      config :my_app, MyApp, application: Trogon.Test.TestApplication.MockApplication
 
   Each test stubs the mock to read the real `Application`, expects the reads it
   cares about with what they return, and asserts on what they were given:
@@ -57,7 +57,7 @@ defmodule Trogon.Test.TestApplication do
   `assert_received_*` macro, which needs `require Trogon.Test.TestApplication`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
-  allowed with `Mox.allow(Trogon.Test.TestApplication.Mock, self(), pid)`.
+  allowed with `Mox.allow(Trogon.Test.TestApplication.MockApplication, self(), pid)`.
   """
 
   alias Trogon.Test.Expectation
@@ -75,14 +75,14 @@ defmodule Trogon.Test.TestApplication do
   @callback get_all_env(app()) :: [{key(), value()}]
 
   @doc """
-  Stubs `Trogon.Test.TestApplication.Mock` to read the real `Application`.
+  Stubs `Trogon.Test.TestApplication.MockApplication` to read the real `Application`.
 
   Takes the test context so it can be given to `setup/1` as
   `setup {Trogon.Test.TestApplication, :stub}`.
   """
   @spec stub(map()) :: :ok
   def stub(_context \\ %{}) do
-    Mox.stub_with(__MODULE__.Mock, __MODULE__.ElixirApplication)
+    Mox.stub_with(__MODULE__.MockApplication, __MODULE__.ElixirApplication)
     :ok
   end
 
@@ -95,7 +95,7 @@ defmodule Trogon.Test.TestApplication do
     value = Expectation.returns!(opts)
 
     Mox.expect(
-      __MODULE__.Mock,
+      __MODULE__.MockApplication,
       :get_env,
       Expectation.times(opts),
       &Expectation.record(owner, __MODULE__, {:get_env, [&1, &2, &3]}, value)
@@ -112,7 +112,7 @@ defmodule Trogon.Test.TestApplication do
     result = Expectation.returns!(opts)
 
     Mox.expect(
-      __MODULE__.Mock,
+      __MODULE__.MockApplication,
       :fetch_env,
       Expectation.times(opts),
       &Expectation.record(owner, __MODULE__, {:fetch_env, [&1, &2]}, result)
@@ -128,7 +128,7 @@ defmodule Trogon.Test.TestApplication do
     value = Expectation.returns!(opts)
 
     Mox.expect(
-      __MODULE__.Mock,
+      __MODULE__.MockApplication,
       :fetch_env!,
       Expectation.times(opts),
       &Expectation.record(owner, __MODULE__, {:fetch_env!, [&1, &2]}, value)
@@ -144,7 +144,7 @@ defmodule Trogon.Test.TestApplication do
     env = Expectation.returns!(opts)
 
     Mox.expect(
-      __MODULE__.Mock,
+      __MODULE__.MockApplication,
       :get_all_env,
       Expectation.times(opts),
       &Expectation.record(owner, __MODULE__, {:get_all_env, [&1]}, env)
@@ -215,7 +215,7 @@ defmodule Trogon.Test.TestApplication.ElixirApplication do
   defdelegate get_all_env(app), to: Application
 end
 
-Mox.defmock(Trogon.Test.TestApplication.Mock,
+Mox.defmock(Trogon.Test.TestApplication.MockApplication,
   for: Trogon.Test.TestApplication,
   moduledoc: """
   The Mox mock for `Trogon.Test.TestApplication`.

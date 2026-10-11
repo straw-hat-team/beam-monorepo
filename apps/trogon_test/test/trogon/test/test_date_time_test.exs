@@ -4,7 +4,7 @@ defmodule Trogon.Test.TestDateTimeTest do
   import Mox
 
   alias Trogon.Test.TestDateTime
-  alias Trogon.Test.TestDateTime.Mock
+  alias Trogon.Test.TestDateTime.MockDateTime
 
   require TestDateTime
 
@@ -15,7 +15,7 @@ defmodule Trogon.Test.TestDateTimeTest do
     test "reads the real clock" do
       before = DateTime.utc_now()
 
-      now = Mock.utc_now()
+      now = MockDateTime.utc_now()
 
       assert DateTime.compare(now, before) in [:gt, :eq]
     end
@@ -25,7 +25,7 @@ defmodule Trogon.Test.TestDateTimeTest do
     test "returns the expected time" do
       TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
 
-      now = Mock.utc_now()
+      now = MockDateTime.utc_now()
 
       assert now == ~U[2026-01-01 00:00:00Z]
       TestDateTime.assert_received_utc_now()
@@ -34,7 +34,7 @@ defmodule Trogon.Test.TestDateTimeTest do
     test "covers as many calls as times" do
       TestDateTime.expect_utc_now(times: 2, returns: ~U[2026-01-01 00:00:00Z])
 
-      times = [Mock.utc_now(), Mock.utc_now()]
+      times = [MockDateTime.utc_now(), MockDateTime.utc_now()]
 
       assert times == [~U[2026-01-01 00:00:00Z], ~U[2026-01-01 00:00:00Z]]
       TestDateTime.assert_received_utc_now()
@@ -43,9 +43,9 @@ defmodule Trogon.Test.TestDateTimeTest do
 
     test "rejects a call past times" do
       TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
-      Mock.utc_now()
+      MockDateTime.utc_now()
 
-      assert_raise Mox.UnexpectedCallError, fn -> Mock.utc_now() end
+      assert_raise Mox.UnexpectedCallError, fn -> MockDateTime.utc_now() end
       TestDateTime.assert_received_utc_now()
     end
 
@@ -58,7 +58,7 @@ defmodule Trogon.Test.TestDateTimeTest do
     test "reaches the test's $callers" do
       TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
 
-      now = Task.await(Task.async(&Mock.utc_now/0))
+      now = Task.await(Task.async(&MockDateTime.utc_now/0))
 
       assert now == ~U[2026-01-01 00:00:00Z]
       TestDateTime.assert_received_utc_now()
