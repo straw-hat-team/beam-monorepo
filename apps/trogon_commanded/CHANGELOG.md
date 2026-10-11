@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.2.0...trogon_commanded@v1.3.0) (2026-10-10)
+
+
+### Features
+
+* **trogon_commanded:** Keep v2 aggregates from being read from a table ([#520](https://github.com/straw-hat-team/beam-monorepo/issues/520)) ([40584ea](https://github.com/straw-hat-team/beam-monorepo/commit/40584ea571d478e4f1a8eab67ad40e2d51161437))
+
 ## [1.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.1.0...trogon_commanded@v1.2.0) (2026-10-09)
 
 
