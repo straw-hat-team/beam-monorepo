@@ -6,6 +6,10 @@ on:
       - main
       - master
 
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   issues: write
