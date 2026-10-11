@@ -1,8 +1,7 @@
 defmodule Trogon.Test.TestDateTime do
   @moduledoc """
-  A Mox behaviour for reading the current time, with
-  `Trogon.Test.MockDateTime` as its mock and helpers that expect a read and
-  assert it happened.
+  Helpers for `Trogon.Test.MockDateTime`, the Mox mock of the clock, that expect
+  a read and assert it happened.
 
   Code that calls `DateTime.utc_now/0` directly returns a different value on
   every run, so a test can only assert on its shape. Read the clock through a
@@ -51,8 +50,6 @@ defmodule Trogon.Test.TestDateTime do
 
   @typedoc "Options `expect_utc_now/1` takes."
   @type expect_opts :: [returns: DateTime.t(), times: non_neg_integer()]
-
-  @callback utc_now() :: DateTime.t()
 
   @doc """
   Stubs `Trogon.Test.MockDateTime` to read the real clock.

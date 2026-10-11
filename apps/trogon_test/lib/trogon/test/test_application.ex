@@ -1,8 +1,7 @@
 defmodule Trogon.Test.TestApplication do
   @moduledoc """
-  A Mox behaviour for the `Application` environment functions, with
-  `Trogon.Test.MockApplication` as its mock and helpers that expect a read and
-  assert on what it was given.
+  Helpers for `Trogon.Test.MockApplication`, the Mox mock of the `Application`
+  environment functions, that expect a read and assert on what it was given.
 
   `Application.put_env/3` writes to the application controller's table, the same
   global, node-wide state every process reads from with `Application.get_env/2,3`.
@@ -60,17 +59,8 @@ defmodule Trogon.Test.TestApplication do
   alias Trogon.Test.Expectation
   alias Trogon.Test.MockApplication
 
-  @type app :: Application.app()
-  @type key :: Application.key()
-  @type value :: Application.value()
-
   @typedoc "Options every `expect_*` function takes."
   @type expect_opts :: [returns: term(), times: non_neg_integer()]
-
-  @callback get_env(app(), key(), value()) :: value()
-  @callback fetch_env(app(), key()) :: {:ok, value()} | :error
-  @callback fetch_env!(app(), key()) :: value()
-  @callback get_all_env(app()) :: [{key(), value()}]
 
   @doc """
   Stubs `Trogon.Test.MockApplication` to read the real `Application`.

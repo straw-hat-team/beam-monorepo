@@ -1,8 +1,7 @@
 defmodule Trogon.Test.TestProcess do
   @moduledoc """
-  A Mox behaviour for timers, scheduled messages and sleeps, with
-  `Trogon.Test.MockProcess` as its mock and helpers that expect a call and
-  assert on what it was given.
+  Helpers for `Trogon.Test.MockProcess`, the Mox mock of timers, scheduled
+  messages and sleeps, that expect a call and assert on what it was given.
 
   Code that calls `Process.send_after/4` or `Process.sleep/1` directly makes a
   test wait for the timer, or race it. Call them through a facade the project
@@ -61,11 +60,6 @@ defmodule Trogon.Test.TestProcess do
 
   @typedoc "Options `expect_sleep/1` takes."
   @type sleep_opts :: [times: non_neg_integer()]
-
-  @callback send_after(dest :: pid() | atom(), msg :: term(), time :: non_neg_integer(), opts :: keyword()) ::
-              reference()
-
-  @callback sleep(timeout :: timeout()) :: :ok
 
   @doc """
   Stubs `Trogon.Test.MockProcess` to schedule with the real `Process`.

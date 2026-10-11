@@ -1,5 +1,5 @@
 Mox.defmock(Trogon.Test.MockDateTime,
-  for: Trogon.Test.TestDateTime,
+  for: Trogon.Test.TestDateTime.DateTimeBehaviour,
   moduledoc: """
   The Mox mock for `Trogon.Test.TestDateTime`.
 
