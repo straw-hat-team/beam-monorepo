@@ -25,24 +25,19 @@ defmodule Trogon.Test.TestApplication do
 
       config :my_app, MyApp.Config, application: Trogon.Test.MockApplication
 
-  Each test stubs the mock to read the real `Application`, expects the reads it
-  cares about with what they return, and asserts on what they were given:
+  `use Trogon.Test` stubs the mock to read the real `Application`. Each test
+  expects the reads it cares about with what they return, and asserts on what
+  they were given:
 
-      import Mox
-
-      require Trogon.Test
-      require Trogon.Test.TestApplication
-
-      setup :verify_on_exit!
-      setup {Trogon.Test.TestApplication, :stub}
+      use Trogon.Test
 
       test "charges the configured tax rate" do
-        Trogon.Test.TestApplication.expect_get_env(times: 1, returns: 0.07)
+        TestApplication.expect_get_env(times: 1, returns: 0.07)
 
         tax_rate = MyApp.Billing.tax_rate()
 
         assert tax_rate == 0.07
-        Trogon.Test.TestApplication.assert_received_get_env(:my_app, :tax_rate)
+        TestApplication.assert_received_get_env(:my_app, :tax_rate)
         Trogon.Test.assert_empty_mailbox()
       end
 
@@ -56,7 +51,7 @@ defmodule Trogon.Test.TestApplication do
   `:times` raises `Mox.UnexpectedCallError`. Functions with no expectation keep
   reading the real `Application` through the stub. Each expected call is
   recorded in the mailbox of the test that set it, for the matching
-  `assert_received_*` macro, which needs `require Trogon.Test.TestApplication`.
+  `assert_received_*` macro.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
   allowed with `Trogon.Test.allow/1`.

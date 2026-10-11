@@ -17,24 +17,18 @@ defmodule Trogon.Test.TestProcess do
 
       config :my_app, MyApp.Timer, process: Trogon.Test.MockProcess
 
-  Each test stubs the mock to schedule for real, expects the schedules it cares
-  about, and asserts on what they were given. The expected message is never
+  `use Trogon.Test` stubs the mock to schedule for real. Each test expects the
+  schedules it cares about, and asserts on what they were given. The expected message is never
   sent, so the test sends it itself when it wants the timer to fire:
 
-      import Mox
-
-      require Trogon.Test
-      require Trogon.Test.TestProcess
-
-      setup :verify_on_exit!
-      setup {Trogon.Test.TestProcess, :stub}
+      use Trogon.Test
 
       test "schedules the next poll" do
-        Trogon.Test.TestProcess.expect_send_after(times: 1)
+        TestProcess.expect_send_after(times: 1)
 
         poller = start_supervised!(MyApp.Poller)
 
-        Trogon.Test.TestProcess.assert_received_send_after(poller, :poll, 5_000)
+        TestProcess.assert_received_send_after(poller, :poll, 5_000)
         Trogon.Test.assert_empty_mailbox()
       end
 
@@ -46,8 +40,7 @@ defmodule Trogon.Test.TestProcess do
 
   A call past `:times` raises `Mox.UnexpectedCallError`. Each expected call is
   recorded in the mailbox of the test that set it, for
-  `assert_received_send_after/3,4`, macros that need
-  `require Trogon.Test.TestProcess`.
+  `assert_received_send_after/3,4`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
   allowed with `Trogon.Test.allow/1`.

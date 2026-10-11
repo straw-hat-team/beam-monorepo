@@ -1,16 +1,8 @@
 defmodule Trogon.Test.TestProcessTest do
   use ExUnit.Case, async: true
-
-  import Mox
+  use Trogon.Test
 
   alias Trogon.Test.MockProcess
-  alias Trogon.Test.TestProcess
-
-  require TestProcess
-  require Trogon.Test
-
-  setup :verify_on_exit!
-  setup {TestProcess, :stub}
 
   describe "stub/1" do
     test "schedules the message with the real Process" do

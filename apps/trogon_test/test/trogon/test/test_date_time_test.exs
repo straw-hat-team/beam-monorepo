@@ -1,16 +1,8 @@
 defmodule Trogon.Test.TestDateTimeTest do
   use ExUnit.Case, async: true
-
-  import Mox
+  use Trogon.Test
 
   alias Trogon.Test.MockDateTime
-  alias Trogon.Test.TestDateTime
-
-  require TestDateTime
-  require Trogon.Test
-
-  setup :verify_on_exit!
-  setup {TestDateTime, :stub}
 
   describe "stub/1" do
     test "reads the real clock" do

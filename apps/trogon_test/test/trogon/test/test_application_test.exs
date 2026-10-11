@@ -1,16 +1,8 @@
 defmodule Trogon.Test.TestApplicationTest do
   use ExUnit.Case, async: true
-
-  import Mox
+  use Trogon.Test
 
   alias Trogon.Test.MockApplication
-  alias Trogon.Test.TestApplication
-
-  require TestApplication
-  require Trogon.Test
-
-  setup :verify_on_exit!
-  setup {TestApplication, :stub}
 
   describe "stub/1" do
     test "reads a configured key from the real Application env" do

@@ -18,24 +18,18 @@ defmodule Trogon.Test.TestDateTime do
 
       config :my_app, MyApp.Clock, date_time: Trogon.Test.MockDateTime
 
-  Each test stubs the mock to read the real clock, expects the reads it cares
-  about with what they return, and asserts they happened:
+  `use Trogon.Test` stubs the mock to read the real clock. Each test expects the
+  reads it cares about with what they return, and asserts they happened:
 
-      import Mox
-
-      require Trogon.Test
-      require Trogon.Test.TestDateTime
-
-      setup :verify_on_exit!
-      setup {Trogon.Test.TestDateTime, :stub}
+      use Trogon.Test
 
       test "stamps the invoice with the current time" do
-        Trogon.Test.TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
+        TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
 
         invoice = MyApp.Billing.issue_invoice()
 
         assert invoice.issued_at == ~U[2026-01-01 00:00:00Z]
-        Trogon.Test.TestDateTime.assert_received_utc_now()
+        TestDateTime.assert_received_utc_now()
         Trogon.Test.assert_empty_mailbox()
       end
 
@@ -46,8 +40,7 @@ defmodule Trogon.Test.TestDateTime do
 
   A call past `:times` raises `Mox.UnexpectedCallError`. Each expected call is
   recorded in the mailbox of the test that set it, for
-  `assert_received_utc_now/0`, a macro that needs
-  `require Trogon.Test.TestDateTime`.
+  `assert_received_utc_now/0`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
   allowed with `Trogon.Test.allow/1`.

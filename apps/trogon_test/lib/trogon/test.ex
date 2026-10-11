@@ -1,25 +1,54 @@
 defmodule Trogon.Test do
   @moduledoc """
-  Assertions shared by every `Trogon.Test` mock.
+  Sets a test module up to use every `Trogon.Test` mock, and holds the
+  assertions they share.
+
+  `use Trogon.Test` next to any case template, your own `DataCase` included, or
+  once inside that template's `using` block:
+
+      defmodule MyApp.BillingTest do
+        use ExUnit.Case, async: true
+        use Trogon.Test
+
+        test "charges the configured tax rate" do
+          TestApplication.expect_get_env(times: 1, returns: 0.07)
+
+          tax_rate = MyApp.Billing.tax_rate()
+
+          assert tax_rate == 0.07
+          TestApplication.assert_received_get_env(:my_app, :tax_rate)
+          Trogon.Test.assert_empty_mailbox()
+        end
+      end
+
+  It aliases and requires `Trogon.Test.TestApplication`,
+  `Trogon.Test.TestDateTime`, and `Trogon.Test.TestProcess`, requires
+  `Trogon.Test`, verifies every Mox expectation when the test exits, and stubs
+  each mock to call the real module until the test expects a call.
 
   Every expected call a mock records lands in the test's mailbox under the
   `Trogon.Test` tag, whichever mock recorded it. Each `assert_received_*` macro
   takes one of them out, so a test that ends with `assert_empty_mailbox/0`
-  proves it asserted on every call the code under test made:
+  proves it asserted on every call the code under test made.
+  """
+
+  defmacro __using__(_opts) do
+    quote do
+      alias Trogon.Test.TestApplication
+      alias Trogon.Test.TestDateTime
+      alias Trogon.Test.TestProcess
 
       require Trogon.Test
       require Trogon.Test.TestApplication
+      require Trogon.Test.TestDateTime
+      require Trogon.Test.TestProcess
 
-      test "charges the configured tax rate" do
-        Trogon.Test.TestApplication.expect_get_env(times: 1, returns: 0.07)
-
-        tax_rate = MyApp.Billing.tax_rate()
-
-        assert tax_rate == 0.07
-        Trogon.Test.TestApplication.assert_received_get_env(:my_app, :tax_rate)
-        Trogon.Test.assert_empty_mailbox()
-      end
-  """
+      setup {Mox, :verify_on_exit!}
+      setup {Trogon.Test.TestApplication, :stub}
+      setup {Trogon.Test.TestDateTime, :stub}
+      setup {Trogon.Test.TestProcess, :stub}
+    end
+  end
 
   @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess]
 

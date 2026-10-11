@@ -61,24 +61,12 @@ Every other environment keeps calling the real modules, since the facade only sw
 
 ## Expect a call in a test
 
-Stub the mock in `setup`, expect the calls the test cares about with what they return, then assert on what they were given. Require each module for its `assert_received_*` macros, and `Trogon.Test` for `assert_empty_mailbox/0`. The `Test` prefix keeps an alias from shadowing the real `Application`, `DateTime`, or `Process`:
+`use Trogon.Test` next to any case template, or once inside your own `DataCase` `using` block. It aliases and requires `TestApplication`, `TestDateTime`, and `TestProcess`, verifies every Mox expectation when the test exits, and stubs each mock to call the real module. The `Test` prefix keeps those aliases from shadowing the real `Application`, `DateTime`, or `Process`. Each test then expects the calls it cares about with what they return, and asserts on what they were given:
 
 ```elixir
 defmodule MyApp.BillingTest do
   use ExUnit.Case, async: true
-
-  import Mox
-
-  alias Trogon.Test.TestApplication
-  alias Trogon.Test.TestDateTime
-
-  require TestApplication
-  require TestDateTime
-  require Trogon.Test
-
-  setup :verify_on_exit!
-  setup {TestApplication, :stub}
-  setup {TestDateTime, :stub}
+  use Trogon.Test
 
   test "stamps the invoice with the configured tax rate and the current time" do
     TestApplication.expect_get_env(times: 1, returns: 0.07)

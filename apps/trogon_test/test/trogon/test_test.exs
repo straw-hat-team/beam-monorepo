@@ -1,20 +1,9 @@
 defmodule Trogon.TestTest do
   use ExUnit.Case, async: true
-
-  import Mox
+  use Trogon.Test
 
   alias Trogon.Test.MockApplication
   alias Trogon.Test.MockDateTime
-  alias Trogon.Test.TestApplication
-  alias Trogon.Test.TestDateTime
-
-  require TestApplication
-  require TestDateTime
-  require Trogon.Test
-
-  setup :verify_on_exit!
-  setup {TestApplication, :stub}
-  setup {TestDateTime, :stub}
 
   describe "assert_empty_mailbox/0" do
     test "passes once every recorded call is asserted" do
