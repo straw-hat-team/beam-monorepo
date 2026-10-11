@@ -9,6 +9,11 @@ defmodule Trogon.Test.ReportFormatter do
   stacktrace without ExUnit's own frames, and the logs it captured. A
   `setup_all` that fails is reported once, for its module.
 
+  Values are never truncated. A failed `==` or `===` between two maps, lists,
+  or tuples writes only the places where they differ. Paths are relative to the
+  directory `mix test` ran in, the umbrella's when it ran there, and a failing
+  run's summary ends with the seed that replays it.
+
   Run it in place of the CLI formatter, and the report goes to standard output,
   for the caller to read, pipe, or redirect like any other output:
 
@@ -28,9 +33,9 @@ defmodule Trogon.Test.ReportFormatter do
         test/my_app/billing_test.exs:12
         assert tax_rate == 0.07
         left:  0.0
-        test/my_app/billing_test.exs:15: MyApp.BillingTest."test charges the configured tax rate"/1
+        test/my_app/billing_test.exs:15
 
-      FAILURES | 42 tests, 41 passed, 1 failed | 150ms
+      FAILURES | 42 tests, 41 passed, 1 failed | 150ms | seed 401236
 
   ## Options
 
@@ -49,26 +54,33 @@ defmodule Trogon.Test.ReportFormatter do
   alias Trogon.Test.ReportFormatter.Failure
   alias Trogon.Test.ReportFormatter.Tally
 
-  @enforce_keys [:device, :include_logs, :tally]
-  defstruct [:device, :include_logs, :tally]
+  @enforce_keys [:device, :include_logs, :root, :seed, :tally]
+  defstruct [:device, :include_logs, :root, :seed, :tally]
 
   @doc false
   @impl GenServer
   def init(config) do
     {path, include_logs} = config |> Keyword.get(:trogon_test_report, []) |> options!()
 
-    {:ok, %__MODULE__{device: open(path), include_logs: include_logs, tally: %Tally{}}}
+    {:ok,
+     %__MODULE__{
+       device: open(path),
+       include_logs: include_logs,
+       root: root(),
+       seed: Keyword.get(config, :seed),
+       tally: %Tally{}
+     }}
   end
 
   @doc false
   @impl GenServer
   def handle_cast({:test_finished, %ExUnit.Test{} = test}, state) do
-    write(state, Failure.format_test(test, state.include_logs))
+    write(state, Failure.format_test(test, state.root, state.include_logs))
     {:noreply, %{state | tally: Tally.count(state.tally, test)}}
   end
 
   def handle_cast({:module_finished, %ExUnit.TestModule{} = test_module}, state) do
-    write(state, Failure.format_module(test_module))
+    write(state, Failure.format_module(test_module, state.root))
     {:noreply, %{state | tally: Tally.count_module(state.tally, test_module)}}
   end
 
@@ -78,7 +90,7 @@ defmodule Trogon.Test.ReportFormatter do
   end
 
   def handle_cast({:suite_finished, %{run: run_us}}, state) do
-    write(state, Tally.format(state.tally, run_us))
+    write(state, Tally.format(state.tally, run_us, state.seed))
     close(state.device)
     {:noreply, state}
   end
@@ -97,6 +109,15 @@ defmodule Trogon.Test.ReportFormatter do
               "expected :path to be nil or a string and :include_logs a boolean, got: #{inspect(opts)}"
     end
   end
+
+  # An umbrella runs each app's tests from the app's directory, but the caller
+  # reads paths from the directory it ran `mix test` in.
+  defp root do
+    umbrella_file = mix_started?() and Mix.Project.parent_umbrella_project_file()
+    if umbrella_file, do: Path.dirname(umbrella_file), else: File.cwd!()
+  end
+
+  defp mix_started?, do: List.keymember?(Application.started_applications(), :mix, 0)
 
   defp open(nil), do: :stdio
 

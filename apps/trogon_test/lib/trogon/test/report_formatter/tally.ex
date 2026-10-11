@@ -28,20 +28,25 @@ defmodule Trogon.Test.ReportFormatter.Tally do
 
   def count_module(%__MODULE__{} = tally, %ExUnit.TestModule{}), do: tally
 
-  @spec format(t(), non_neg_integer()) :: iodata()
-  def format(%__MODULE__{} = tally, run_us) do
-    status =
-      if tally.failed == 0 and tally.invalid == 0 and tally.setup_all_failed == 0,
-        do: "ALL PASSED",
-        else: "FAILURES"
-
+  @spec format(t(), non_neg_integer(), non_neg_integer() | nil) :: iodata()
+  def format(%__MODULE__{} = tally, run_us, seed) do
     counts = [
       "#{tally.total} tests",
       "#{tally.passed} passed" | Enum.flat_map(@reported_when_any, &count_of(tally, &1))
     ]
 
-    [status, " | ", Enum.join(counts, ", "), " | ", Integer.to_string(div(run_us, 1000)), "ms\n"]
+    summary = [Enum.join(counts, ", "), " | ", Integer.to_string(div(run_us, 1000)), "ms"]
+
+    if passed?(tally),
+      do: ["ALL PASSED | ", summary, "\n"],
+      else: ["FAILURES | ", summary, format_seed(seed), "\n"]
   end
+
+  defp passed?(tally), do: tally.failed == 0 and tally.invalid == 0 and tally.setup_all_failed == 0
+
+  # A failing run's order can be replayed with `mix test --seed`.
+  defp format_seed(nil), do: []
+  defp format_seed(seed), do: [" | seed ", Integer.to_string(seed)]
 
   defp count_of(tally, key) do
     case Map.fetch!(tally, key) do
