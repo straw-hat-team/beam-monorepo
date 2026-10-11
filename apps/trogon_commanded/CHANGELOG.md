@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.3.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.3.0...trogon_commanded@v1.3.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **trogon_commanded:** Validate command and aggregate identity configuration in CommandHandlerCase ([#235](https://github.com/straw-hat-team/beam-monorepo/issues/235)) ([572682f](https://github.com/straw-hat-team/beam-monorepo/commit/572682f3f565bae05cad382950c5c1b51c392dce))
+
 ## [1.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.2.0...trogon_commanded@v1.3.0) (2026-10-11)
 
 
