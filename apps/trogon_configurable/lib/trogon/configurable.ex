@@ -86,14 +86,14 @@ defmodule Trogon.Configurable do
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
-      @trogon_configurable_options Trogon.Configurable.validate_options!(opts)
+      options = Trogon.Configurable.validate_options!(opts)
 
       @doc """
       Returns the configuration for `#{inspect(__MODULE__)}`.
       """
       @spec get_config(keyword()) :: keyword()
       def get_config(params \\ []) do
-        Trogon.Configurable.get_config(__MODULE__, @trogon_configurable_options, params)
+        Trogon.Configurable.get_config(__MODULE__, unquote(Macro.escape(options)), params)
       end
     end
   end
