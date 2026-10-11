@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.9.0...trogon_credo@v0.10.0) (2026-10-11)
+
+
+### Features
+
+* **trogon_credo:** Keep tests from changing config every other test reads ([#522](https://github.com/straw-hat-team/beam-monorepo/issues/522)) ([c030b3b](https://github.com/straw-hat-team/beam-monorepo/commit/c030b3b33ae7a0a4ca3ac0653ffabb825fedb17f))
+
 ## [0.9.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.8.0...trogon_credo@v0.9.0) (2026-10-10)
 
 
