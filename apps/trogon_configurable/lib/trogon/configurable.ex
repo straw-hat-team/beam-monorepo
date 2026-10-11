@@ -43,7 +43,25 @@ defmodule Trogon.Configurable do
   configuration.
 
       MyConfigurableModule.get_config(another_value: "")
+
+  ### Testing
+
+  The environment is read through `Application`, which the test environment
+  can swap for `Trogon.Test.MockApplication` in `config/test.exs`:
+
+      config :trogon_configurable, Trogon.Configurable,
+        application: Trogon.Test.MockApplication
+
+  A test then expects the read instead of writing the environment with
+  `Application.put_env/3`, so it stays `async: true`:
+
+      TestApplication.expect_get_env(returns: [site: "https://staging.example"])
+
+      assert MyConfigurableModule.get_config()[:site] == "https://staging.example"
+      TestApplication.assert_received_get_env(:my_app, MyConfigurableModule, [])
   """
+
+  @application Application.compile_env(:trogon_configurable, [__MODULE__, :application], Application)
 
   defmacro __using__(opts) do
     quote do
@@ -69,7 +87,7 @@ defmodule Trogon.Configurable do
   defp environment_config(module, opts) do
     case Keyword.get(opts, :otp_app) do
       nil -> []
-      otp_app -> Application.get_env(otp_app, module, [])
+      otp_app -> @application.get_env(otp_app, module, [])
     end
   end
 end

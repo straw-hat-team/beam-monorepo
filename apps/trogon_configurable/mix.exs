@@ -39,6 +39,8 @@ defmodule Trogon.Configurable.MixProject do
 
   defp deps do
     [
+      {:trogon_test, in_umbrella: true, only: :test},
+
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
       {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
