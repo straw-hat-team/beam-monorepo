@@ -37,18 +37,18 @@ defmodule Trogon.Test.ReportFormatter.Diff do
     (Map.keys(left) ++ Map.keys(right))
     |> Enum.uniq()
     |> Enum.sort()
-    |> Enum.flat_map(fn key ->
-      case {Map.fetch(left, key), Map.fetch(right, key)} do
-        {{:ok, left_value}, {:ok, right_value}} -> changes(left_value, right_value, equal?, [key | path])
-        {{:ok, left_value}, :error} -> [{Enum.reverse([key | path]), {:value, left_value}, :missing}]
-        {:error, {:ok, right_value}} -> [{Enum.reverse([key | path]), :missing, {:value, right_value}}]
-      end
-    end)
+    |> Enum.flat_map(&key_changes(Map.fetch(left, &1), Map.fetch(right, &1), equal?, [&1 | path]))
   end
+
+  defp key_changes({:ok, left}, {:ok, right}, equal?, path), do: changes(left, right, equal?, path)
+  defp key_changes({:ok, left}, :error, _equal?, path), do: [{Enum.reverse(path), {:value, left}, :missing}]
+  defp key_changes(:error, {:ok, right}, _equal?, path), do: [{Enum.reverse(path), :missing, {:value, right}}]
 
   defp positional_changes(pairs, equal?, path) do
     pairs
     |> Enum.with_index()
-    |> Enum.flat_map(fn {{left, right}, index} -> changes(left, right, equal?, [index | path]) end)
+    |> Enum.flat_map(&position_changes(&1, equal?, path))
   end
+
+  defp position_changes({{left, right}, index}, equal?, path), do: changes(left, right, equal?, [index | path])
 end
