@@ -117,10 +117,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseFixtures do
     end
   end
 
-  defmodule OtherPrefixAccount do
-    use Trogon.Commanded.Aggregate,
-      identifier: :uuid,
-      identity_prefix: "other-"
+  defmodule OtherIdentifierAccount do
+    use Trogon.Commanded.Aggregate, identifier: :account_id
 
     embedded_schema do
       field :name, :string

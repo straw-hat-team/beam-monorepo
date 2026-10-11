@@ -241,13 +241,10 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
       function_exported?(command_module, :aggregate_identifier, 0) and
         function_exported?(command_module, :identity_prefix, 0)
 
-    aggregate_has_identity? =
-      function_exported?(aggregate_module, :identifier, 0) and
-        function_exported?(aggregate_module, :identity_prefix, 0)
+    aggregate_has_identity? = function_exported?(aggregate_module, :identifier, 0)
 
     if command_has_identity? and aggregate_has_identity? do
       validate_identifier_match(command_module, aggregate_module)
-      validate_prefix_match(command_module, aggregate_module)
       validate_aggregate_uuid_extraction(command, command_module)
     else
       :ok
@@ -263,18 +260,6 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
 
     Command #{inspect(command_module)} uses #{inspect(command_identifier)}
     Aggregate #{inspect(aggregate_module)} uses #{inspect(aggregate_identifier)}
-    """
-  end
-
-  defp validate_prefix_match(command_module, aggregate_module) do
-    command_prefix = command_module.identity_prefix()
-    aggregate_prefix = aggregate_module.identity_prefix()
-
-    assert command_prefix == aggregate_prefix, """
-    Identity prefix mismatch between command and aggregate.
-
-    Command #{inspect(command_module)} uses #{inspect(command_prefix)}
-    Aggregate #{inspect(aggregate_module)} uses #{inspect(aggregate_prefix)}
     """
   end
 

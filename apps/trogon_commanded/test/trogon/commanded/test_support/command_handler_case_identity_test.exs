@@ -4,7 +4,7 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
   alias Trogon.Commanded.TestSupport.CommandHandlerCaseFixtures.{
-    OtherPrefixAccount,
+    OtherIdentifierAccount,
     TestAggregate,
     TestCommand,
     TestEvent
@@ -46,13 +46,19 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
     end
   end
 
-  defmodule MismatchedPrefixCommand do
-    use Trogon.Commanded.Command,
-      aggregate_identifier: :uuid,
-      identity_prefix: "wrong-prefix-"
+  defmodule UnprefixedAccount do
+    use Trogon.Commanded.Aggregate, identifier: :uuid
 
     embedded_schema do
       field :name, :string
+    end
+
+    def apply(aggregate, %AccountCreated{} = event) do
+      %{aggregate | uuid: event.uuid, name: event.name}
+    end
+
+    def execute(_aggregate, %CreateAccount{} = command) do
+      %AccountCreated{uuid: command.uuid, name: command.name}
     end
   end
 
@@ -87,16 +93,14 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
       )
     end
 
-    test "fails when identity prefix does not match" do
-      assert_raise ExUnit.AssertionError, ~r/Identity prefix mismatch/, fn ->
-        CommandHandlerCase.assert_events(
-          [],
-          %MismatchedPrefixCommand{uuid: "test123", name: "Test"},
-          [],
-          Account,
-          nil
-        )
-      end
+    test "passes when only the command declares the identity prefix" do
+      CommandHandlerCase.assert_events(
+        [],
+        %CreateAccount{uuid: "test123", name: "Test Account"},
+        [%AccountCreated{uuid: "test123", name: "Test Account"}],
+        UnprefixedAccount,
+        nil
+      )
     end
 
     test "fails when identity field does not match" do
@@ -124,10 +128,10 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
     end
 
     test "validates identity on assert_error path" do
-      assert_raise ExUnit.AssertionError, ~r/Identity prefix mismatch/, fn ->
+      assert_raise ExUnit.AssertionError, ~r/Identity field mismatch/, fn ->
         CommandHandlerCase.assert_error(
           [],
-          %MismatchedPrefixCommand{uuid: "test123", name: "Test"},
+          %MismatchedFieldCommand{account_id: "test123", name: "Test"},
           :some_error,
           Account,
           nil
@@ -150,11 +154,17 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCaseIdentityTest do
 
   describe "an aggregate not loaded yet" do
     test "still has its identity configuration validated" do
-      :code.purge(OtherPrefixAccount)
-      :code.delete(OtherPrefixAccount)
+      :code.purge(OtherIdentifierAccount)
+      :code.delete(OtherIdentifierAccount)
 
-      assert_raise ExUnit.AssertionError, ~r/Identity prefix mismatch/, fn ->
-        CommandHandlerCase.assert_events([], %CreateAccount{uuid: "test123", name: "Test"}, [], OtherPrefixAccount, nil)
+      assert_raise ExUnit.AssertionError, ~r/Identity field mismatch/, fn ->
+        CommandHandlerCase.assert_events(
+          [],
+          %CreateAccount{uuid: "test123", name: "Test"},
+          [],
+          OtherIdentifierAccount,
+          nil
+        )
       end
     end
   end
