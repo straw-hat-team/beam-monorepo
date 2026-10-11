@@ -119,7 +119,9 @@ defmodule Trogon.Test.TestTask do
   Expects `await/2` on the mock, exiting right away as `Task.await/2` does when
   the task runs past the timeout.
 
-  The task keeps running and its reply is dropped, as after a real timeout. A
+  The task keeps running and its reply is dropped, as after a real timeout,
+  even when the task already replied, since a real timeout never leaves a
+  reply behind. A
   call given `:infinity`, which never times out, raises `ArgumentError`.
   """
   @dialyzer {:no_return, expect_await_timeout: 1}
@@ -174,6 +176,13 @@ defmodule Trogon.Test.TestTask do
     end
 
     Process.demonitor(ref, [:flush])
+
+    receive do
+      {^ref, _reply} -> :ok
+    after
+      0 -> :ok
+    end
+
     Expectation.record(recorder, __MODULE__, {:await, [timeout]}, :timeout)
     exit({:timeout, {Task, :await, [task, timeout]}})
   end

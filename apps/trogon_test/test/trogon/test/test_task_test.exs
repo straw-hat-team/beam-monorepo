@@ -161,6 +161,19 @@ defmodule Trogon.Test.TestTaskTest do
       Trogon.Test.assert_empty_mailbox()
     end
 
+    test "drops a reply the task already sent, which a real timeout never leaves behind" do
+      TestTask.expect_await_timeout(times: 1)
+      %Task{ref: ref, pid: pid} = task = Task.async(fn -> :ran end)
+      monitor = Process.monitor(pid)
+      assert_receive {:DOWN, ^monitor, :process, ^pid, _reason}
+
+      catch_exit(MockTask.await(task, 0))
+
+      refute_received {^ref, _reply}
+      TestTask.assert_received_await(0)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "rejects :infinity, which never times out" do
       TestTask.expect_await_timeout(times: 1)
       task = Task.async(fn -> :ran end)
