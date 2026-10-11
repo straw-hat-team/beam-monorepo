@@ -10,6 +10,13 @@ defmodule Trogon.ConfigurableTest do
     use Trogon.Configurable, otp_app: :my_app, config: [site: "https://static.example", retries: 1]
   end
 
+  defmodule Attributes do
+    @app :my_app
+    @defaults [site: "https://static.example", retries: 1]
+
+    use Trogon.Configurable, otp_app: @app, config: @defaults
+  end
+
   defmodule Unconfigured do
     use Trogon.Configurable
   end
@@ -39,6 +46,14 @@ defmodule Trogon.ConfigurableTest do
 
   test "keeps the static configuration when the environment has none" do
     assert Environment.get_config() == [site: "https://static.example", retries: 1]
+  end
+
+  test "accepts options built from module attributes" do
+    TestApplication.expect_get_env(returns: [site: "https://environment.example"])
+
+    assert Attributes.get_config() == [retries: 1, site: "https://environment.example"]
+    TestApplication.assert_received_get_env(:my_app, Attributes, [])
+    Trogon.Test.assert_empty_mailbox()
   end
 
   test "returns an empty configuration when nothing is configured" do

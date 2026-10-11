@@ -31,7 +31,9 @@ defmodule Trogon.Configurable do
   ### Static Configuration
 
   When you need default values that require neither runtime execution nor the
-  environment.
+  environment. The options are evaluated once, when the module compiles, so
+  module attributes work and a call such as `System.get_env/1` reads the
+  machine that compiles the module, not the one that runs it.
 
       defmodule MyConfigurableModule do
         use Trogon.Configurable,
@@ -83,15 +85,15 @@ defmodule Trogon.Configurable do
   @application Application.compile_env(:trogon_configurable, [__MODULE__, :application], Application)
 
   defmacro __using__(opts) do
-    quote do
-      Trogon.Configurable.validate_options!(unquote(opts))
+    quote bind_quoted: [opts: opts] do
+      @trogon_configurable_options Trogon.Configurable.validate_options!(opts)
 
       @doc """
       Returns the configuration for `#{inspect(__MODULE__)}`.
       """
       @spec get_config(keyword()) :: keyword()
       def get_config(params \\ []) do
-        Trogon.Configurable.get_config(__MODULE__, unquote(opts), params)
+        Trogon.Configurable.get_config(__MODULE__, @trogon_configurable_options, params)
       end
     end
   end
@@ -104,7 +106,7 @@ defmodule Trogon.Configurable do
   @spec get_config(module(), keyword(), keyword()) :: keyword()
   def get_config(module, opts, params) do
     opts
-    |> Keyword.get(:config, [])
+    |> Keyword.fetch!(:config)
     |> Keyword.merge(environment_config(module, opts))
     |> Keyword.merge(params)
   end
