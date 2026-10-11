@@ -1,5 +1,5 @@
 {
-  "apps/trogon_commanded": "1.3.0",
+  "apps/trogon_commanded": "1.2.0",
   "apps/trogon_result": "1.0.1",
   "apps/trogon_error": "0.8.2",
   "apps/trogon_typeprovider": "1.0.0",
@@ -9,5 +9,5 @@
   "apps/eventstore_dashboard": "0.2.3",
   "apps/trogon_credo": "0.9.0",
   "apps/trogon_dispatcher": "0.2.0",
-  "apps/trogon_test": "0.0.1"
+  "apps/trogon_test": "0.1.0"
 }
