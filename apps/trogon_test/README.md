@@ -1,10 +1,10 @@
 # Trogon.Test
 
-**Trogon.Test is a shared ExUnit toolkit that keeps tests isolated, async-safe, and free of copied helpers.** It collects the fakes, assertions, and case templates that every Elixir project ends up writing in its own `test/support` directory into one versioned Hex package.
+**Trogon.Test is a shared ExUnit toolkit that keeps tests isolated, async-safe, and free of copied helpers.** It collects the mocks, assertions, and case templates that every Elixir project ends up writing in its own `test/support` directory into one versioned Hex package.
 
-**The first release ships `Trogon.Test.Application`, a Mox mock for `Application` itself.** Its stub reads the real `Application` module until a test expects a read with `times:` and `returns:`, and asserts afterwards on the app and key the read was given. The expectation is owned by the test process, so it reaches the processes that test starts and disappears on its own when the test exits. Later releases add mocks and assertions for other global state as the same need comes up elsewhere.
+**The first release ships Mox mocks for the global state tests most often need to control: `Trogon.Test.Application` for the application environment and `Trogon.Test.DateTime` for the clock.** Each mock reads the real module through a stub until a test expects a call with `times:` and `returns:`, and each expected call is recorded so the test asserts afterwards on what it was given. Expectations are owned by the test process, so they reach the processes that test starts and disappear on their own when the test exits. Later releases add mocks and assertions for other global state as the same need comes up elsewhere.
 
-**Tests that write global state, such as `Application.put_env/3`, cannot run `async: true`, and the `on_exit` that restores the old value races every other test reading the same key while it runs.** Projects work around this by serializing their suites or by copying the same stub into one `test/support` directory after another, where the copies drift apart. A shared package replaces both workarounds with one tested implementation that a fix reaches through an upgrade.
+**Tests that write global state, such as `Application.put_env/3`, cannot run `async: true`, and the `on_exit` that restores the old value races every other test reading the same key while it runs.** Tests that read the real clock can only assert on the shape of a timestamp, never its value. Projects work around both by serializing their suites or by copying the same Mox helpers into one `test/support` directory after another, where the copies drift apart. A shared package replaces those workarounds with one tested implementation that a fix reaches through an upgrade.
 
 **This is for teams that maintain more than one Elixir repository and want their test suites to run concurrently without each project rebuilding its own test support.** It pairs with `trogon_credo`'s check for application environment mutation in tests, which flags the same `Application.put_env/3` calls this package replaces.
 
@@ -22,11 +22,11 @@ def deps do
 end
 ```
 
-Keep it `only: :test`. Nothing outside the test environment needs it: the facade below reads `Application` everywhere else, so `trogon_test` and Mox never ship with your release.
+Keep it `only: :test`. Nothing outside the test environment needs it: each facade below reads the real module everywhere else, so `trogon_test` and Mox never ship with your release.
 
-### Wire the facade
+### Wire a facade
 
-Code that reads `Application` directly cannot be overridden per test. Read it through a module your project compiles in instead, `Application` itself in every environment but test:
+Code that calls `Application` or `DateTime` directly cannot be controlled per test. Call them through a module your project compiles in instead, the real module in every environment but test:
 
 ```elixir
 defmodule MyApp.Config do
@@ -34,24 +34,32 @@ defmodule MyApp.Config do
 
   defdelegate get_env(app, key, default \\ nil), to: @application
 end
+
+defmodule MyApp.Clock do
+  @date_time Application.compile_env(:my_app, [MyApp, :date_time], DateTime)
+
+  defdelegate utc_now(), to: @date_time
+end
 ```
 
-Call `MyApp.Config.get_env/2,3` from the rest of the project wherever it would otherwise call `Application.get_env/2,3`.
+Call the facade from the rest of the project wherever it would otherwise call `Application.get_env/2,3` or `DateTime.utc_now/0`.
 
 ### Configure config/test.exs
 
-Point the facade at the mock for the test environment:
+Point each facade at its mock for the test environment:
 
 ```elixir
 # config/test.exs
-config :my_app, MyApp, application: Trogon.Test.Application.Mock
+config :my_app, MyApp,
+  application: Trogon.Test.Application.Mock,
+  date_time: Trogon.Test.DateTime.Mock
 ```
 
-Every other environment keeps reading `Application`, since the facade only swaps the module when the mock is configured.
+Every other environment keeps calling the real modules, since the facade only swaps the module when the mock is configured.
 
-### Expect a read in a test
+### Expect a call in a test
 
-Stub the mock in `setup`, expect the reads the test cares about with what they return, then assert on what they were given. Alias the module under another name, since aliasing it as `Application` shadows the real module for the rest of that file:
+Stub the mock in `setup`, expect the calls the test cares about with what they return, then assert on what they were given. Alias each module under another name, since aliasing it as `Application` or `DateTime` shadows the real module for the rest of that file, and require it for its `assert_received_*` macros:
 
 ```elixir
 defmodule MyApp.BillingTest do
@@ -60,32 +68,39 @@ defmodule MyApp.BillingTest do
   import Mox
 
   alias Trogon.Test.Application, as: TestApplication
+  alias Trogon.Test.DateTime, as: TestDateTime
 
   require TestApplication
+  require TestDateTime
 
   setup :verify_on_exit!
   setup {TestApplication, :stub}
+  setup {TestDateTime, :stub}
 
-  test "charges the configured tax rate" do
+  test "stamps the invoice with the configured tax rate and the current time" do
     TestApplication.expect_get_env(times: 1, returns: 0.07)
+    TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
 
-    tax_rate = MyApp.Billing.tax_rate()
+    invoice = MyApp.Billing.issue_invoice()
 
-    assert tax_rate == 0.07
+    assert invoice.tax_rate == 0.07
+    assert invoice.issued_at == ~U[2026-01-01 00:00:00Z]
     TestApplication.assert_received_get_env(:my_app, :tax_rate)
+    TestDateTime.assert_received_utc_now()
   end
 end
 ```
 
-`expect_get_env/1`, `expect_fetch_env/1`, `expect_fetch_env!/1`, and `expect_get_all_env/1` each take `returns:`, the value the call returns, and `times:`, how many calls it covers, `1` by default. An expectation covers every call to its function whatever key it reads, and a call past `times:` raises `Mox.UnexpectedCallError`. Functions with no expectation keep reading the real `Application`.
+Every `expect_*` function takes `returns:`, the value the call returns, and `times:`, how many calls it covers, `1` by default. An expectation covers every call to its function whatever arguments it is given, and a call past `times:` raises `Mox.UnexpectedCallError`. Functions with no expectation keep calling the real module through the stub.
 
-Each expected call is sent to the test process, so the matching `assert_received_*` macro checks what the code under test read, once the test module requires `Trogon.Test.Application`. No `on_exit` callback is needed, since nothing outside the test process changed.
+Each expected call is sent to the test process, so the matching `assert_received_*` macro checks what the code under test passed. No `on_exit` callback is needed, since nothing outside the test process changed.
 
 ### Allow a process
 
-A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` started with `start_link` for instance, does not, until the test allows it with `Mox.allow/3`:
+A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` started with `start_link` for instance, does not, until the test allows it with `Mox.allow/3` on each mock it calls:
 
 ```elixir
 {:ok, worker} = MyApp.Worker.start_link()
 Mox.allow(Trogon.Test.Application.Mock, self(), worker)
+Mox.allow(Trogon.Test.DateTime.Mock, self(), worker)
 ```

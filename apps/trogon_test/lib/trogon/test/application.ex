@@ -67,6 +67,8 @@ defmodule Trogon.Test.Application do
   >     alias Trogon.Test.Application, as: TestApplication
   """
 
+  alias Trogon.Test.Expectation
+
   @type app :: Application.app()
   @type key :: Application.key()
   @type value :: Application.value()
@@ -97,9 +99,14 @@ defmodule Trogon.Test.Application do
   @spec expect_get_env(expect_opts()) :: module()
   def expect_get_env(opts) do
     owner = self()
-    value = Keyword.fetch!(opts, :returns)
+    value = Expectation.returns!(opts)
 
-    Mox.expect(__MODULE__.Mock, :get_env, times(opts), &record(owner, {:get_env, [&1, &2, &3]}, value))
+    Mox.expect(
+      __MODULE__.Mock,
+      :get_env,
+      Expectation.times(opts),
+      &Expectation.record(owner, __MODULE__, {:get_env, [&1, &2, &3]}, value)
+    )
   end
 
   @doc """
@@ -109,9 +116,14 @@ defmodule Trogon.Test.Application do
   @spec expect_fetch_env(expect_opts()) :: module()
   def expect_fetch_env(opts) do
     owner = self()
-    result = Keyword.fetch!(opts, :returns)
+    result = Expectation.returns!(opts)
 
-    Mox.expect(__MODULE__.Mock, :fetch_env, times(opts), &record(owner, {:fetch_env, [&1, &2]}, result))
+    Mox.expect(
+      __MODULE__.Mock,
+      :fetch_env,
+      Expectation.times(opts),
+      &Expectation.record(owner, __MODULE__, {:fetch_env, [&1, &2]}, result)
+    )
   end
 
   @doc """
@@ -120,9 +132,14 @@ defmodule Trogon.Test.Application do
   @spec expect_fetch_env!(expect_opts()) :: module()
   def expect_fetch_env!(opts) do
     owner = self()
-    value = Keyword.fetch!(opts, :returns)
+    value = Expectation.returns!(opts)
 
-    Mox.expect(__MODULE__.Mock, :fetch_env!, times(opts), &record(owner, {:fetch_env!, [&1, &2]}, value))
+    Mox.expect(
+      __MODULE__.Mock,
+      :fetch_env!,
+      Expectation.times(opts),
+      &Expectation.record(owner, __MODULE__, {:fetch_env!, [&1, &2]}, value)
+    )
   end
 
   @doc """
@@ -131,9 +148,14 @@ defmodule Trogon.Test.Application do
   @spec expect_get_all_env(expect_opts()) :: module()
   def expect_get_all_env(opts) do
     owner = self()
-    env = Keyword.fetch!(opts, :returns)
+    env = Expectation.returns!(opts)
 
-    Mox.expect(__MODULE__.Mock, :get_all_env, times(opts), &record(owner, {:get_all_env, [&1]}, env))
+    Mox.expect(
+      __MODULE__.Mock,
+      :get_all_env,
+      Expectation.times(opts),
+      &Expectation.record(owner, __MODULE__, {:get_all_env, [&1]}, env)
+    )
   end
 
   @doc """
@@ -180,13 +202,6 @@ defmodule Trogon.Test.Application do
     quote bind_quoted: [app: app] do
       ExUnit.Assertions.assert_received({Trogon.Test.Application, {:get_all_env, [^app]}})
     end
-  end
-
-  defp times(opts), do: Keyword.get(opts, :times, 1)
-
-  defp record(owner, operation, returns) do
-    send(owner, {__MODULE__, operation})
-    returns
   end
 end
 
