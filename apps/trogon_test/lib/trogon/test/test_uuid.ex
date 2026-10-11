@@ -55,6 +55,10 @@ if Code.ensure_loaded?(Uniq.UUID) do
 
     The expectations reach the test's `$callers`, such as a `Task`, and a
     process allowed with `Trogon.Test.allow/1`.
+
+    `uuid5/1` names a fixture without a mock: the same name gives the same UUID
+    on every run, so a test can build an id, and assert on it, from a readable
+    seed.
     """
 
     alias Trogon.Test.Expectation
@@ -62,6 +66,7 @@ if Code.ensure_loaded?(Uniq.UUID) do
     alias Trogon.Test.Recorder
 
     @formats [:default, :raw, :hex, :urn, :slug]
+    @namespace Uniq.UUID.uuid5(:url, "https://hex.pm/packages/trogon_test")
 
     @typedoc "Options every `expect_*` function takes."
     @type expect_opts :: [returns: Uniq.UUID.formatted(), times: non_neg_integer()]
@@ -89,6 +94,18 @@ if Code.ensure_loaded?(Uniq.UUID) do
     """
     @spec expect_uuid7(expect_opts()) :: module()
     def expect_uuid7(opts), do: expect_uuid(:uuid7, 7, opts)
+
+    @doc """
+    Returns the version 5 UUID of `name`, the same one on every run.
+
+        TestUUID.uuid5("seller-456")
+        #=> "853d34f8-13b3-5761-a4b2-2018ea01306e"
+
+    The namespace is the version 5 UUID of the `trogon_test` package URL, so the
+    UUIDs stay apart from any other namespace generates.
+    """
+    @spec uuid5(String.t()) :: Uniq.UUID.formatted()
+    def uuid5(name) when is_binary(name), do: Uniq.UUID.uuid5(@namespace, name)
 
     @doc """
     Asserts an expected `uuid4/1` call was made, whatever format it asked for.

@@ -114,6 +114,30 @@ defmodule Trogon.Test.TestUUIDTest do
     end
   end
 
+  describe "uuid5/1" do
+    test "returns the same version 5 UUID for the same name" do
+      uuid = TestUUID.uuid5("seller-456")
+
+      assert uuid == "853d34f8-13b3-5761-a4b2-2018ea01306e"
+      assert TestUUID.uuid5("seller-456") == uuid
+      assert {:ok, %{version: 5, format: :default}} = Uniq.UUID.info(uuid)
+    end
+
+    test "returns another UUID for another name" do
+      assert TestUUID.uuid5("seller-456") != TestUUID.uuid5("seller-457")
+    end
+
+    test "uses the trogon_test namespace" do
+      namespace = Uniq.UUID.uuid5(:url, "https://hex.pm/packages/trogon_test")
+
+      assert TestUUID.uuid5("seller-456") == Uniq.UUID.uuid5(namespace, "seller-456")
+    end
+
+    test "rejects a name that is not a string" do
+      assert_raise FunctionClauseError, fn -> TestUUID.uuid5(Enum.random([:seller])) end
+    end
+  end
+
   describe "assert_received_*" do
     test "fails on a call asking for another format" do
       TestUUID.expect_uuid4(times: 1, returns: @uuid4)

@@ -21,6 +21,12 @@ defmodule Trogon.Test.TestTaskTest do
       assert_received :ran
     end
 
+    test "awaits the real task" do
+      result = MockTask.await(Task.async(fn -> :real end), 1_000)
+
+      assert result == :real
+    end
+
     test "streams the function in real tasks" do
       results = Enum.to_list(MockTask.async_stream([1, 2], &(&1 * 10), []))
 
@@ -71,6 +77,109 @@ defmodule Trogon.Test.TestTaskTest do
       results = Task.await_many([MockTask.async(fn -> :first end), MockTask.async(fn -> :second end)])
 
       assert results == [:first, :second]
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "expect_await/1" do
+    test "awaits the real task and records the timeout" do
+      TestTask.expect_await(times: 1)
+
+      result = MockTask.await(Task.async(fn -> :real end), 1_000)
+
+      assert result == :real
+      TestTask.assert_received_await(1_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    @tag :capture_log
+    test "exits as Task.await/2 does when the task exits" do
+      TestTask.expect_await(times: 1)
+      Process.flag(:trap_exit, true)
+      task = Task.async(fn -> exit(:boom) end)
+
+      assert catch_exit(MockTask.await(task, 1_000)) == {:boom, {Task, :await, [task, 1_000]}}
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "covers one call by default" do
+      TestTask.expect_await()
+      MockTask.await(Task.async(fn -> :ran end), :infinity)
+
+      assert_raise Mox.UnexpectedCallError, fn -> MockTask.await(Task.async(fn -> :ran end), :infinity) end
+      TestTask.assert_received_await(:infinity)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "expect_await_timeout/1" do
+    test "exits as Task.await/2 does after the timeout, without waiting for it" do
+      TestTask.expect_await_timeout(times: 1)
+      task = Task.async(fn -> :ran end)
+
+      reason = catch_exit(MockTask.await(task, 60_000))
+
+      assert reason == {:timeout, {Task, :await, [task, 60_000]}}
+      TestTask.assert_received_await(60_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "exits with the reason a real timeout gives" do
+      TestTask.expect_await_timeout(times: 1)
+      slow = Task.async(fn -> Process.sleep(:infinity) end)
+      task = Task.async(fn -> :ran end)
+
+      real = catch_exit(Task.await(slow, 0))
+      mocked = catch_exit(MockTask.await(task, 0))
+
+      assert mocked == put_elem(real, 1, {Task, :await, [task, 0]})
+      TestTask.assert_received_await(0)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "drops the reply the task sends afterwards, as a real timeout does" do
+      TestTask.expect_await_timeout(times: 1)
+      test = self()
+
+      task =
+        Task.async(fn ->
+          receive do
+            :reply -> send(test, :replied)
+          end
+
+          :late
+        end)
+
+      catch_exit(MockTask.await(task, 0))
+      send(task.pid, :reply)
+
+      assert_receive :replied
+      ref = Process.monitor(task.pid)
+      assert_receive {:DOWN, ^ref, :process, _pid, _reason}
+      refute_received {_ref, :late}
+      TestTask.assert_received_await(0)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects :infinity, which never times out" do
+      TestTask.expect_await_timeout(times: 1)
+      task = Task.async(fn -> :ran end)
+
+      assert_raise ArgumentError, ~r/:infinity/, fn -> MockTask.await(task, :infinity) end
+      assert Task.await(task) == :ran
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects a task the caller does not own, as Task.await/2 does" do
+      TestTask.expect_await_timeout(times: 1)
+      task = Task.async(fn -> :ran end)
+
+      {real, mocked} =
+        Task.await(Task.async(fn -> {catch_error(Task.await(task, 0)), catch_error(MockTask.await(task, 0))} end))
+
+      assert %ArgumentError{} = real
+      assert mocked == real
+      assert Task.await(task) == :ran
       Trogon.Test.assert_empty_mailbox()
     end
   end
@@ -137,6 +246,26 @@ defmodule Trogon.Test.TestTaskTest do
       assert_raise FunctionClauseError, fn -> Task.async(fn _arg -> :ran end) end
       assert_raise FunctionClauseError, fn -> MockTask.async(fn _arg -> :ran end) end
       assert_raise FunctionClauseError, fn -> MockTask.async(:not_a_function) end
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects a timeout that is neither a non-negative integer nor :infinity, as Task.await/2 does" do
+      TestTask.expect_await(times: 1)
+      TestTask.expect_await_timeout(times: 1)
+      task = Task.async(fn -> :ran end)
+
+      assert_raise FunctionClauseError, fn -> Task.await(task, Enum.random([-1])) end
+      assert_raise FunctionClauseError, fn -> MockTask.await(task, -1) end
+      assert_raise FunctionClauseError, fn -> MockTask.await(task, 1.5) end
+      assert Task.await(task) == :ran
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects something other than a task, as Task.await/2 does" do
+      TestTask.expect_await(times: 1)
+
+      assert_raise FunctionClauseError, fn -> Task.await(Enum.random([:task]), 0) end
+      assert_raise FunctionClauseError, fn -> MockTask.await(:task, 0) end
       Trogon.Test.assert_empty_mailbox()
     end
 
