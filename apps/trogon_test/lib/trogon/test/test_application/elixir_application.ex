@@ -1,6 +1,6 @@
 defmodule Trogon.Test.TestApplication.ElixirApplication do
   @moduledoc false
-  @behaviour Trogon.Test.TestApplication.ApplicationBehaviour
+  @behaviour Trogon.Test.Behaviour.Application
 
   @impl true
   defdelegate get_env(app, key, default), to: Application

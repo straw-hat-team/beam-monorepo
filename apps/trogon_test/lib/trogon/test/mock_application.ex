@@ -1,5 +1,5 @@
 Mox.defmock(Trogon.Test.MockApplication,
-  for: Trogon.Test.TestApplication.ApplicationBehaviour,
+  for: Trogon.Test.Behaviour.Application,
   moduledoc: """
   The Mox mock for `Trogon.Test.TestApplication`.
 
