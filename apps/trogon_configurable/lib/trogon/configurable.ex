@@ -73,6 +73,15 @@ defmodule Trogon.Configurable do
       config :trogon_configurable, Trogon.Configurable,
         application: Trogon.Test.MockApplication
 
+  To swap it for a single configurable module, configure that module instead,
+  which takes precedence over the setting above:
+
+      config :trogon_configurable, MyConfigurableModule,
+        application: Trogon.Test.MockApplication
+
+  Both settings are read when the configurable module compiles, so neither
+  costs anything at runtime.
+
   A test then expects the read instead of writing the environment with
   `Application.put_env/3`, so it stays `async: true`:
 
@@ -82,18 +91,23 @@ defmodule Trogon.Configurable do
       TestApplication.assert_received_get_env(:my_app, MyConfigurableModule, [])
   """
 
-  @application Application.compile_env(:trogon_configurable, [__MODULE__, :application], Application)
-
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
       options = Trogon.Configurable.validate_options!(opts)
+
+      application =
+        Application.compile_env(
+          :trogon_configurable,
+          [__MODULE__, :application],
+          Application.compile_env(:trogon_configurable, [Trogon.Configurable, :application], Application)
+        )
 
       @doc """
       Returns the configuration for `#{inspect(__MODULE__)}`.
       """
       @spec get_config(keyword()) :: keyword()
       def get_config(params \\ []) do
-        Trogon.Configurable.get_config(__MODULE__, unquote(Macro.escape(options)), params)
+        Trogon.Configurable.get_config(__MODULE__, unquote(application), unquote(Macro.escape(options)), params)
       end
     end
   end
@@ -103,18 +117,18 @@ defmodule Trogon.Configurable do
   def validate_options!(opts), do: NimbleOptions.validate!(opts, @options_schema)
 
   @doc false
-  @spec get_config(module(), keyword(), keyword()) :: keyword()
-  def get_config(module, opts, params) do
+  @spec get_config(module(), module(), keyword(), keyword()) :: keyword()
+  def get_config(module, application, opts, params) do
     opts
     |> Keyword.fetch!(:config)
-    |> Keyword.merge(environment_config(module, opts))
+    |> Keyword.merge(environment_config(module, application, opts))
     |> Keyword.merge(params)
   end
 
-  defp environment_config(module, opts) do
+  defp environment_config(module, application, opts) do
     case Keyword.get(opts, :otp_app) do
       nil -> []
-      otp_app -> @application.get_env(otp_app, module, [])
+      otp_app -> application.get_env(otp_app, module, [])
     end
   end
 end

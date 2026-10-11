@@ -75,4 +75,21 @@ defmodule Trogon.ConfigurableTest do
       end
     end
   end
+
+  test "a module's own application setting overrides the global one" do
+    Application.put_env(:trogon_configurable, Trogon.ConfigurableTest.PerModule, application: Application)
+    Application.put_env(:my_app, Trogon.ConfigurableTest.PerModule, site: "https://environment.example")
+
+    on_exit(fn ->
+      Application.delete_env(:trogon_configurable, Trogon.ConfigurableTest.PerModule)
+      Application.delete_env(:my_app, Trogon.ConfigurableTest.PerModule)
+    end)
+
+    defmodule PerModule do
+      use Trogon.Configurable, otp_app: :my_app
+    end
+
+    assert PerModule.get_config() == [site: "https://environment.example"]
+    Trogon.Test.assert_empty_mailbox()
+  end
 end
