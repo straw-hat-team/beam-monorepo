@@ -118,7 +118,7 @@ defmodule Trogon.Test.TestUUIDTest do
     test "returns the same version 5 UUID for the same name" do
       uuid = TestUUID.uuid5("seller-456")
 
-      assert uuid == "853d34f8-13b3-5761-a4b2-2018ea01306e"
+      assert uuid == "45afd371-a465-5412-abf8-fe1a64caea04"
       assert TestUUID.uuid5("seller-456") == uuid
       assert {:ok, %{version: 5, format: :default}} = Uniq.UUID.info(uuid)
     end
@@ -128,7 +128,7 @@ defmodule Trogon.Test.TestUUIDTest do
     end
 
     test "uses the trogon_test namespace" do
-      namespace = Uniq.UUID.uuid5(:url, "https://hex.pm/packages/trogon_test")
+      namespace = "99ac87aa-bb2a-450c-9d9d-6f17084c27f6"
 
       assert TestUUID.uuid5("seller-456") == Uniq.UUID.uuid5(namespace, "seller-456")
     end

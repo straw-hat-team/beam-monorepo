@@ -66,7 +66,7 @@ if Code.ensure_loaded?(Uniq.UUID) do
     alias Trogon.Test.Recorder
 
     @formats [:default, :raw, :hex, :urn, :slug]
-    @namespace Uniq.UUID.uuid5(:url, "https://hex.pm/packages/trogon_test")
+    @namespace "99ac87aa-bb2a-450c-9d9d-6f17084c27f6"
 
     @typedoc "Options every `expect_*` function takes."
     @type expect_opts :: [returns: Uniq.UUID.formatted(), times: non_neg_integer()]
@@ -99,10 +99,10 @@ if Code.ensure_loaded?(Uniq.UUID) do
     Returns the version 5 UUID of `name`, the same one on every run.
 
         TestUUID.uuid5("seller-456")
-        #=> "853d34f8-13b3-5761-a4b2-2018ea01306e"
+        #=> "45afd371-a465-5412-abf8-fe1a64caea04"
 
-    The namespace is the version 5 UUID of the `trogon_test` package URL, so the
-    UUIDs stay apart from any other namespace generates.
+    The namespace is a UUID `trogon_test` owns and never changes, so a UUID a
+    test pinned stays the same across upgrades.
     """
     @spec uuid5(String.t()) :: Uniq.UUID.formatted()
     def uuid5(name) when is_binary(name), do: Uniq.UUID.uuid5(@namespace, name)
