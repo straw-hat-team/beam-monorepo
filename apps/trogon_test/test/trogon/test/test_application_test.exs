@@ -3,8 +3,8 @@ defmodule Trogon.Test.TestApplicationTest do
 
   import Mox
 
+  alias Trogon.Test.MockApplication
   alias Trogon.Test.TestApplication
-  alias Trogon.Test.TestApplication.MockApplication
 
   require TestApplication
 

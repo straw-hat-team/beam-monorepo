@@ -50,8 +50,8 @@ Point each facade at its mock for the test environment:
 
 ```elixir
 # config/test.exs
-config :my_app, MyApp.Config, application: Trogon.Test.TestApplication.MockApplication
-config :my_app, MyApp.Clock, date_time: Trogon.Test.TestDateTime.MockDateTime
+config :my_app, MyApp.Config, application: Trogon.Test.MockApplication
+config :my_app, MyApp.Clock, date_time: Trogon.Test.MockDateTime
 ```
 
 Every other environment keeps calling the real modules, since the facade only swaps the module when the mock is configured.
@@ -100,6 +100,6 @@ A process the test starts through `Task.async` or `Task.start` already sees the 
 
 ```elixir
 {:ok, worker} = MyApp.Worker.start_link()
-Mox.allow(Trogon.Test.TestApplication.MockApplication, self(), worker)
-Mox.allow(Trogon.Test.TestDateTime.MockDateTime, self(), worker)
+Mox.allow(Trogon.Test.MockApplication, self(), worker)
+Mox.allow(Trogon.Test.MockDateTime, self(), worker)
 ```

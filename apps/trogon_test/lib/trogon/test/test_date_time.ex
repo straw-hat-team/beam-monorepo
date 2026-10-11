@@ -1,7 +1,7 @@
 defmodule Trogon.Test.TestDateTime do
   @moduledoc """
   A Mox behaviour for reading the current time, with
-  `Trogon.Test.TestDateTime.MockDateTime` as its mock and helpers that expect a read and
+  `Trogon.Test.MockDateTime` as its mock and helpers that expect a read and
   assert it happened.
 
   Code that calls `DateTime.utc_now/0` directly returns a different value on
@@ -16,7 +16,7 @@ defmodule Trogon.Test.TestDateTime do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp.Clock, date_time: Trogon.Test.TestDateTime.MockDateTime
+      config :my_app, MyApp.Clock, date_time: Trogon.Test.MockDateTime
 
   Each test stubs the mock to read the real clock, expects the reads it cares
   about with what they return, and asserts they happened:
@@ -48,10 +48,11 @@ defmodule Trogon.Test.TestDateTime do
   `require Trogon.Test.TestDateTime`.
 
   The expectations reach the test's `$callers`, such as a `Task`, and a process
-  allowed with `Mox.allow(Trogon.Test.TestDateTime.MockDateTime, self(), pid)`.
+  allowed with `Mox.allow(Trogon.Test.MockDateTime, self(), pid)`.
   """
 
   alias Trogon.Test.Expectation
+  alias Trogon.Test.MockDateTime
 
   @typedoc "Options `expect_utc_now/1` takes."
   @type expect_opts :: [returns: DateTime.t(), times: non_neg_integer()]
@@ -59,14 +60,14 @@ defmodule Trogon.Test.TestDateTime do
   @callback utc_now() :: DateTime.t()
 
   @doc """
-  Stubs `Trogon.Test.TestDateTime.MockDateTime` to read the real clock.
+  Stubs `Trogon.Test.MockDateTime` to read the real clock.
 
   Takes the test context so it can be given to `setup/1` as
   `setup {Trogon.Test.TestDateTime, :stub}`.
   """
   @spec stub(map()) :: :ok
   def stub(_context \\ %{}) do
-    Mox.stub_with(__MODULE__.MockDateTime, __MODULE__.ElixirDateTime)
+    Mox.stub_with(MockDateTime, __MODULE__.ElixirDateTime)
     :ok
   end
 
@@ -78,7 +79,7 @@ defmodule Trogon.Test.TestDateTime do
     owner = self()
     %DateTime{} = datetime = Expectation.returns!(opts)
 
-    Mox.expect(__MODULE__.MockDateTime, :utc_now, Expectation.times(opts), fn ->
+    Mox.expect(MockDateTime, :utc_now, Expectation.times(opts), fn ->
       Expectation.record(owner, __MODULE__, {:utc_now, []}, datetime)
     end)
   end
@@ -101,7 +102,7 @@ defmodule Trogon.Test.TestDateTime.ElixirDateTime do
   defdelegate utc_now(), to: DateTime
 end
 
-Mox.defmock(Trogon.Test.TestDateTime.MockDateTime,
+Mox.defmock(Trogon.Test.MockDateTime,
   for: Trogon.Test.TestDateTime,
   moduledoc: """
   The Mox mock for `Trogon.Test.TestDateTime`.

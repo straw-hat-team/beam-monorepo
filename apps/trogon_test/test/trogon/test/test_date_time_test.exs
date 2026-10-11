@@ -3,8 +3,8 @@ defmodule Trogon.Test.TestDateTimeTest do
 
   import Mox
 
+  alias Trogon.Test.MockDateTime
   alias Trogon.Test.TestDateTime
-  alias Trogon.Test.TestDateTime.MockDateTime
 
   require TestDateTime
 
