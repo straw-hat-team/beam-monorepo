@@ -38,9 +38,6 @@ defmodule Trogon.Test do
   never returns, so a test cannot pass on a call production would never see.
   """
 
-  @uniq? Code.ensure_loaded?(Uniq.UUID)
-  @telemetry? Code.ensure_loaded?(:telemetry)
-
   defmacro __using__(_opts) do
     requires =
       for helper <- helpers() do
@@ -135,7 +132,7 @@ defmodule Trogon.Test do
       Trogon.Test.MockProcess,
       Trogon.Test.MockRand,
       Trogon.Test.MockTask
-    ] ++ if(@uniq?, do: [Trogon.Test.MockUUID], else: [])
+    ] ++ uniq_mocks()
   end
 
   defp stubbed do
@@ -145,10 +142,24 @@ defmodule Trogon.Test do
       Trogon.Test.TestProcess,
       Trogon.Test.TestRand,
       Trogon.Test.TestTask
-    ] ++ if(@uniq?, do: [Trogon.Test.TestUUID], else: [])
+    ] ++ uniq_stubbed()
   end
 
   defp helpers do
-    stubbed() ++ if(@telemetry?, do: [Trogon.Test.TestTelemetry], else: [])
+    stubbed() ++ telemetry_helpers()
+  end
+
+  if Code.ensure_loaded?(Uniq.UUID) do
+    defp uniq_mocks, do: [Trogon.Test.MockUUID]
+    defp uniq_stubbed, do: [Trogon.Test.TestUUID]
+  else
+    defp uniq_mocks, do: []
+    defp uniq_stubbed, do: []
+  end
+
+  if Code.ensure_loaded?(:telemetry) do
+    defp telemetry_helpers, do: [Trogon.Test.TestTelemetry]
+  else
+    defp telemetry_helpers, do: []
   end
 end
