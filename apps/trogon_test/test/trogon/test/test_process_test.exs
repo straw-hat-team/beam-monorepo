@@ -103,6 +103,79 @@ defmodule Trogon.Test.TestProcessTest do
     end
   end
 
+  describe "send_after/4 contract" do
+    test "rejects a negative time, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, -1) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, -1, []) end
+    end
+
+    test "rejects a time that is not an integer, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, :infinity) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, :infinity, []) end
+    end
+
+    test "rejects a dest that is neither a pid nor an atom, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after({:poller, node()}, :tick, 1_000) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after({:poller, node()}, :tick, 1_000, []) end
+    end
+
+    test "rejects an option other than abs: boolean, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+
+      assert_raise ArgumentError, fn -> Process.send_after(self(), :tick, 1_000, abs: 1) end
+      assert_raise ArgumentError, fn -> MockProcess.send_after(self(), :tick, 1_000, abs: 1) end
+    end
+
+    test "accepts a zero time, as Process.send_after/4 does" do
+      TestProcess.expect_send_after(times: 1)
+      Process.send_after(self(), :real_tick, 0)
+
+      MockProcess.send_after(self(), :tick, 0, [])
+
+      assert_receive :real_tick
+      TestProcess.assert_received_send_after(self(), :tick, 0)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects returns: other than a reference, which Process.send_after/4 never returns" do
+      assert is_reference(Process.send_after(self(), :tick, 1_000))
+
+      assert_raise ArgumentError, fn -> TestProcess.expect_send_after(times: 1, returns: :timer) end
+    end
+  end
+
+  describe "sleep/1 contract" do
+    test "rejects a negative timeout, as Process.sleep/1 does" do
+      TestProcess.expect_sleep(times: 1)
+
+      assert_raise FunctionClauseError, fn -> Process.sleep(-1) end
+      assert_raise FunctionClauseError, fn -> MockProcess.sleep(-1) end
+    end
+
+    test "rejects a timeout that is not an integer or :infinity, as Process.sleep/1 does" do
+      TestProcess.expect_sleep(times: 1)
+
+      assert_raise FunctionClauseError, fn -> Process.sleep(1.5) end
+      assert_raise FunctionClauseError, fn -> MockProcess.sleep(1.5) end
+    end
+
+    test "accepts a zero timeout, as Process.sleep/1 does" do
+      TestProcess.expect_sleep(times: 1)
+
+      results = [Process.sleep(0), MockProcess.sleep(0)]
+
+      assert results == [:ok, :ok]
+      TestProcess.assert_received_sleep(0)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
   describe "process ownership" do
     test "reaches a named process allowed before it starts" do
       TestProcess.expect_send_after(times: 1)

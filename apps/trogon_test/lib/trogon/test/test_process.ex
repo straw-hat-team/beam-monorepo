@@ -54,6 +54,8 @@ defmodule Trogon.Test.TestProcess do
   alias Trogon.Test.Expectation
   alias Trogon.Test.MockProcess
 
+  defguardp is_timeout(timeout) when timeout == :infinity or (is_integer(timeout) and timeout >= 0)
+
   @typedoc "Options `expect_send_after/1` takes."
   @type send_after_opts :: [returns: reference(), times: non_neg_integer()]
 
@@ -84,14 +86,9 @@ defmodule Trogon.Test.TestProcess do
   @spec expect_send_after(send_after_opts()) :: module()
   def expect_send_after(opts \\ []) do
     owner = self()
-    timer = Keyword.get_lazy(opts, :returns, &make_ref/0)
+    timer = opts |> Keyword.get_lazy(:returns, &make_ref/0) |> Expectation.accept!(&is_reference/1, "a reference")
 
-    Mox.expect(
-      MockProcess,
-      :send_after,
-      Expectation.times(opts),
-      &Expectation.record(owner, __MODULE__, {:send_after, [&1, &2, &3, &4]}, timer)
-    )
+    Mox.expect(MockProcess, :send_after, Expectation.times(opts), &record_send_after(owner, timer, &1, &2, &3, &4))
   end
 
   @doc """
@@ -101,12 +98,9 @@ defmodule Trogon.Test.TestProcess do
   def expect_sleep(opts \\ []) do
     owner = self()
 
-    Mox.expect(
-      MockProcess,
-      :sleep,
-      Expectation.times(opts),
-      &Expectation.record(owner, __MODULE__, {:sleep, [&1]}, :ok)
-    )
+    Mox.expect(MockProcess, :sleep, Expectation.times(opts), fn timeout when is_timeout(timeout) ->
+      Expectation.record(owner, __MODULE__, {:sleep, [timeout]}, :ok)
+    end)
   end
 
   @doc """
@@ -141,4 +135,28 @@ defmodule Trogon.Test.TestProcess do
       ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestProcess, {:sleep, [^timeout]}}})
     end
   end
+
+  defp record_send_after(owner, timer, dest, msg, time, opts) do
+    check_dest!(dest)
+    check_time!(time)
+    check_opts!(opts)
+    Expectation.record(owner, __MODULE__, {:send_after, [dest, msg, time, opts]}, timer)
+  end
+
+  defp check_dest!(dest) when is_pid(dest) or is_atom(dest), do: :ok
+  defp check_dest!(dest), do: raise(ArgumentError, "expected dest to be a pid or an atom, got: #{inspect(dest)}")
+
+  defp check_time!(time) when is_integer(time) and time >= 0, do: :ok
+  defp check_time!(time), do: raise(ArgumentError, "expected time to be a non-negative integer, got: #{inspect(time)}")
+
+  defp check_opts!(opts) do
+    if is_list(opts) and Enum.all?(opts, &abs_option?/1) do
+      :ok
+    else
+      raise ArgumentError, "expected opts to be a list of abs: boolean, got: #{inspect(opts)}"
+    end
+  end
+
+  defp abs_option?({:abs, abs}), do: is_boolean(abs)
+  defp abs_option?(_option), do: false
 end

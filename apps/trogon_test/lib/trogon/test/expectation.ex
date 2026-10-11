@@ -7,6 +7,22 @@ defmodule Trogon.Test.Expectation do
   @spec returns!(keyword()) :: term()
   def returns!(opts), do: Keyword.fetch!(opts, :returns)
 
+  @spec returns!(keyword(), (term() -> boolean()), String.t()) :: term()
+  def returns!(opts, accepts?, expected) do
+    opts
+    |> returns!()
+    |> accept!(accepts?, expected)
+  end
+
+  @spec accept!(value, (term() -> boolean()), String.t()) :: value when value: term()
+  def accept!(value, accepts?, expected) do
+    if accepts?.(value) do
+      value
+    else
+      raise ArgumentError, "expected :returns to be #{expected}, got: #{inspect(value)}"
+    end
+  end
+
   @spec record(pid(), module(), {atom(), [term()]}, returns) :: returns when returns: term()
   def record(owner, source, operation, returns) do
     send(owner, {Trogon.Test, {source, operation}})

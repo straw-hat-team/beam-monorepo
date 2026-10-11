@@ -109,6 +109,49 @@ defmodule Trogon.Test.TestApplicationTest do
     end
   end
 
+  describe "Application contract" do
+    test "rejects an app that is not an atom, as Application.get_env/3 does" do
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
+
+      assert_raise FunctionClauseError, fn -> Application.get_env("trogon_test", :seeded_value, nil) end
+      assert_raise FunctionClauseError, fn -> MockApplication.get_env("trogon_test", :seeded_value, nil) end
+    end
+
+    test "rejects an app that is not an atom, as Application.fetch_env/2 does" do
+      TestApplication.expect_fetch_env(times: 1, returns: :error)
+
+      assert_raise FunctionClauseError, fn -> Application.fetch_env("trogon_test", :seeded_value) end
+      assert_raise FunctionClauseError, fn -> MockApplication.fetch_env("trogon_test", :seeded_value) end
+    end
+
+    test "rejects an app that is not an atom, as Application.fetch_env!/2 does" do
+      TestApplication.expect_fetch_env!(times: 1, returns: "overridden")
+
+      assert_raise FunctionClauseError, fn -> Application.fetch_env!("trogon_test", :seeded_value) end
+      assert_raise FunctionClauseError, fn -> MockApplication.fetch_env!("trogon_test", :seeded_value) end
+    end
+
+    test "rejects an app that is not an atom, as Application.get_all_env/1 does" do
+      TestApplication.expect_get_all_env(times: 1, returns: [])
+
+      assert_raise FunctionClauseError, fn -> Application.get_all_env("trogon_test") end
+      assert_raise FunctionClauseError, fn -> MockApplication.get_all_env("trogon_test") end
+    end
+
+    test "rejects fetch_env/2 returns: other than {:ok, value} or :error, which Application.fetch_env/2 never returns" do
+      results = [Application.fetch_env(:trogon_test, :seeded_value), Application.fetch_env(:trogon_test, :missing)]
+
+      assert results == [{:ok, "real value"}, :error]
+      assert_raise ArgumentError, fn -> TestApplication.expect_fetch_env(times: 1, returns: "real value") end
+    end
+
+    test "rejects get_all_env/1 returns: other than a keyword list, which Application.get_all_env/1 never returns" do
+      assert Keyword.keyword?(Application.get_all_env(:trogon_test))
+
+      assert_raise ArgumentError, fn -> TestApplication.expect_get_all_env(times: 1, returns: %{seeded_value: 1}) end
+    end
+  end
+
   describe "process ownership" do
     test "reaches the test's $callers" do
       TestApplication.expect_get_env(times: 1, returns: "overridden")

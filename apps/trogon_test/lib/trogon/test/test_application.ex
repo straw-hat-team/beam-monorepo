@@ -92,12 +92,9 @@ defmodule Trogon.Test.TestApplication do
     owner = self()
     value = Expectation.returns!(opts)
 
-    Mox.expect(
-      MockApplication,
-      :get_env,
-      Expectation.times(opts),
-      &Expectation.record(owner, __MODULE__, {:get_env, [&1, &2, &3]}, value)
-    )
+    Mox.expect(MockApplication, :get_env, Expectation.times(opts), fn app, key, default when is_atom(app) ->
+      Expectation.record(owner, __MODULE__, {:get_env, [app, key, default]}, value)
+    end)
   end
 
   @doc """
@@ -107,14 +104,11 @@ defmodule Trogon.Test.TestApplication do
   @spec expect_fetch_env(expect_opts()) :: module()
   def expect_fetch_env(opts) do
     owner = self()
-    result = Expectation.returns!(opts)
+    result = Expectation.returns!(opts, &fetch_env_result?/1, "{:ok, value} or :error")
 
-    Mox.expect(
-      MockApplication,
-      :fetch_env,
-      Expectation.times(opts),
-      &Expectation.record(owner, __MODULE__, {:fetch_env, [&1, &2]}, result)
-    )
+    Mox.expect(MockApplication, :fetch_env, Expectation.times(opts), fn app, key when is_atom(app) ->
+      Expectation.record(owner, __MODULE__, {:fetch_env, [app, key]}, result)
+    end)
   end
 
   @doc """
@@ -125,12 +119,9 @@ defmodule Trogon.Test.TestApplication do
     owner = self()
     value = Expectation.returns!(opts)
 
-    Mox.expect(
-      MockApplication,
-      :fetch_env!,
-      Expectation.times(opts),
-      &Expectation.record(owner, __MODULE__, {:fetch_env!, [&1, &2]}, value)
-    )
+    Mox.expect(MockApplication, :fetch_env!, Expectation.times(opts), fn app, key when is_atom(app) ->
+      Expectation.record(owner, __MODULE__, {:fetch_env!, [app, key]}, value)
+    end)
   end
 
   @doc """
@@ -139,15 +130,16 @@ defmodule Trogon.Test.TestApplication do
   @spec expect_get_all_env(expect_opts()) :: module()
   def expect_get_all_env(opts) do
     owner = self()
-    env = Expectation.returns!(opts)
+    env = Expectation.returns!(opts, &Keyword.keyword?/1, "a keyword list")
 
-    Mox.expect(
-      MockApplication,
-      :get_all_env,
-      Expectation.times(opts),
-      &Expectation.record(owner, __MODULE__, {:get_all_env, [&1]}, env)
-    )
+    Mox.expect(MockApplication, :get_all_env, Expectation.times(opts), fn app when is_atom(app) ->
+      Expectation.record(owner, __MODULE__, {:get_all_env, [app]}, env)
+    end)
   end
+
+  defp fetch_env_result?({:ok, _value}), do: true
+  defp fetch_env_result?(:error), do: true
+  defp fetch_env_result?(_result), do: false
 
   @doc """
   Asserts an expected `get_env/3` call read `key` from `app`, whatever default

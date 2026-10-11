@@ -45,8 +45,18 @@ defmodule Trogon.Test.TestDateTimeTest do
       Trogon.Test.assert_empty_mailbox()
     end
 
-    test "rejects a value that is not a DateTime" do
-      assert_raise MatchError, fn -> TestDateTime.expect_utc_now(times: 1, returns: ~N[2026-01-01 00:00:00]) end
+    test "rejects a value that is not a DateTime, which DateTime.utc_now/0 never returns" do
+      assert %DateTime{} = DateTime.utc_now()
+
+      assert_raise ArgumentError, fn -> TestDateTime.expect_utc_now(times: 1, returns: ~N[2026-01-01 00:00:00]) end
+    end
+
+    test "rejects a DateTime outside Etc/UTC, which DateTime.utc_now/0 never returns" do
+      shifted = %{~U[2026-01-01 00:00:00Z] | time_zone: "America/New_York", zone_abbr: "EST", utc_offset: -18_000}
+
+      assert DateTime.utc_now().time_zone == "Etc/UTC"
+
+      assert_raise ArgumentError, fn -> TestDateTime.expect_utc_now(times: 1, returns: shifted) end
     end
   end
 

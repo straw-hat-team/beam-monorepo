@@ -72,7 +72,7 @@ defmodule Trogon.Test.TestDateTime do
   @spec expect_utc_now(expect_opts()) :: module()
   def expect_utc_now(opts) do
     owner = self()
-    %DateTime{} = datetime = Expectation.returns!(opts)
+    datetime = Expectation.returns!(opts, &utc_date_time?/1, "a DateTime in Etc/UTC")
 
     Mox.expect(MockDateTime, :utc_now, Expectation.times(opts), fn ->
       Expectation.record(owner, __MODULE__, {:utc_now, []}, datetime)
@@ -87,4 +87,7 @@ defmodule Trogon.Test.TestDateTime do
       ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestDateTime, {:utc_now, []}}})
     end
   end
+
+  defp utc_date_time?(%DateTime{time_zone: "Etc/UTC"}), do: true
+  defp utc_date_time?(_value), do: false
 end

@@ -30,6 +30,11 @@ defmodule Trogon.Test do
   `Trogon.Test` tag, whichever mock recorded it. Each `assert_received_*` macro
   takes one of them out, so a test that ends with `assert_empty_mailbox/0`
   proves it asserted on every call the code under test made.
+
+  An expected call rejects the arguments the real function rejects, raising
+  the same exception, and each `expect_*` function rejects a `:returns` the real
+  function never returns, so a test cannot pass on a call that would fail in
+  production.
   """
 
   defmacro __using__(_opts) do
