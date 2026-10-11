@@ -206,7 +206,26 @@ defmodule Trogon.Test.ReportFormatterTest do
         end)
 
       assert report =~ "FAIL setup_all MyApp.BillingTest\n  test/my_app/billing_test.exs\n  no database\n"
-      assert report =~ "FAILURES | 1 tests, 0 passed, 1 invalid | 5ms\n"
+      assert report =~ "FAILURES | 1 tests, 0 passed, 1 invalid, 1 setup_all failed | 5ms\n"
+    end
+
+    test "fails the run even when every test in the module passed", %{tmp_dir: tmp_dir} do
+      report =
+        run(tmp_dir, fn formatter ->
+          finish_test(formatter, passed())
+
+          GenServer.cast(
+            formatter,
+            {:module_finished,
+             %ExUnit.TestModule{
+               name: MyApp.BillingTest,
+               file: "test/my_app/billing_test.exs",
+               state: {:failed, [failure(fn -> raise "on_exit failed" end)]}
+             }}
+          )
+        end)
+
+      assert report =~ "FAILURES | 1 tests, 1 passed, 1 setup_all failed | 5ms\n"
     end
 
     test "writes nothing for a module that passed", %{tmp_dir: tmp_dir} do

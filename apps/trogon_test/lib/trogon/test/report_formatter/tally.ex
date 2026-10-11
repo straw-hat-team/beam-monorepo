@@ -1,9 +1,9 @@
 defmodule Trogon.Test.ReportFormatter.Tally do
   @moduledoc false
 
-  defstruct total: 0, passed: 0, failed: 0, skipped: 0, excluded: 0, invalid: 0
+  defstruct total: 0, passed: 0, failed: 0, skipped: 0, excluded: 0, invalid: 0, setup_all_failed: 0
 
-  @reported_when_any [:failed, :skipped, :excluded, :invalid]
+  @reported_when_any [:failed, :skipped, :excluded, :invalid, :setup_all_failed]
 
   @type t :: %__MODULE__{
           total: non_neg_integer(),
@@ -11,7 +11,8 @@ defmodule Trogon.Test.ReportFormatter.Tally do
           failed: non_neg_integer(),
           skipped: non_neg_integer(),
           excluded: non_neg_integer(),
-          invalid: non_neg_integer()
+          invalid: non_neg_integer(),
+          setup_all_failed: non_neg_integer()
         }
 
   @spec count(t(), ExUnit.Test.t()) :: t()
@@ -20,9 +21,19 @@ defmodule Trogon.Test.ReportFormatter.Tally do
     %{tally | :total => tally.total + 1, key => Map.fetch!(tally, key) + 1}
   end
 
+  @spec count_module(t(), ExUnit.TestModule.t()) :: t()
+  def count_module(%__MODULE__{} = tally, %ExUnit.TestModule{state: {:failed, _failures}}) do
+    %{tally | setup_all_failed: tally.setup_all_failed + 1}
+  end
+
+  def count_module(%__MODULE__{} = tally, %ExUnit.TestModule{}), do: tally
+
   @spec format(t(), non_neg_integer()) :: iodata()
   def format(%__MODULE__{} = tally, run_us) do
-    status = if tally.failed == 0 and tally.invalid == 0, do: "ALL PASSED", else: "FAILURES"
+    status =
+      if tally.failed == 0 and tally.invalid == 0 and tally.setup_all_failed == 0,
+        do: "ALL PASSED",
+        else: "FAILURES"
 
     counts = [
       "#{tally.total} tests",
@@ -35,9 +46,12 @@ defmodule Trogon.Test.ReportFormatter.Tally do
   defp count_of(tally, key) do
     case Map.fetch!(tally, key) do
       0 -> []
-      count -> ["#{count} #{key}"]
+      count -> ["#{count} #{label(key)}"]
     end
   end
+
+  defp label(:setup_all_failed), do: "setup_all failed"
+  defp label(key), do: Atom.to_string(key)
 
   defp outcome(nil), do: :passed
   defp outcome({:failed, _failures}), do: :failed

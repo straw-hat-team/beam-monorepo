@@ -67,7 +67,7 @@ defmodule Trogon.Test.ReportFormatter do
 
   def handle_cast({:module_finished, %ExUnit.TestModule{} = test_module}, state) do
     write(state, Failure.format_module(test_module))
-    {:noreply, state}
+    {:noreply, %{state | tally: Tally.count_module(state.tally, test_module)}}
   end
 
   def handle_cast(:max_failures_reached, state) do
