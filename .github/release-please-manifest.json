@@ -9,5 +9,5 @@
   "apps/eventstore_dashboard": "0.2.3",
   "apps/trogon_credo": "0.10.0",
   "apps/trogon_dispatcher": "0.2.0",
-  "apps/trogon_test": "0.1.0"
+  "apps/trogon_test": "0.2.0"
 }
