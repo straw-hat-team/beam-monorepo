@@ -93,21 +93,3 @@ defmodule Trogon.Test.TestDateTime do
     end
   end
 end
-
-defmodule Trogon.Test.TestDateTime.ElixirDateTime do
-  @moduledoc false
-  @behaviour Trogon.Test.TestDateTime
-
-  @impl true
-  defdelegate utc_now(), to: DateTime
-end
-
-Mox.defmock(Trogon.Test.MockDateTime,
-  for: Trogon.Test.TestDateTime,
-  moduledoc: """
-  The Mox mock for `Trogon.Test.TestDateTime`.
-
-  Stub it with `Trogon.Test.TestDateTime.stub/1`, then expect reads with
-  `Trogon.Test.TestDateTime.expect_utc_now/1`.
-  """
-)

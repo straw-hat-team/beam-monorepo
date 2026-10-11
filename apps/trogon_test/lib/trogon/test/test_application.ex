@@ -198,30 +198,3 @@ defmodule Trogon.Test.TestApplication do
     end
   end
 end
-
-defmodule Trogon.Test.TestApplication.ElixirApplication do
-  @moduledoc false
-  @behaviour Trogon.Test.TestApplication
-
-  @impl true
-  defdelegate get_env(app, key, default), to: Application
-
-  @impl true
-  defdelegate fetch_env(app, key), to: Application
-
-  @impl true
-  defdelegate fetch_env!(app, key), to: Application
-
-  @impl true
-  defdelegate get_all_env(app), to: Application
-end
-
-Mox.defmock(Trogon.Test.MockApplication,
-  for: Trogon.Test.TestApplication,
-  moduledoc: """
-  The Mox mock for `Trogon.Test.TestApplication`.
-
-  Stub it with `Trogon.Test.TestApplication.stub/1`, then expect reads with the
-  `Trogon.Test.TestApplication` `expect_*` functions.
-  """
-)
