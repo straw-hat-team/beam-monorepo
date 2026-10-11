@@ -7,7 +7,7 @@ defmodule Trogon.Test.TestDateTime do
   every run, so a test can only assert on its shape. Read the clock through a
   facade the project compiles in, `DateTime` in every environment but test:
 
-      defmodule MyApp.Clock do
+      defmodule MyApp do
         @date_time Application.compile_env(:my_app, [__MODULE__, :date_time], DateTime)
 
         defdelegate utc_now(), to: @date_time
@@ -15,7 +15,7 @@ defmodule Trogon.Test.TestDateTime do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp.Clock, date_time: Trogon.Test.MockDateTime
+      config :my_app, MyApp, date_time: Trogon.Test.MockDateTime
 
   `use Trogon.Test` stubs the mock to read the real clock. Each test expects the
   reads it cares about with what they return, and asserts they happened:

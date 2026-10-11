@@ -7,7 +7,7 @@ defmodule Trogon.Test.TestProcess do
   test wait for the timer, or race it. Call them through a facade the project
   compiles in, `Process` in every environment but test:
 
-      defmodule MyApp.Timer do
+      defmodule MyApp do
         @process Application.compile_env(:my_app, [__MODULE__, :process], Process)
 
         defdelegate send_after(dest, msg, time, opts \\\\ []), to: @process
@@ -16,7 +16,7 @@ defmodule Trogon.Test.TestProcess do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp.Timer, process: Trogon.Test.MockProcess
+      config :my_app, MyApp, process: Trogon.Test.MockProcess
 
   `use Trogon.Test` stubs the mock to call the real `Process`. Each test expects
   the calls it cares about, and asserts on what they were given. An expected

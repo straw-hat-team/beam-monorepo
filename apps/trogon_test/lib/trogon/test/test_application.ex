@@ -14,7 +14,7 @@ defmodule Trogon.Test.TestApplication do
   A project reads configuration through a facade it compiles in, `Application` in
   every environment but test:
 
-      defmodule MyApp.Config do
+      defmodule MyApp do
         @application Application.compile_env(:my_app, [__MODULE__, :application], Application)
 
         defdelegate get_env(app, key, default \\\\ nil), to: @application
@@ -22,7 +22,7 @@ defmodule Trogon.Test.TestApplication do
 
   and in `config/test.exs`:
 
-      config :my_app, MyApp.Config, application: Trogon.Test.MockApplication
+      config :my_app, MyApp, application: Trogon.Test.MockApplication
 
   The mock has `get_env/3` and no `get_env/2`, so the facade always passes a
   default, as the one above does through its default argument.

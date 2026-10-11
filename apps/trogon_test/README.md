@@ -8,44 +8,37 @@
 
 **This is for teams that maintain more than one Elixir repository and want their test suites to run concurrently without each project rebuilding its own test support.** It pairs with `trogon_credo`'s check for application environment mutation in tests, which flags the same `Application.put_env/3` calls this package replaces.
 
-Depend on `trogon_test` with `only: :test`. Nothing outside the test environment needs it: each facade below reads the real module everywhere else, so `trogon_test` and Mox never ship with your release.
+Depend on `trogon_test` with `only: :test`. Nothing outside the test environment needs it: the facade below reads the real module everywhere else, so `trogon_test` and Mox never ship with your release.
 
 ## Wire a facade
 
 Code that calls `Application`, `DateTime`, or `Process` directly cannot be controlled per test. Call them through a module your project compiles in instead, the real module in every environment but test:
 
 ```elixir
-defmodule MyApp.Config do
+defmodule MyApp do
   @application Application.compile_env(:my_app, [__MODULE__, :application], Application)
-
-  defdelegate get_env(app, key, default \\ nil), to: @application
-end
-
-defmodule MyApp.Clock do
   @date_time Application.compile_env(:my_app, [__MODULE__, :date_time], DateTime)
-
-  defdelegate utc_now(), to: @date_time
-end
-
-defmodule MyApp.Timer do
   @process Application.compile_env(:my_app, [__MODULE__, :process], Process)
 
+  defdelegate get_env(app, key, default \\ nil), to: @application
+  defdelegate utc_now(), to: @date_time
   defdelegate send_after(dest, msg, time, opts \\ []), to: @process
   defdelegate sleep(timeout), to: @process
 end
 ```
 
-Call the facade from the rest of the project wherever it would otherwise call `Application.get_env/2,3`, `DateTime.utc_now/0`, `Process.send_after/3,4`, or `Process.sleep/1`.
+Call `MyApp` from the rest of the project wherever it would otherwise call `Application.get_env/2,3`, `DateTime.utc_now/0`, `Process.send_after/3,4`, or `Process.sleep/1`.
 
 ## Configure config/test.exs
 
-Point each facade at its mock for the test environment:
+Point the facade at the mocks for the test environment:
 
 ```elixir
 # config/test.exs
-config :my_app, MyApp.Config, application: Trogon.Test.MockApplication
-config :my_app, MyApp.Clock, date_time: Trogon.Test.MockDateTime
-config :my_app, MyApp.Timer, process: Trogon.Test.MockProcess
+config :my_app, MyApp,
+  application: Trogon.Test.MockApplication,
+  date_time: Trogon.Test.MockDateTime,
+  process: Trogon.Test.MockProcess
 ```
 
 Every other environment keeps calling the real modules, since the facade only swaps the module when the mock is configured.
