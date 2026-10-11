@@ -50,6 +50,8 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
   use ExUnit.CaseTemplate
 
   alias Commanded.Aggregate.Multi
+  alias Commanded.Middleware.ExtractAggregateIdentity
+  alias Commanded.Middleware.Pipeline
   alias Trogon.Commanded.TestSupport.CommandHandlerCase
 
   using opts do
@@ -106,61 +108,52 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     end
   end
 
-  def assert_events(
-        initial_events,
-        command,
-        expected_events,
-        aggregate_module,
-        command_handler_module
-      ) do
-    assert {:ok, _state, events} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               initial_events,
-               command
-             )
-
-    actual_events = List.wrap(events)
-    expected_events = List.wrap(expected_events)
-
-    assert actual_events == expected_events
+  def assert_events(initial_events, command, expected_events, aggregate_module, command_handler_module) do
+    initial_events
+    |> checked_run(command, aggregate_module, command_handler_module)
+    |> assert_events_result(expected_events)
   end
 
-  def assert_state(
-        initial_events,
-        command,
-        expected_state,
-        aggregate_module,
-        command_handler_module
-      ) do
-    assert {:ok, state, _events} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               initial_events,
-               command
-             )
+  def assert_state(initial_events, command, expected_state, aggregate_module, command_handler_module) do
+    initial_events
+    |> checked_run(command, aggregate_module, command_handler_module)
+    |> assert_state_result(expected_state)
+  end
 
+  def assert_error(initial_events, command, expected_error, aggregate_module, command_handler_module) do
+    initial_events
+    |> checked_run(command, aggregate_module, command_handler_module)
+    |> assert_error_result(expected_error)
+  end
+
+  defp checked_run(initial_events, command, aggregate_module, command_handler_module) do
+    assert is_list(initial_events), "Initial events must be a list of events"
+    validate_identity_configuration(command, aggregate_module)
+    aggregate_run(aggregate_module, command_handler_module, initial_events, command)
+  end
+
+  defp assert_events_result({:ok, _state, events}, expected_events) do
+    assert List.wrap(events) == List.wrap(expected_events)
+  end
+
+  defp assert_events_result({:error, reason}, _expected_events) do
+    flunk("Expected success but got error: #{inspect(reason)}")
+  end
+
+  defp assert_state_result({:ok, state, _events}, expected_state) do
     assert state == expected_state
   end
 
-  def assert_error(
-        initial_events,
-        command,
-        expected_error,
-        aggregate_module,
-        command_handler_module
-      ) do
-    assert {:error, reason} =
-             aggregate_run(
-               aggregate_module,
-               command_handler_module,
-               initial_events,
-               command
-             )
+  defp assert_state_result({:error, reason}, _expected_state) do
+    flunk("Expected success but got error: #{inspect(reason)}")
+  end
 
+  defp assert_error_result({:error, reason}, expected_error) do
     assert reason == expected_error
+  end
+
+  defp assert_error_result({:ok, _state, _events}, expected_error) do
+    flunk("Expected error #{inspect(expected_error)}, but command succeeded")
   end
 
   defp aggregate_run(aggregate_module, command_handler_module, initial_events, command) do
@@ -237,5 +230,59 @@ defmodule Trogon.Commanded.TestSupport.CommandHandlerCase do
     events
     |> List.wrap()
     |> Enum.reduce(state, &evolver.(&2, &1))
+  end
+
+  defp validate_identity_configuration(command, aggregate_module) do
+    command_module = command.__struct__
+    Code.ensure_loaded(command_module)
+    Code.ensure_loaded(aggregate_module)
+
+    command_has_identity? =
+      function_exported?(command_module, :aggregate_identifier, 0) and
+        function_exported?(command_module, :identity_prefix, 0)
+
+    aggregate_has_identity? = function_exported?(aggregate_module, :identifier, 0)
+
+    if command_has_identity? and aggregate_has_identity? do
+      validate_identifier_match(command_module, aggregate_module)
+      validate_aggregate_uuid_extraction(command, command_module)
+    else
+      :ok
+    end
+  end
+
+  defp validate_identifier_match(command_module, aggregate_module) do
+    command_identifier = command_module.aggregate_identifier()
+    aggregate_identifier = aggregate_module.identifier()
+
+    assert command_identifier == aggregate_identifier, """
+    Identity field mismatch between command and aggregate.
+
+    Command #{inspect(command_module)} uses #{inspect(command_identifier)}
+    Aggregate #{inspect(aggregate_module)} uses #{inspect(aggregate_identifier)}
+    """
+  end
+
+  defp validate_aggregate_uuid_extraction(command, command_module) do
+    identifier = command_module.aggregate_identifier()
+    identity_prefix = command_module.identity_prefix()
+
+    pipeline =
+      %Pipeline{command: command, identity: identifier, identity_prefix: identity_prefix}
+      |> ExtractAggregateIdentity.before_dispatch()
+
+    case pipeline do
+      %Pipeline{assigns: %{aggregate_uuid: uuid}} when is_binary(uuid) and uuid != "" ->
+        :ok
+
+      _ ->
+        flunk("""
+        Failed to extract aggregate UUID from command.
+
+        Command: #{inspect(command)}
+        Identity field: #{inspect(identifier)}
+        Identity prefix: #{inspect(identity_prefix)}
+        """)
+    end
   end
 end
