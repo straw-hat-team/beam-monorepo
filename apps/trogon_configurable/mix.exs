@@ -95,7 +95,8 @@ defmodule Trogon.Configurable.MixProject do
       homepage_url: @source_url,
       source_url_pattern: "#{@source_url}/blob/#{@app}@v#{@version}/apps/#{@app}/%{path}#L%{line}",
       extras: [
-        "README.md"
+        "README.md",
+        "CHANGELOG.md"
       ],
       groups_for_extras: [
         "How-to": ~r/docs\/how-to\/.?/,
