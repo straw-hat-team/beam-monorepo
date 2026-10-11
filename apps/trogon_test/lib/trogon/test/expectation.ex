@@ -1,6 +1,8 @@
 defmodule Trogon.Test.Expectation do
   @moduledoc false
 
+  alias Trogon.Test.Recorder
+
   @spec times(keyword()) :: non_neg_integer()
   def times(opts), do: Keyword.get(opts, :times, 1)
 
@@ -23,9 +25,9 @@ defmodule Trogon.Test.Expectation do
     end
   end
 
-  @spec record(pid(), module(), {atom(), [term()]}, returns) :: returns when returns: term()
-  def record(owner, source, operation, returns) do
-    send(owner, {Trogon.Test, {source, operation}})
+  @spec record(Recorder.t(), module(), {atom(), [term()]}, returns) :: returns when returns: term()
+  def record(recorder, source, operation, returns) do
+    Recorder.record(recorder, {Trogon.Test, {source, operation}})
     returns
   end
 end

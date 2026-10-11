@@ -47,6 +47,7 @@ defmodule Trogon.Test.TestDateTime do
 
   alias Trogon.Test.Expectation
   alias Trogon.Test.MockDateTime
+  alias Trogon.Test.Recorder
 
   @typedoc "Options `expect_utc_now/1` takes."
   @type expect_opts :: [returns: DateTime.t(), times: non_neg_integer()]
@@ -68,11 +69,11 @@ defmodule Trogon.Test.TestDateTime do
   """
   @spec expect_utc_now(expect_opts()) :: module()
   def expect_utc_now(opts) do
-    owner = self()
+    recorder = Recorder.new()
     datetime = Expectation.returns!(opts, &utc_date_time?/1, "a DateTime in Etc/UTC")
 
     Mox.expect(MockDateTime, :utc_now, Expectation.times(opts), fn ->
-      Expectation.record(owner, __MODULE__, {:utc_now, []}, datetime)
+      Expectation.record(recorder, __MODULE__, {:utc_now, []}, datetime)
     end)
   end
 
@@ -81,7 +82,7 @@ defmodule Trogon.Test.TestDateTime do
   """
   defmacro assert_received_utc_now do
     quote do
-      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestDateTime, {:utc_now, []}}})
+      Recorder.asserted(ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestDateTime, {:utc_now, []}}}))
     end
   end
 

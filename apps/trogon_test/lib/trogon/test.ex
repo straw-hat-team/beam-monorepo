@@ -30,6 +30,7 @@ defmodule Trogon.Test do
   `Trogon.Test` tag, whichever mock recorded it. Each `assert_received_*` macro
   takes one of them out, so a test that ends with `assert_empty_mailbox/0`
   proves it asserted on every call the code under test made.
+  `verify_mailbox_on_exit!/1` runs that check when the test exits instead.
 
   An expected call rejects the arguments the real function rejects, raising
   the same exception, and each `expect_*` function rejects a `:returns` the real
@@ -55,6 +56,8 @@ defmodule Trogon.Test do
     end
   end
 
+  alias Trogon.Test.Recorder
+
   @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess]
 
   @typedoc """
@@ -78,6 +81,35 @@ defmodule Trogon.Test do
   def allow(process) do
     owner = self()
     Enum.each(@mocks, &Mox.allow(&1, owner, fn -> GenServer.whereis(process) end))
+  end
+
+  @doc """
+  Fails the test when it exits if a call a `Trogon.Test` mock recorded was never
+  asserted with an `assert_received_*` macro.
+
+  Opt in per test module, or per `describe`, before the test expects any call:
+
+      setup {Trogon.Test, :verify_mailbox_on_exit!}
+
+  The check runs after the test process exits, so it cannot see the mailbox.
+  It counts the calls each `assert_received_*` macro takes out, so a call
+  consumed with a plain `assert_received/1` still counts as unasserted. Tests
+  that assert with plain `assert_received/1` end with `assert_empty_mailbox/0`
+  instead.
+
+  Takes the test context so it can be given to `setup/1`.
+  """
+  @spec verify_mailbox_on_exit!(map()) :: :ok
+  def verify_mailbox_on_exit!(_context \\ %{}) do
+    tracker = Recorder.start_tracking()
+
+    ExUnit.Callbacks.on_exit(fn ->
+      try do
+        Recorder.verify!(tracker)
+      after
+        Recorder.stop_tracking(tracker)
+      end
+    end)
   end
 
   @doc """

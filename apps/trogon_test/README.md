@@ -71,6 +71,8 @@ Every `expect_*` function takes `returns:`, the value the call returns, and `tim
 
 Each expected call is sent to the test process, so the matching `assert_received_*` macro checks what the code under test passed. Every mock sends under the same `Trogon.Test` tag, so `Trogon.Test.assert_empty_mailbox/0` at the end of the test fails on any call the test did not assert on, whichever mock recorded it. No `on_exit` callback is needed, since nothing outside the test process changed.
 
+To make that check run on its own, opt a test module in with `setup {Trogon.Test, :verify_mailbox_on_exit!}` before its tests expect any call. The test then fails when it exits if any recorded call was never taken out by an `assert_received_*` macro. The check runs after the test process is gone, so it counts only those macros: a call consumed with a plain `assert_received/1` still counts as unasserted, and a test that asserts that way ends with `Trogon.Test.assert_empty_mailbox/0` instead.
+
 ## Allow a process
 
 A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` under a supervisor for instance, does not, until the test allows it on every mock with `Trogon.Test.allow/1`. Pass its pid, or the name it registers under. A name is looked up each time the process calls a mock, so the test can allow a process before it starts:

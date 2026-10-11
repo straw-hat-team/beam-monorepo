@@ -61,6 +61,7 @@ defmodule Trogon.Test.TestApplication do
 
   alias Trogon.Test.Expectation
   alias Trogon.Test.MockApplication
+  alias Trogon.Test.Recorder
 
   @typedoc "Options every `expect_*` function takes."
   @type expect_opts :: [returns: term(), times: non_neg_integer()]
@@ -82,11 +83,11 @@ defmodule Trogon.Test.TestApplication do
   """
   @spec expect_get_env(expect_opts()) :: module()
   def expect_get_env(opts) do
-    owner = self()
+    recorder = Recorder.new()
     value = Expectation.returns!(opts)
 
     Mox.expect(MockApplication, :get_env, Expectation.times(opts), fn app, key, default when is_atom(app) ->
-      Expectation.record(owner, __MODULE__, {:get_env, [app, key, default]}, value)
+      Expectation.record(recorder, __MODULE__, {:get_env, [app, key, default]}, value)
     end)
   end
 
@@ -96,11 +97,11 @@ defmodule Trogon.Test.TestApplication do
   """
   @spec expect_fetch_env(expect_opts()) :: module()
   def expect_fetch_env(opts) do
-    owner = self()
+    recorder = Recorder.new()
     result = Expectation.returns!(opts, &fetch_env_result?/1, "{:ok, value} or :error")
 
     Mox.expect(MockApplication, :fetch_env, Expectation.times(opts), fn app, key when is_atom(app) ->
-      Expectation.record(owner, __MODULE__, {:fetch_env, [app, key]}, result)
+      Expectation.record(recorder, __MODULE__, {:fetch_env, [app, key]}, result)
     end)
   end
 
@@ -109,11 +110,11 @@ defmodule Trogon.Test.TestApplication do
   """
   @spec expect_fetch_env!(expect_opts()) :: module()
   def expect_fetch_env!(opts) do
-    owner = self()
+    recorder = Recorder.new()
     value = Expectation.returns!(opts)
 
     Mox.expect(MockApplication, :fetch_env!, Expectation.times(opts), fn app, key when is_atom(app) ->
-      Expectation.record(owner, __MODULE__, {:fetch_env!, [app, key]}, value)
+      Expectation.record(recorder, __MODULE__, {:fetch_env!, [app, key]}, value)
     end)
   end
 
@@ -122,11 +123,11 @@ defmodule Trogon.Test.TestApplication do
   """
   @spec expect_get_all_env(expect_opts()) :: module()
   def expect_get_all_env(opts) do
-    owner = self()
+    recorder = Recorder.new()
     env = Expectation.returns!(opts, &Keyword.keyword?/1, "a keyword list")
 
     Mox.expect(MockApplication, :get_all_env, Expectation.times(opts), fn app when is_atom(app) ->
-      Expectation.record(owner, __MODULE__, {:get_all_env, [app]}, env)
+      Expectation.record(recorder, __MODULE__, {:get_all_env, [app]}, env)
     end)
   end
 
@@ -140,8 +141,10 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_get_env(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received(
-        {Trogon.Test, {Trogon.Test.TestApplication, {:get_env, [^app, ^key, _default]}}}
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received(
+          {Trogon.Test, {Trogon.Test.TestApplication, {:get_env, [^app, ^key, _default]}}}
+        )
       )
     end
   end
@@ -151,8 +154,10 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_get_env(app, key, default) do
     quote bind_quoted: [app: app, key: key, default: default] do
-      ExUnit.Assertions.assert_received(
-        {Trogon.Test, {Trogon.Test.TestApplication, {:get_env, [^app, ^key, ^default]}}}
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received(
+          {Trogon.Test, {Trogon.Test.TestApplication, {:get_env, [^app, ^key, ^default]}}}
+        )
       )
     end
   end
@@ -162,7 +167,9 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_fetch_env(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:fetch_env, [^app, ^key]}}})
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:fetch_env, [^app, ^key]}}})
+      )
     end
   end
 
@@ -171,7 +178,9 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_fetch_env!(app, key) do
     quote bind_quoted: [app: app, key: key] do
-      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:fetch_env!, [^app, ^key]}}})
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:fetch_env!, [^app, ^key]}}})
+      )
     end
   end
 
@@ -180,7 +189,9 @@ defmodule Trogon.Test.TestApplication do
   """
   defmacro assert_received_get_all_env(app) do
     quote bind_quoted: [app: app] do
-      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:get_all_env, [^app]}}})
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestApplication, {:get_all_env, [^app]}}})
+      )
     end
   end
 end

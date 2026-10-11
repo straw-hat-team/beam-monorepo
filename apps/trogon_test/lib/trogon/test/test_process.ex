@@ -52,6 +52,7 @@ defmodule Trogon.Test.TestProcess do
 
   alias Trogon.Test.Expectation
   alias Trogon.Test.MockProcess
+  alias Trogon.Test.Recorder
 
   defguardp is_timeout(timeout) when timeout == :infinity or (is_integer(timeout) and timeout >= 0)
 
@@ -79,10 +80,10 @@ defmodule Trogon.Test.TestProcess do
   """
   @spec expect_send_after(send_after_opts()) :: module()
   def expect_send_after(opts \\ []) do
-    owner = self()
+    recorder = Recorder.new()
     timer = send_after_timer(opts)
 
-    Mox.expect(MockProcess, :send_after, Expectation.times(opts), &record_send_after(owner, timer, &1, &2, &3, &4))
+    Mox.expect(MockProcess, :send_after, Expectation.times(opts), &record_send_after(recorder, timer, &1, &2, &3, &4))
   end
 
   @doc """
@@ -90,10 +91,10 @@ defmodule Trogon.Test.TestProcess do
   """
   @spec expect_sleep(sleep_opts()) :: module()
   def expect_sleep(opts \\ []) do
-    owner = self()
+    recorder = Recorder.new()
 
     Mox.expect(MockProcess, :sleep, Expectation.times(opts), fn timeout when is_timeout(timeout) ->
-      Expectation.record(owner, __MODULE__, {:sleep, [timeout]}, :ok)
+      Expectation.record(recorder, __MODULE__, {:sleep, [timeout]}, :ok)
     end)
   end
 
@@ -103,8 +104,10 @@ defmodule Trogon.Test.TestProcess do
   """
   defmacro assert_received_send_after(dest, msg, time) do
     quote bind_quoted: [dest: dest, msg: msg, time: time] do
-      ExUnit.Assertions.assert_received(
-        {Trogon.Test, {Trogon.Test.TestProcess, {:send_after, [^dest, ^msg, ^time, _opts]}}}
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received(
+          {Trogon.Test, {Trogon.Test.TestProcess, {:send_after, [^dest, ^msg, ^time, _opts]}}}
+        )
       )
     end
   end
@@ -115,8 +118,10 @@ defmodule Trogon.Test.TestProcess do
   """
   defmacro assert_received_send_after(dest, msg, time, opts) do
     quote bind_quoted: [dest: dest, msg: msg, time: time, opts: opts] do
-      ExUnit.Assertions.assert_received(
-        {Trogon.Test, {Trogon.Test.TestProcess, {:send_after, [^dest, ^msg, ^time, ^opts]}}}
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received(
+          {Trogon.Test, {Trogon.Test.TestProcess, {:send_after, [^dest, ^msg, ^time, ^opts]}}}
+        )
       )
     end
   end
@@ -126,7 +131,9 @@ defmodule Trogon.Test.TestProcess do
   """
   defmacro assert_received_sleep(timeout) do
     quote bind_quoted: [timeout: timeout] do
-      ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestProcess, {:sleep, [^timeout]}}})
+      Recorder.asserted(
+        ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestProcess, {:sleep, [^timeout]}}})
+      )
     end
   end
 
@@ -141,11 +148,11 @@ defmodule Trogon.Test.TestProcess do
     end
   end
 
-  defp record_send_after(owner, timer, dest, msg, time, opts) do
+  defp record_send_after(recorder, timer, dest, msg, time, opts) do
     check_dest!(dest)
     check_opts!(opts)
     check_time!(time, absolute?(opts))
-    Expectation.record(owner, __MODULE__, {:send_after, [dest, msg, time, opts]}, timer.())
+    Expectation.record(recorder, __MODULE__, {:send_after, [dest, msg, time, opts]}, timer.())
   end
 
   defp check_dest!(dest) when is_pid(dest) or is_atom(dest), do: :ok

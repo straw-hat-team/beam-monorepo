@@ -4,6 +4,7 @@ defmodule Trogon.TestTest do
 
   alias Trogon.Test.MockApplication
   alias Trogon.Test.MockDateTime
+  alias Trogon.Test.Recorder
 
   describe "assert_empty_mailbox/0" do
     test "passes once every recorded call is asserted" do
@@ -30,6 +31,46 @@ defmodule Trogon.TestTest do
       send(self(), {:unrelated, :message})
 
       Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "verify_mailbox_on_exit!/1" do
+    setup {Trogon.Test, :verify_mailbox_on_exit!}
+
+    test "passes once every recorded call is asserted" do
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
+
+      MockApplication.get_env(:trogon_test, :seeded_value, nil)
+
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+    end
+
+    test "fails on a recorded call left unasserted" do
+      TestApplication.expect_get_env(times: 1, returns: "overridden")
+
+      MockApplication.get_env(:trogon_test, :seeded_value, nil)
+
+      assert_raise ExUnit.AssertionError, ~r/:seeded_value/, fn -> Recorder.verify!() end
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+    end
+
+    test "counts a call consumed with plain assert_received as unasserted" do
+      TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
+
+      MockDateTime.utc_now()
+
+      message = assert_received({Trogon.Test, {TestDateTime, {:utc_now, []}}})
+      assert_raise ExUnit.AssertionError, fn -> Recorder.verify!() end
+      Recorder.asserted(message)
+    end
+
+    test "tracks a call from a process the test started" do
+      TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00Z])
+
+      Task.await(Task.async(fn -> MockDateTime.utc_now() end))
+
+      assert_raise ExUnit.AssertionError, fn -> Recorder.verify!() end
+      TestDateTime.assert_received_utc_now()
     end
   end
 
