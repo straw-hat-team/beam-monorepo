@@ -46,7 +46,10 @@ defmodule Trogon.Test.AIFormatter.Failure do
     end
   end
 
+  # Blaming names the arguments a function clause was given, which the CLI
+  # formatter writes too.
   defp format_failure({kind, reason, stacktrace}, test_module, root) do
+    {reason, stacktrace} = Exception.blame(kind, reason, stacktrace)
     [format_reason(kind, reason, stacktrace), format_stacktrace(stacktrace, test_module, root)]
   end
 
@@ -57,10 +60,6 @@ defmodule Trogon.Test.AIFormatter.Failure do
   # ExUnit's message goes on to explain how to change the timeout.
   defp format_reason(:error, %ExUnit.TimeoutError{} = error, _stacktrace) do
     indent("#{error.type} timed out after #{error.timeout}ms")
-  end
-
-  defp format_reason(:error, reason, stacktrace) do
-    :error |> Exception.normalize(reason, stacktrace) |> Exception.message() |> indent()
   end
 
   defp format_reason(kind, reason, stacktrace) do
@@ -140,8 +139,12 @@ defmodule Trogon.Test.AIFormatter.Failure do
   defp literal_operand?(_expr, _index), do: false
 
   defp format_stacktrace(stacktrace, test_module, root) do
-    for entry <- stacktrace |> Enum.reject(&ex_unit_frame?/1) |> drop_runner_frame(),
-        do: indent(format_frame(entry, test_module, root))
+    stacktrace
+    |> Enum.reject(&ex_unit_frame?/1)
+    |> drop_runner_frame()
+    |> Enum.map(&format_frame(&1, test_module, root))
+    |> Enum.dedup()
+    |> Enum.map(&indent/1)
   end
 
   # ExUnit's runner times every test, so a stacktrace that reaches it ends in
@@ -162,7 +165,31 @@ defmodule Trogon.Test.AIFormatter.Failure do
     end
   end
 
+  defp format_frame({module, function, arity, location}, _test_module, root) do
+    Exception.format_stacktrace_entry({module, function, arity, from_root(location, source(module), root)})
+  end
+
   defp format_frame(entry, _test_module, _root), do: Exception.format_stacktrace_entry(entry)
+
+  defp source(module) do
+    if function_exported?(module, :module_info, 1), do: module.module_info(:compile)[:source]
+  end
+
+  # A frame's file is relative to the directory its application compiled in, so
+  # the module's source, which is absolute, places it under the root.
+  defp from_root(location, source, root) when is_list(source) do
+    with file when is_list(file) <- location[:file],
+         source = List.to_string(source),
+         true <- String.ends_with?(source, "/" <> List.to_string(file)),
+         path = Path.relative_to(source, root),
+         :relative <- Path.type(path) do
+      Keyword.put(location, :file, String.to_charlist(path))
+    else
+      _outside_root -> location
+    end
+  end
+
+  defp from_root(location, _source, _root), do: location
 
   defp ex_unit_frame?({module, _function, _arity, _location}) when is_atom(module) do
     module == ExUnit or String.starts_with?(Atom.to_string(module), "Elixir.ExUnit.")

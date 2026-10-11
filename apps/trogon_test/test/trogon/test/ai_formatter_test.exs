@@ -121,7 +121,7 @@ defmodule Trogon.Test.AIFormatterTest do
     test "writes the message of an exception", %{tmp_dir: tmp_dir} do
       report = run_failure(tmp_dir, fn -> raise "boom" end)
 
-      assert report =~ "  boom\n"
+      assert report =~ "  ** (RuntimeError) boom\n"
     end
 
     test "writes the reason of an exit", %{tmp_dir: tmp_dir} do
@@ -148,7 +148,48 @@ defmodule Trogon.Test.AIFormatterTest do
           finish_test(formatter, failed([{:error, %RuntimeError{message: "boom"}, stacktrace}]))
         end)
 
-      assert report =~ "  boom\n  " <> Exception.format_stacktrace_entry(hd(stacktrace)) <> "\n"
+      assert report =~ "  ** (RuntimeError) boom\n  " <> Exception.format_stacktrace_entry(hd(stacktrace)) <> "\n"
+    end
+
+    test "writes the arguments a function clause was given", %{tmp_dir: tmp_dir} do
+      error = %FunctionClauseError{module: IO, function: :chardata_to_string, arity: 1}
+      stacktrace = [{IO, :chardata_to_string, [1], [file: ~c"lib/io.ex", line: 1]}]
+
+      report = run(tmp_dir, &finish_test(&1, failed([{:error, error, stacktrace}])))
+
+      assert report =~ "  ** (FunctionClauseError) no function clause matching in IO.chardata_to_string/1\n"
+      assert report =~ "  The following arguments were given to IO.chardata_to_string/1:\n      # 1\n      1\n"
+    end
+
+    test "writes a repeated line of the test's own module once", %{tmp_dir: tmp_dir} do
+      location = [file: ~c"test/my_app/billing_test.exs", line: 15]
+
+      stacktrace = [
+        {MyApp.BillingTest, :"-test charges the configured tax rate/1-fun-0-", 0, location},
+        {MyApp.BillingTest, :"test charges the configured tax rate", 1, location}
+      ]
+
+      report =
+        run(tmp_dir, fn formatter ->
+          finish_test(formatter, failed([{:error, %RuntimeError{message: "boom"}, stacktrace}]))
+        end)
+
+      assert report =~ "  ** (RuntimeError) boom\n  #{from_root("test/my_app/billing_test.exs")}:15\n\n"
+    end
+
+    test "writes the file of a frame elsewhere relative to the root", %{tmp_dir: tmp_dir} do
+      stacktrace = [
+        {AIFormatter, :init, 1, [file: ~c"lib/trogon/test/ai_formatter.ex", line: 1]},
+        {Enum, :map, 2, [file: ~c"lib/enum.ex", line: 1]}
+      ]
+
+      report =
+        run(tmp_dir, fn formatter ->
+          finish_test(formatter, failed([{:error, %RuntimeError{message: "boom"}, stacktrace}]))
+        end)
+
+      assert report =~ " #{from_root("lib/trogon/test/ai_formatter.ex")}:1: Trogon.Test.AIFormatter.init/1\n"
+      assert report =~ " lib/enum.ex:1: Enum.map/2\n"
     end
 
     test "writes a timeout without ExUnit's advice on changing it", %{tmp_dir: tmp_dir} do
@@ -180,7 +221,7 @@ defmodule Trogon.Test.AIFormatterTest do
           finish_test(formatter, failed([{:error, %RuntimeError{message: "boom"}, stacktrace}]))
         end)
 
-      assert report =~ "  boom\n  MyApp.Billing.charge/1\n\n"
+      assert report =~ "  ** (RuntimeError) boom\n  MyApp.Billing.charge/1\n\n"
     end
 
     test "writes a stacktrace entry for an anonymous function", %{tmp_dir: tmp_dir} do
@@ -192,7 +233,7 @@ defmodule Trogon.Test.AIFormatterTest do
           finish_test(formatter, failed([{:error, %RuntimeError{message: "boom"}, stacktrace}]))
         end)
 
-      assert report =~ "  boom\n  " <> Exception.format_stacktrace_entry(hd(stacktrace)) <> "\n"
+      assert report =~ "  ** (RuntimeError) boom\n  " <> Exception.format_stacktrace_entry(hd(stacktrace)) <> "\n"
     end
 
     test "numbers each of several failures", %{tmp_dir: tmp_dir} do
@@ -201,8 +242,8 @@ defmodule Trogon.Test.AIFormatterTest do
           finish_test(formatter, failed([failure(fn -> raise "first" end), failure(fn -> raise "second" end)]))
         end)
 
-      assert report =~ "  failure 1 of 2\n  first\n"
-      assert report =~ "  failure 2 of 2\n  second\n"
+      assert report =~ "  failure 1 of 2\n  ** (RuntimeError) first\n"
+      assert report =~ "  failure 2 of 2\n  ** (RuntimeError) second\n"
     end
 
     test "writes the logs it captured", %{tmp_dir: tmp_dir} do
@@ -359,7 +400,7 @@ defmodule Trogon.Test.AIFormatterTest do
         end)
 
       assert report =~
-               "FAIL setup_all MyApp.BillingTest\n  #{from_root("test/my_app/billing_test.exs")}\n  no database\n"
+               "FAIL setup_all MyApp.BillingTest\n  #{from_root("test/my_app/billing_test.exs")}\n  ** (RuntimeError) no database\n"
 
       assert report =~ "FAILURES | 1 tests, 0 passed, 1 invalid, 1 setup_all failed | 5ms | seed 0\n"
     end
