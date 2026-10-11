@@ -36,7 +36,6 @@ defmodule Trogon.Test.TestTaskTest do
       assert %Task{owner: ^test} = task
       assert Task.await(task) == :real
       assert_received :ran
-      TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
 
@@ -47,7 +46,6 @@ defmodule Trogon.Test.TestTaskTest do
       now = Task.await(MockTask.async(&MockDateTime.utc_now/0))
 
       assert now == ~U[2026-01-01 00:00:00.000000Z]
-      TestTask.assert_received_async()
       TestDateTime.assert_received_utc_now()
       Trogon.Test.assert_empty_mailbox()
     end
@@ -58,7 +56,6 @@ defmodule Trogon.Test.TestTaskTest do
       Task.await(MockTask.async(fn -> :ran end))
 
       assert_raise Mox.UnexpectedCallError, fn -> MockTask.async(fn -> :ran end) end
-      TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
 
@@ -68,8 +65,6 @@ defmodule Trogon.Test.TestTaskTest do
       results = Task.await_many([MockTask.async(fn -> :first end), MockTask.async(fn -> :second end)])
 
       assert results == [:first, :second]
-      TestTask.assert_received_async()
-      TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
   end
@@ -85,18 +80,13 @@ defmodule Trogon.Test.TestTaskTest do
     end
   end
 
-  describe "assert_received_async/0" do
-    test "returns the function the call was given" do
+  describe "recording" do
+    test "leaves nothing in the mailbox to assert on" do
       TestTask.expect_async(times: 1)
-      fun = fn -> :ran end
-      Task.await(MockTask.async(fun))
 
-      assert TestTask.assert_received_async() == fun
+      Task.await(MockTask.async(fn -> :ran end))
+
       Trogon.Test.assert_empty_mailbox()
-    end
-
-    test "fails when no call was made" do
-      assert_raise ExUnit.AssertionError, fn -> TestTask.assert_received_async() end
     end
   end
 
@@ -107,7 +97,6 @@ defmodule Trogon.Test.TestTaskTest do
       result = Task.await(Task.async(fn -> Task.await(MockTask.async(fn -> :ran end)) end))
 
       assert result == :ran
-      TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
   end

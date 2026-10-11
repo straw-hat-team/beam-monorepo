@@ -138,7 +138,6 @@ defmodule Trogon.TestTest do
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
       TestDateTime.assert_received_utc_now()
       TestProcess.assert_received_sleep(100)
-      TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
 

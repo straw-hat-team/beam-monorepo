@@ -1,7 +1,7 @@
 defmodule Trogon.Test.TestTask do
   @moduledoc """
-  Helpers for `Trogon.Test.MockTask`, the Mox mock of tasks, that expect a call
-  and assert on what it was given.
+  Helpers for `Trogon.Test.MockTask`, the Mox mock of tasks, that expect a
+  call.
 
   Code that calls `Task.async/1` directly gives a test no way to assert that
   the work went async, or how many tasks it started. Start tasks through a
@@ -21,8 +21,9 @@ defmodule Trogon.Test.TestTask do
   of `Task` directly, since every call returns a real `Task`.
 
   `use Trogon.Test` stubs the mock to start real tasks. An expected `async/1`
-  starts a real task too, running the function it was given, and records the
-  call so the test asserts the code under test went async:
+  starts a real task too, running the function it was given, and Mox fails the
+  test when it exits if the code under test did not go async as many times as
+  expected:
 
       use Trogon.Test
 
@@ -30,15 +31,12 @@ defmodule Trogon.Test.TestTask do
         TestTask.expect_async(times: 1)
 
         assert MyApp.Billing.checkout() == {:ok, :charged}
-
-        TestTask.assert_received_async()
-        Trogon.Test.assert_empty_mailbox()
       end
 
   `expect_async/1` takes `:times`, how many calls the expectation covers,
-  `1` by default. A call past `:times` raises `Mox.UnexpectedCallError`. Each
-  expected call is recorded in the mailbox of the test that set it, for
-  `assert_received_async/0`.
+  `1` by default. A call past `:times` raises `Mox.UnexpectedCallError`. The
+  test asserts on what the function did, not on the function itself, so an
+  expected call is not recorded for an `assert_received_*` macro.
 
   The function runs with the caller in its `$callers`, so the mocks it calls
   reach the test's expectations, as with `Task.async/1`.
@@ -50,7 +48,6 @@ defmodule Trogon.Test.TestTask do
 
   alias Trogon.Test.Expectation
   alias Trogon.Test.MockTask
-  alias Trogon.Test.Recorder
 
   @typedoc "Options `expect_async/1` takes."
   @type expect_opts :: [times: non_neg_integer()]
@@ -73,23 +70,6 @@ defmodule Trogon.Test.TestTask do
   """
   @spec expect_async(expect_opts()) :: module()
   def expect_async(opts \\ []) do
-    recorder = Recorder.new()
-
-    Mox.expect(MockTask, :async, Expectation.times(opts), fn fun when is_function(fun, 0) ->
-      Expectation.record(recorder, __MODULE__, {:async, [fun]}, Task.async(fun))
-    end)
-  end
-
-  @doc """
-  Asserts an expected `async/1` call was made, and returns the function it was
-  given.
-  """
-  defmacro assert_received_async do
-    quote do
-      {Trogon.Test, {Trogon.Test.TestTask, {:async, [fun]}}} =
-        Recorder.asserted(ExUnit.Assertions.assert_received({Trogon.Test, {Trogon.Test.TestTask, {:async, [_fun]}}}))
-
-      fun
-    end
+    Mox.expect(MockTask, :async, Expectation.times(opts), fn fun when is_function(fun, 0) -> Task.async(fun) end)
   end
 end
