@@ -5,6 +5,7 @@ defmodule Trogon.TestTest do
   alias Trogon.Test.MockApplication
   alias Trogon.Test.MockDateTime
   alias Trogon.Test.MockProcess
+  alias Trogon.Test.MockTask
   alias Trogon.Test.Recorder
 
   describe "assert_empty_mailbox/0" do
@@ -120,18 +121,24 @@ defmodule Trogon.TestTest do
       TestApplication.expect_get_env(times: 1, returns: "overridden")
       TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00.000000Z])
       TestProcess.expect_sleep(times: 1)
+      TestTask.expect_async(times: 1, returns: :done)
       agent = start_supervised!({Agent, fn -> nil end})
       Trogon.Test.allow(agent)
 
-      Agent.get(agent, fn _state ->
-        MockApplication.get_env(:trogon_test, :seeded_value, nil)
-        MockDateTime.utc_now()
-        MockProcess.sleep(100)
-      end)
+      result =
+        Agent.get(agent, fn _state ->
+          MockApplication.get_env(:trogon_test, :seeded_value, nil)
+          MockDateTime.utc_now()
+          MockProcess.sleep(100)
+          Task.await(MockTask.async(fn -> :ran end))
+        end)
+
+      assert result == :done
 
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
       TestDateTime.assert_received_utc_now()
       TestProcess.assert_received_sleep(100)
+      TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
 

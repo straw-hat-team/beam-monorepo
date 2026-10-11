@@ -104,9 +104,20 @@ defmodule Trogon.Test.MixProject do
         "README.md"
       ],
       groups_for_modules: [
-        Helpers: [Trogon.Test, Trogon.Test.TestApplication, Trogon.Test.TestDateTime, Trogon.Test.TestProcess],
-        Mocks: [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess],
-        Behaviours: [Trogon.Test.Behaviour.Application, Trogon.Test.Behaviour.DateTime, Trogon.Test.Behaviour.Process]
+        Helpers: [
+          Trogon.Test,
+          Trogon.Test.TestApplication,
+          Trogon.Test.TestDateTime,
+          Trogon.Test.TestProcess,
+          Trogon.Test.TestTask
+        ],
+        Mocks: [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess, Trogon.Test.MockTask],
+        Behaviours: [
+          Trogon.Test.Behaviour.Application,
+          Trogon.Test.Behaviour.DateTime,
+          Trogon.Test.Behaviour.Process,
+          Trogon.Test.Behaviour.Task
+        ]
       ],
       groups_for_extras: [
         "How-to": ~r/docs\/how-to\/.?/,

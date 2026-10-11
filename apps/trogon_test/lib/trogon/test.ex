@@ -22,7 +22,8 @@ defmodule Trogon.Test do
       end
 
   It aliases and requires `Trogon.Test.TestApplication`,
-  `Trogon.Test.TestDateTime`, and `Trogon.Test.TestProcess`, requires
+  `Trogon.Test.TestDateTime`, `Trogon.Test.TestProcess`, and
+  `Trogon.Test.TestTask`, requires
   `Trogon.Test`, verifies every Mox expectation when the test exits, and stubs
   each mock to call the real module until the test expects a call.
 
@@ -43,22 +44,25 @@ defmodule Trogon.Test do
       alias Trogon.Test.TestApplication
       alias Trogon.Test.TestDateTime
       alias Trogon.Test.TestProcess
+      alias Trogon.Test.TestTask
 
       require Trogon.Test
       require Trogon.Test.TestApplication
       require Trogon.Test.TestDateTime
       require Trogon.Test.TestProcess
+      require Trogon.Test.TestTask
 
       setup {Mox, :verify_on_exit!}
       setup {Trogon.Test.TestApplication, :stub}
       setup {Trogon.Test.TestDateTime, :stub}
       setup {Trogon.Test.TestProcess, :stub}
+      setup {Trogon.Test.TestTask, :stub}
     end
   end
 
   alias Trogon.Test.Recorder
 
-  @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess]
+  @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess, Trogon.Test.MockTask]
 
   @typedoc """
   A process to allow: its pid, or the name it registers under.
