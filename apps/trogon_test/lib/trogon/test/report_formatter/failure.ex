@@ -7,7 +7,7 @@ defmodule Trogon.Test.ReportFormatter.Failure do
   @spec format_test(ExUnit.Test.t(), boolean()) :: iodata() | nil
   def format_test(%ExUnit.Test{state: {:failed, failures}} = test, include_logs) do
     [
-      "FAIL #{test.name}\n",
+      ["FAIL #{test.name}", format_parameters(test.parameters), "\n"],
       indent("#{Path.relative_to_cwd(test.tags.file)}:#{test.tags.line}"),
       format_failures(failures),
       if(include_logs, do: format_logs(test.logs), else: []),
@@ -20,7 +20,7 @@ defmodule Trogon.Test.ReportFormatter.Failure do
   @spec format_module(ExUnit.TestModule.t()) :: iodata() | nil
   def format_module(%ExUnit.TestModule{state: {:failed, failures}} = test_module) do
     [
-      "FAIL setup_all #{inspect(test_module.name)}\n",
+      ["FAIL setup_all #{inspect(test_module.name)}", format_parameters(test_module.parameters), "\n"],
       indent(Path.relative_to_cwd(test_module.file)),
       format_failures(failures),
       "\n"
@@ -28,6 +28,9 @@ defmodule Trogon.Test.ReportFormatter.Failure do
   end
 
   def format_module(%ExUnit.TestModule{}), do: nil
+
+  defp format_parameters(parameters) when map_size(parameters) == 0, do: []
+  defp format_parameters(parameters), do: [" ", inspect(parameters)]
 
   defp format_failures([failure]), do: format_failure(failure)
 
@@ -48,7 +51,8 @@ defmodule Trogon.Test.ReportFormatter.Failure do
       format_expr(error.expr),
       format_message(error),
       format_side("left:  ", error.left, left_shown?(error)),
-      format_side("right: ", error.right, right_shown?(error))
+      format_side("right: ", error.right, right_shown?(error)),
+      format_mailbox(error.context)
     ]
   end
 
@@ -74,6 +78,14 @@ defmodule Trogon.Test.ReportFormatter.Failure do
   defp format_side(_label, @no_value, _shown?), do: []
   defp format_side(_label, _value, true), do: []
   defp format_side(label, value, false), do: indent(label <> inspect(value, pretty: true, limit: 50))
+
+  # ExUnit's message counts the messages in the mailbox, but only the context
+  # holds them.
+  defp format_mailbox({:mailbox, _pins, messages}) do
+    for message <- messages, do: indent("received: " <> inspect(message, limit: 50))
+  end
+
+  defp format_mailbox(_context), do: []
 
   # A value is left out when the expression already shows it: a literal operand,
   # or the pattern of a match or a received message, which ExUnit records as code.

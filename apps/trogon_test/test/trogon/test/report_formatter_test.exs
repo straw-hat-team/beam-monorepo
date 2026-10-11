@@ -89,6 +89,25 @@ defmodule Trogon.Test.ReportFormatterTest do
       assert report =~ "  The process mailbox is empty.\n"
     end
 
+    test "writes the values a pattern pinned", %{tmp_dir: tmp_dir} do
+      id = 1
+      invoice = %{id: 2}
+
+      report = run_failure(tmp_dir, fn -> assert %{id: ^id} = invoice end)
+
+      assert report =~ "  The following variables were pinned:\n    id = 1\n"
+      assert report =~ "  right: %{id: 2}\n"
+    end
+
+    test "writes the messages in the mailbox when none matched", %{tmp_dir: tmp_dir} do
+      id = 1
+      send(self(), {:charged, 2})
+
+      report = run_failure(tmp_dir, fn -> assert_received {:charged, ^id} end)
+
+      assert report =~ "  Showing 1 of 1 message in the mailbox\n  received: {:charged, 2}\n"
+    end
+
     test "writes the message of an exception", %{tmp_dir: tmp_dir} do
       report = run_failure(tmp_dir, fn -> raise "boom" end)
 
@@ -143,6 +162,29 @@ defmodule Trogon.Test.ReportFormatterTest do
         )
 
       refute report =~ "retrying"
+    end
+  end
+
+  describe "a parameterized test" do
+    test "writes the parameters a failing instance ran with", %{tmp_dir: tmp_dir} do
+      report =
+        run(tmp_dir, fn formatter ->
+          finish_test(formatter, %{failed([failure(fn -> raise "boom" end)]) | parameters: %{currency: :usd}})
+
+          GenServer.cast(
+            formatter,
+            {:module_finished,
+             %ExUnit.TestModule{
+               name: MyApp.BillingTest,
+               file: "test/my_app/billing_test.exs",
+               parameters: %{currency: :eur},
+               state: {:failed, [failure(fn -> raise "no database" end)]}
+             }}
+          )
+        end)
+
+      assert report =~ "FAIL test charges the configured tax rate %{currency: :usd}\n"
+      assert report =~ "FAIL setup_all MyApp.BillingTest %{currency: :eur}\n"
     end
   end
 
