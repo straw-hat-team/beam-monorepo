@@ -1,4 +1,4 @@
-defmodule Trogon.Test.ReportFormatter.Diff do
+defmodule Trogon.Test.Formatter.AI.Diff do
   @moduledoc false
 
   @type side :: {:value, term()} | :missing

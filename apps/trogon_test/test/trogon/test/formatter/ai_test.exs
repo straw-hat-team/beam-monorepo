@@ -1,7 +1,7 @@
-defmodule Trogon.Test.ReportFormatterTest do
+defmodule Trogon.Test.Formatter.AITest do
   use ExUnit.Case, async: true
 
-  alias Trogon.Test.ReportFormatter
+  alias Trogon.Test.Formatter.AI
 
   @moduletag :tmp_dir
 
@@ -42,7 +42,7 @@ defmodule Trogon.Test.ReportFormatterTest do
              ] = String.split(report, "\n")
 
       assert location == from_root("test/my_app/billing_test.exs:12")
-      assert frame =~ "test/trogon/test/report_formatter_test.exs:"
+      assert frame =~ "test/trogon/test/formatter/ai_test.exs:"
       assert report =~ "\n\nFAILURES | 1 tests, 0 passed, 1 failed | 5ms | seed 0\n"
       refute report =~ "ExUnit.Assertions"
     end
@@ -413,19 +413,19 @@ defmodule Trogon.Test.ReportFormatterTest do
 
     test "rejects an unknown option" do
       assert_raise ArgumentError, ~r/unknown keys \[:file_path\]/, fn ->
-        ReportFormatter.init(trogon_test_report: [file_path: "report.txt"])
+        AI.init(trogon_test_formatter_ai: [file_path: "report.txt"])
       end
     end
 
     test "rejects a path that is not a string" do
       assert_raise ArgumentError, ~r/:path to be nil or a string/, fn ->
-        ReportFormatter.init(trogon_test_report: [path: :report])
+        AI.init(trogon_test_formatter_ai: [path: :report])
       end
     end
 
     test "rejects include_logs that is not a boolean" do
       assert_raise ArgumentError, ~r/:include_logs a boolean/, fn ->
-        ReportFormatter.init(trogon_test_report: [include_logs: "yes"])
+        AI.init(trogon_test_formatter_ai: [include_logs: "yes"])
       end
     end
   end
@@ -450,8 +450,8 @@ defmodule Trogon.Test.ReportFormatterTest do
 
   defp start_formatter(opts, config \\ [seed: 0]) do
     start_supervised!(%{
-      id: ReportFormatter,
-      start: {GenServer, :start_link, [ReportFormatter, [{:trogon_test_report, opts} | config]]}
+      id: AI,
+      start: {GenServer, :start_link, [AI, [{:trogon_test_formatter_ai, opts} | config]]}
     })
   end
 

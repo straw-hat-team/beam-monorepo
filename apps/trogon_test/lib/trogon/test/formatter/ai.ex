@@ -1,7 +1,9 @@
-defmodule Trogon.Test.ReportFormatter do
+defmodule Trogon.Test.Formatter.AI do
   @moduledoc """
-  An ExUnit formatter that writes a compact plain-text report of the run, for a
-  tool or an agent to read instead of the CLI formatter's output.
+  An ExUnit formatter written for an AI agent to read, instead of the CLI
+  formatter's output. When what helps an agent and what helps a person
+  watching the terminal pull apart, the agent wins: no colors or progress, no
+  passing tests, nothing truncated, and nothing written twice.
 
   A passing test writes nothing, so a run that passes is one summary line. A
   failing test writes its location, the assertion or error that failed, the
@@ -17,14 +19,14 @@ defmodule Trogon.Test.ReportFormatter do
   Run it in place of the CLI formatter, and the report goes to standard output,
   for the caller to read, pipe, or redirect like any other output:
 
-      mix test --formatter Trogon.Test.ReportFormatter
+      mix test --formatter Trogon.Test.Formatter.AI
 
   To keep the terminal output the same and read the report on the side, run it
   next to the CLI formatter in `test/test_helper.exs` and give it a `:path`:
 
       ExUnit.start(
-        formatters: [ExUnit.CLIFormatter, Trogon.Test.ReportFormatter],
-        trogon_test_report: [path: "tmp/test-report.txt"]
+        formatters: [ExUnit.CLIFormatter, Trogon.Test.Formatter.AI],
+        trogon_test_formatter_ai: [path: "tmp/test-report.txt"]
       )
 
   A failing run writes:
@@ -39,7 +41,7 @@ defmodule Trogon.Test.ReportFormatter do
 
   ## Options
 
-  Given under the `:trogon_test_report` key of the ExUnit configuration:
+  Given under the `:trogon_test_formatter_ai` key of the ExUnit configuration:
 
     * `:path` - a file to write the report to instead of standard output,
       relative to the directory `mix test` runs in. The file is replaced on
@@ -51,8 +53,8 @@ defmodule Trogon.Test.ReportFormatter do
 
   use GenServer
 
-  alias Trogon.Test.ReportFormatter.Failure
-  alias Trogon.Test.ReportFormatter.Tally
+  alias Trogon.Test.Formatter.AI.Failure
+  alias Trogon.Test.Formatter.AI.Tally
 
   @enforce_keys [:device, :include_logs, :root, :seed, :tally]
   defstruct [:device, :include_logs, :root, :seed, :tally]
@@ -60,7 +62,7 @@ defmodule Trogon.Test.ReportFormatter do
   @doc false
   @impl GenServer
   def init(config) do
-    {path, include_logs} = config |> Keyword.get(:trogon_test_report, []) |> options!()
+    {path, include_logs} = config |> Keyword.get(:trogon_test_formatter_ai, []) |> options!()
 
     {:ok,
      %__MODULE__{

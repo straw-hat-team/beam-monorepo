@@ -1,7 +1,7 @@
-defmodule Trogon.Test.ReportFormatter.Failure do
+defmodule Trogon.Test.Formatter.AI.Failure do
   @moduledoc false
 
-  alias Trogon.Test.ReportFormatter.Diff
+  alias Trogon.Test.Formatter.AI.Diff
 
   @no_value :ex_unit_no_meaningful_value
   @indent "  "
