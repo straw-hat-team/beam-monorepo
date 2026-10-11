@@ -139,12 +139,12 @@ defmodule Trogon.Test.ReportFormatter.Failure do
   defp literal_operand?(_expr, _index), do: false
 
   defp format_stacktrace(stacktrace, test_module, root) do
-    for entry <- drop_runner_frame(stacktrace),
-        not ex_unit_frame?(entry),
+    for entry <- stacktrace |> Enum.reject(&ex_unit_frame?/1) |> drop_runner_frame(),
         do: indent(format_frame(entry, test_module, root))
   end
 
-  # ExUnit's runner times every test, so each stacktrace ends in the same frame.
+  # ExUnit's runner times every test, so a stacktrace that reaches it ends in
+  # the same frame once ExUnit's own are left out.
   defp drop_runner_frame(stacktrace) do
     case List.last(stacktrace) do
       {:timer, :tc, _arity, _location} -> Enum.drop(stacktrace, -1)

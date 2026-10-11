@@ -160,7 +160,11 @@ defmodule Trogon.Test.ReportFormatterTest do
     end
 
     test "leaves out the frame ExUnit's runner ends every stacktrace with", %{tmp_dir: tmp_dir} do
-      stacktrace = [{MyApp.Billing, :charge, 1, []}, {:timer, :tc, 2, [file: ~c"timer.erl", line: 599]}]
+      stacktrace = [
+        {MyApp.Billing, :charge, 1, []},
+        {:timer, :tc, 2, [file: ~c"timer.erl", line: 599]},
+        {ExUnit.Runner, :exec_test, 2, [file: ~c"lib/ex_unit/runner.ex", line: 512]}
+      ]
 
       report =
         run(tmp_dir, fn formatter ->
