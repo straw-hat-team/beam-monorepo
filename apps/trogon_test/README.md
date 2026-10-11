@@ -8,17 +8,7 @@
 
 **This is for teams that maintain more than one Elixir repository and want their test suites to run concurrently without each project rebuilding its own test support.** It pairs with `trogon_credo`'s check for application environment mutation in tests, which flags the same `Application.put_env/3` calls this package replaces.
 
-Add it to your test dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:trogon_test, "~> 0.1", only: :test}
-  ]
-end
-```
-
-Keep it `only: :test`. Nothing outside the test environment needs it: each facade below reads the real module everywhere else, so `trogon_test` and Mox never ship with your release.
+Depend on `trogon_test` with `only: :test`. Nothing outside the test environment needs it: each facade below reads the real module everywhere else, so `trogon_test` and Mox never ship with your release.
 
 ## Wire a facade
 
