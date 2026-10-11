@@ -1,4 +1,4 @@
-defmodule Trogon.Test.Formatter.AI.Tally do
+defmodule Trogon.Test.AIFormatter.Tally do
   @moduledoc false
 
   defstruct total: 0, passed: 0, failed: 0, skipped: 0, excluded: 0, invalid: 0, setup_all_failed: 0

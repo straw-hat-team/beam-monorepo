@@ -1,4 +1,4 @@
-defmodule Trogon.Test.Formatter.AI do
+defmodule Trogon.Test.AIFormatter do
   @moduledoc """
   An ExUnit formatter written for an AI agent to read, instead of the CLI
   formatter's output. When what helps an agent and what helps a person
@@ -19,14 +19,14 @@ defmodule Trogon.Test.Formatter.AI do
   Run it in place of the CLI formatter, and the report goes to standard output,
   for the caller to read, pipe, or redirect like any other output:
 
-      mix test --formatter Trogon.Test.Formatter.AI
+      mix test --formatter Trogon.Test.AIFormatter
 
   To keep the terminal output the same and read the report on the side, run it
   next to the CLI formatter in `test/test_helper.exs` and give it a `:path`:
 
       ExUnit.start(
-        formatters: [ExUnit.CLIFormatter, Trogon.Test.Formatter.AI],
-        trogon_test_formatter_ai: [path: "tmp/test-report.txt"]
+        formatters: [ExUnit.CLIFormatter, Trogon.Test.AIFormatter],
+        trogon_test_ai_formatter: [path: "tmp/test-report.txt"]
       )
 
   A failing run writes:
@@ -41,7 +41,7 @@ defmodule Trogon.Test.Formatter.AI do
 
   ## Options
 
-  Given under the `:trogon_test_formatter_ai` key of the ExUnit configuration:
+  Given under the `:trogon_test_ai_formatter` key of the ExUnit configuration:
 
     * `:path` - a file to write the report to instead of standard output,
       relative to the directory `mix test` runs in. The file is replaced on
@@ -53,8 +53,8 @@ defmodule Trogon.Test.Formatter.AI do
 
   use GenServer
 
-  alias Trogon.Test.Formatter.AI.Failure
-  alias Trogon.Test.Formatter.AI.Tally
+  alias Trogon.Test.AIFormatter.Failure
+  alias Trogon.Test.AIFormatter.Tally
 
   @enforce_keys [:device, :include_logs, :root, :seed, :tally]
   defstruct [:device, :include_logs, :root, :seed, :tally]
@@ -62,7 +62,7 @@ defmodule Trogon.Test.Formatter.AI do
   @doc false
   @impl GenServer
   def init(config) do
-    {path, include_logs} = config |> Keyword.get(:trogon_test_formatter_ai, []) |> options!()
+    {path, include_logs} = config |> Keyword.get(:trogon_test_ai_formatter, []) |> options!()
 
     {:ok,
      %__MODULE__{

@@ -77,10 +77,10 @@ start_supervised!(MyApp.Worker)
 
 ## Report a run to an AI agent
 
-`Trogon.Test.Formatter.AI` writes a compact plain-text report of the run for an AI agent to read, instead of the CLI formatter's output. A run that passes writes one summary line. A failing test writes its location, the assertion or error that failed, the values the assertion compared that its code does not already show, its stacktrace without ExUnit's own frames, and the logs it captured. Run it in place of the CLI formatter, and the report goes to standard output, to read, pipe, or redirect like any other output:
+`Trogon.Test.AIFormatter` writes a compact plain-text report of the run for an AI agent to read, instead of the CLI formatter's output. A run that passes writes one summary line. A failing test writes its location, the assertion or error that failed, the values the assertion compared that its code does not already show, its stacktrace without ExUnit's own frames, and the logs it captured. Run it in place of the CLI formatter, and the report goes to standard output, to read, pipe, or redirect like any other output:
 
 ```sh
-mix test --formatter Trogon.Test.Formatter.AI
+mix test --formatter Trogon.Test.AIFormatter
 ```
 
 To keep the terminal output for people and write the report on the side, the module documents how to run it next to the CLI formatter with a `:path`.

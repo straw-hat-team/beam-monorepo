@@ -108,7 +108,7 @@ defmodule Trogon.Test.MixProject do
       groups_for_modules: [
         Helpers: [Trogon.Test, ~r/^Trogon\.Test\.Test/],
         Mocks: [~r/^Trogon\.Test\.Mock/],
-        Formatters: [Trogon.Test.Formatter.AI],
+        Formatters: [Trogon.Test.AIFormatter],
         Behaviours: [~r/^Trogon\.Test\.Behaviour\./]
       ],
       groups_for_extras: [
