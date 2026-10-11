@@ -4,4 +4,7 @@ defmodule Trogon.Test.TestTask.ElixirTask do
 
   @impl true
   defdelegate async(fun), to: Task
+
+  @impl true
+  defdelegate async_stream(enumerable, fun, opts), to: Task
 end

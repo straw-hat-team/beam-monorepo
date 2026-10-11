@@ -21,11 +21,11 @@ defmodule Trogon.Test do
         end
       end
 
-  It aliases and requires `Trogon.Test.TestApplication`,
-  `Trogon.Test.TestDateTime`, `Trogon.Test.TestProcess`, and
-  `Trogon.Test.TestTask`, requires
-  `Trogon.Test`, verifies every Mox expectation when the test exits, and stubs
-  each mock to call the real module until the test expects a call.
+  It aliases and requires every `Trogon.Test.Test*` helper and `Trogon.Test`,
+  verifies every Mox expectation when the test exits, and stubs each mock to
+  call the real module until the test expects a call. `Trogon.Test.TestUUID`
+  and `Trogon.Test.TestTelemetry` are included when the project depends on
+  `:uniq` and `:telemetry`.
 
   Every expected call a mock records lands in the test's mailbox under the
   `Trogon.Test` tag, whichever mock recorded it. Each `assert_received_*` macro
@@ -33,36 +33,37 @@ defmodule Trogon.Test do
   proves it asserted on every call the code under test made.
   `verify_mailbox_on_exit!/1` runs that check when the test exits instead.
 
-  An expected call rejects the arguments the real function rejects, raising
-  the same exception, and each `expect_*` function rejects a `:returns` the real
-  function never returns, so a test cannot pass on a call that would fail in
-  production.
+  An expected call rejects arguments of a type the real function never takes,
+  and an `expect_*` function given `:returns` rejects a value the real function
+  never returns, so a test cannot pass on a call production would never see.
   """
 
+  @uniq? Code.ensure_loaded?(Uniq.UUID)
+  @telemetry? Code.ensure_loaded?(:telemetry)
+
   defmacro __using__(_opts) do
+    requires =
+      for helper <- helpers() do
+        quote do
+          alias unquote(helper)
+          require unquote(helper)
+        end
+      end
+
+    stubs =
+      for helper <- stubbed() do
+        quote do: setup({unquote(helper), :stub})
+      end
+
     quote do
-      alias Trogon.Test.TestApplication
-      alias Trogon.Test.TestDateTime
-      alias Trogon.Test.TestProcess
-      alias Trogon.Test.TestTask
-
       require Trogon.Test
-      require Trogon.Test.TestApplication
-      require Trogon.Test.TestDateTime
-      require Trogon.Test.TestProcess
-      require Trogon.Test.TestTask
-
+      unquote_splicing(requires)
       setup {Mox, :verify_on_exit!}
-      setup {Trogon.Test.TestApplication, :stub}
-      setup {Trogon.Test.TestDateTime, :stub}
-      setup {Trogon.Test.TestProcess, :stub}
-      setup {Trogon.Test.TestTask, :stub}
+      unquote_splicing(stubs)
     end
   end
 
   alias Trogon.Test.Recorder
-
-  @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess, Trogon.Test.MockTask]
 
   @typedoc """
   A process to allow: its pid, or the name it registers under.
@@ -84,7 +85,7 @@ defmodule Trogon.Test do
   @spec allow(process()) :: :ok
   def allow(process) do
     owner = self()
-    Enum.each(@mocks, &Mox.allow(&1, owner, fn -> GenServer.whereis(process) end))
+    Enum.each(mocks(), &Mox.allow(&1, owner, fn -> GenServer.whereis(process) end))
   end
 
   @doc """
@@ -125,5 +126,29 @@ defmodule Trogon.Test do
     quote do
       ExUnit.Assertions.refute_received({Trogon.Test, _})
     end
+  end
+
+  defp mocks do
+    [
+      Trogon.Test.MockApplication,
+      Trogon.Test.MockDateTime,
+      Trogon.Test.MockProcess,
+      Trogon.Test.MockRand,
+      Trogon.Test.MockTask
+    ] ++ if(@uniq?, do: [Trogon.Test.MockUUID], else: [])
+  end
+
+  defp stubbed do
+    [
+      Trogon.Test.TestApplication,
+      Trogon.Test.TestDateTime,
+      Trogon.Test.TestProcess,
+      Trogon.Test.TestRand,
+      Trogon.Test.TestTask
+    ] ++ if(@uniq?, do: [Trogon.Test.TestUUID], else: [])
+  end
+
+  defp helpers do
+    stubbed() ++ if(@telemetry?, do: [Trogon.Test.TestTelemetry], else: [])
   end
 end

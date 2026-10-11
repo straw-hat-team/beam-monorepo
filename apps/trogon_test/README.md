@@ -34,6 +34,8 @@ config :my_app, MyApp,
 
 Each `Trogon.Test.Test*` module documents the facade lines and config for its mock, and what its expected calls do.
 
+The `Uniq.UUID` mock and the `:telemetry` assertions are compiled only when your project depends on `:uniq` and `:telemetry`, so `trogon_test` adds neither to your dependencies.
+
 ## Expect a call in a test
 
 `use Trogon.Test` next to any case template, or once inside your own `DataCase` `using` block. It aliases and requires every `Test*` helper, verifies every Mox expectation when the test exits, and stubs each mock to call the real module. The `Test` prefix keeps those aliases from shadowing the real modules. Each test then expects the calls it cares about, and asserts on what they were given:

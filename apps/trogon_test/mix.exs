@@ -44,6 +44,8 @@ defmodule Trogon.Test.MixProject do
   defp deps do
     [
       {:mox, "~> 1.2"},
+      {:telemetry, "~> 1.0", optional: true},
+      {:uniq, "~> 0.6", optional: true},
 
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
