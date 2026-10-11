@@ -121,7 +121,7 @@ defmodule Trogon.TestTest do
       TestApplication.expect_get_env(times: 1, returns: "overridden")
       TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00.000000Z])
       TestProcess.expect_sleep(times: 1)
-      TestTask.expect_async(times: 1, returns: :done)
+      TestTask.expect_async(times: 1)
       agent = start_supervised!({Agent, fn -> nil end})
       Trogon.Test.allow(agent)
 
@@ -133,7 +133,7 @@ defmodule Trogon.TestTest do
           Task.await(MockTask.async(fn -> :ran end))
         end)
 
-      assert result == :done
+      assert result == :ran
 
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
       TestDateTime.assert_received_utc_now()

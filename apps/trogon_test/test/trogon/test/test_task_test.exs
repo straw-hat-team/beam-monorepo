@@ -2,13 +2,20 @@ defmodule Trogon.Test.TestTaskTest do
   use ExUnit.Case, async: true
   use Trogon.Test
 
+  alias Trogon.Test.MockDateTime
   alias Trogon.Test.MockTask
 
   describe "stub/1" do
     test "runs the function in a real task" do
       test = self()
 
-      result = Task.await(MockTask.async(fn -> send(test, :ran) && :real end))
+      result =
+        Task.await(
+          MockTask.async(fn ->
+            send(test, :ran)
+            :real
+          end)
+        )
 
       assert result == :real
       assert_received :ran
@@ -16,31 +23,37 @@ defmodule Trogon.Test.TestTaskTest do
   end
 
   describe "expect_async/1" do
-    test "completes with the expected result without running the function" do
+    test "runs the function in a real task owned by the caller" do
       test = self()
-      TestTask.expect_async(times: 1, returns: :expected)
+      TestTask.expect_async(times: 1)
 
-      task = MockTask.async(fn -> send(test, :ran) end)
+      task =
+        MockTask.async(fn ->
+          send(test, :ran)
+          :real
+        end)
 
       assert %Task{owner: ^test} = task
-      assert Task.await(task) == :expected
+      assert Task.await(task) == :real
+      assert_received :ran
       TestTask.assert_received_async()
-      refute_received :ran
       Trogon.Test.assert_empty_mailbox()
     end
 
-    test "completes through Task.yield/2 like a real task" do
-      TestTask.expect_async(times: 1, returns: :expected)
+    test "runs the function with the caller in its $callers, so the mocks it calls reach the test" do
+      TestTask.expect_async(times: 1)
+      TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00.000000Z])
 
-      task = MockTask.async(fn -> :ran end)
+      now = Task.await(MockTask.async(&MockDateTime.utc_now/0))
 
-      assert Task.yield(task, 1_000) == {:ok, :expected}
+      assert now == ~U[2026-01-01 00:00:00.000000Z]
       TestTask.assert_received_async()
+      TestDateTime.assert_received_utc_now()
       Trogon.Test.assert_empty_mailbox()
     end
 
     test "covers one call by default" do
-      TestTask.expect_async(returns: :expected)
+      TestTask.expect_async()
 
       Task.await(MockTask.async(fn -> :ran end))
 
@@ -50,21 +63,12 @@ defmodule Trogon.Test.TestTaskTest do
     end
 
     test "covers as many calls as times" do
-      TestTask.expect_async(times: 2, returns: :expected)
+      TestTask.expect_async(times: 2)
 
       results = Task.await_many([MockTask.async(fn -> :first end), MockTask.async(fn -> :second end)])
 
-      assert results == [:expected, :expected]
-      assert TestTask.assert_received_async().() == :first
-      assert TestTask.assert_received_async().() == :second
-      Trogon.Test.assert_empty_mailbox()
-    end
-
-    test "rejects a call past times" do
-      TestTask.expect_async(times: 1, returns: :expected)
-      Task.await(MockTask.async(fn -> :ran end))
-
-      assert_raise Mox.UnexpectedCallError, fn -> MockTask.async(fn -> :ran end) end
+      assert results == [:first, :second]
+      TestTask.assert_received_async()
       TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
@@ -72,7 +76,7 @@ defmodule Trogon.Test.TestTaskTest do
 
   describe "Task contract" do
     test "rejects a function with arguments, as Task.async/1 does" do
-      TestTask.expect_async(times: 2, returns: :expected)
+      TestTask.expect_async(times: 2)
 
       assert_raise FunctionClauseError, fn -> Task.async(fn _arg -> :ran end) end
       assert_raise FunctionClauseError, fn -> MockTask.async(fn _arg -> :ran end) end
@@ -81,20 +85,13 @@ defmodule Trogon.Test.TestTaskTest do
     end
   end
 
-  describe "returns" do
-    test "is required" do
-      assert_raise KeyError, fn -> TestTask.expect_async(times: 1) end
-    end
-  end
-
   describe "assert_received_async/0" do
     test "returns the function the call was given" do
-      TestTask.expect_async(times: 1, returns: :expected)
-      Task.await(MockTask.async(fn -> :ran end))
+      TestTask.expect_async(times: 1)
+      fun = fn -> :ran end
+      Task.await(MockTask.async(fun))
 
-      fun = TestTask.assert_received_async()
-
-      assert fun.() == :ran
+      assert TestTask.assert_received_async() == fun
       Trogon.Test.assert_empty_mailbox()
     end
 
@@ -104,12 +101,12 @@ defmodule Trogon.Test.TestTaskTest do
   end
 
   describe "process ownership" do
-    test "reaches the test's $callers, and the task belongs to the caller" do
-      TestTask.expect_async(times: 1, returns: :expected)
+    test "reaches the test's $callers" do
+      TestTask.expect_async(times: 1)
 
       result = Task.await(Task.async(fn -> Task.await(MockTask.async(fn -> :ran end)) end))
 
-      assert result == :expected
+      assert result == :ran
       TestTask.assert_received_async()
       Trogon.Test.assert_empty_mailbox()
     end
