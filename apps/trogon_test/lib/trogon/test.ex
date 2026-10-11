@@ -39,6 +39,16 @@ defmodule Trogon.Test do
   """
 
   defmacro __using__(_opts) do
+    quote do
+      require Trogon.Test
+      unquote(Trogon.Test.__require_helpers__())
+      setup {Mox, :verify_on_exit!}
+      unquote(Trogon.Test.__stub_mocks__())
+    end
+  end
+
+  @doc false
+  def __require_helpers__ do
     requires =
       for helper <- helpers() do
         quote do
@@ -47,17 +57,17 @@ defmodule Trogon.Test do
         end
       end
 
+    quote do: (unquote_splicing(requires))
+  end
+
+  @doc false
+  def __stub_mocks__ do
     stubs =
       for helper <- stubbed() do
         quote do: setup({unquote(helper), :stub})
       end
 
-    quote do
-      require Trogon.Test
-      unquote_splicing(requires)
-      setup {Mox, :verify_on_exit!}
-      unquote_splicing(stubs)
-    end
+    quote do: (unquote_splicing(stubs))
   end
 
   alias Trogon.Test.Recorder
