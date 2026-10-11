@@ -21,7 +21,7 @@ defmodule Trogon.Test do
       end
   """
 
-  @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime]
+  @mocks [Trogon.Test.MockApplication, Trogon.Test.MockDateTime, Trogon.Test.MockProcess]
 
   @typedoc """
   A process to allow: its pid, or the name it registers under.

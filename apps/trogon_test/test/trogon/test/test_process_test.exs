@@ -1,0 +1,92 @@
+defmodule Trogon.Test.TestProcessTest do
+  use ExUnit.Case, async: true
+
+  import Mox
+
+  alias Trogon.Test.MockProcess
+  alias Trogon.Test.TestProcess
+
+  require TestProcess
+  require Trogon.Test
+
+  setup :verify_on_exit!
+  setup {TestProcess, :stub}
+
+  describe "stub/1" do
+    test "schedules the message with the real Process" do
+      MockProcess.send_after(self(), :tick, 0, [])
+
+      assert_receive :tick
+    end
+  end
+
+  describe "expect_send_after/1" do
+    test "returns the expected timer without scheduling the message" do
+      timer = make_ref()
+      TestProcess.expect_send_after(times: 1, returns: timer)
+
+      result = MockProcess.send_after(self(), :tick, 0, [])
+
+      assert result == timer
+      TestProcess.assert_received_send_after(self(), :tick, 0)
+      refute_receive :tick
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "returns a new reference without returns" do
+      TestProcess.expect_send_after(times: 1)
+
+      result = MockProcess.send_after(self(), :tick, 1_000, [])
+
+      assert is_reference(result)
+      TestProcess.assert_received_send_after(self(), :tick, 1_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "records the options it was given" do
+      TestProcess.expect_send_after(times: 1)
+
+      MockProcess.send_after(self(), :tick, 1_000, abs: false)
+
+      TestProcess.assert_received_send_after(self(), :tick, 1_000, abs: false)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "covers as many calls as times" do
+      TestProcess.expect_send_after(times: 2)
+
+      MockProcess.send_after(self(), :first, 1_000, [])
+      MockProcess.send_after(self(), :second, 2_000, [])
+
+      TestProcess.assert_received_send_after(self(), :first, 1_000)
+      TestProcess.assert_received_send_after(self(), :second, 2_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "rejects a call past times" do
+      TestProcess.expect_send_after(times: 1)
+      MockProcess.send_after(self(), :tick, 1_000, [])
+
+      assert_raise Mox.UnexpectedCallError, fn -> MockProcess.send_after(self(), :tick, 1_000, []) end
+      TestProcess.assert_received_send_after(self(), :tick, 1_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "process ownership" do
+    test "reaches a named process allowed before it starts" do
+      TestProcess.expect_send_after(times: 1)
+      Trogon.Test.allow(__MODULE__.Poller)
+
+      start_supervised!(%{
+        id: __MODULE__.Poller,
+        start: {Agent, :start_link, [fn -> nil end, [name: __MODULE__.Poller]]}
+      })
+
+      Agent.get(__MODULE__.Poller, fn _state -> MockProcess.send_after(__MODULE__.Poller, :poll, 5_000, []) end)
+
+      TestProcess.assert_received_send_after(__MODULE__.Poller, :poll, 5_000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+  end
+end
