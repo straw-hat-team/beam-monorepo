@@ -108,6 +108,7 @@ defmodule Trogon.Credo.Check.ExUnit.ApplicationEnvMutation do
 
   alias Trogon.Credo.Check.Warning.ForbiddenFunctionCall
   alias Trogon.Credo.CheckDelegate
+  alias Trogon.Credo.TestFile
 
   @message "Application env is global to the node; a test that writes it here changes " <>
              "config for every test running at the same time. Pass the config in as an " <>
@@ -117,7 +118,10 @@ defmodule Trogon.Credo.Check.ExUnit.ApplicationEnvMutation do
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    if test_file?(source_file.filename) do
+    # A test file is the only place this check scopes, since a test is the only
+    # caller that runs concurrently with every other test writing the same global
+    # table, and a file under `test/support` exists to build fixtures for tests.
+    if TestFile.test_file?(source_file.filename) do
       run_on_test_file(source_file, params)
     else
       []
@@ -133,21 +137,6 @@ defmodule Trogon.Credo.Check.ExUnit.ApplicationEnvMutation do
       hint: Params.get(params, :hint, __MODULE__)
     )
   end
-
-  # A test file is the only place this check scopes, since a test is the only
-  # caller that runs concurrently with every other test writing the same global
-  # table, and a file under `test/support` exists to build fixtures for tests.
-  defp test_file?(filename) do
-    String.ends_with?(filename, "_test.exs") or test_support_file?(filename)
-  end
-
-  defp test_support_file?(filename) do
-    filename |> Path.split() |> under_test_support?()
-  end
-
-  defp under_test_support?(["test", "support" | _rest]), do: true
-  defp under_test_support?([_segment | rest]), do: under_test_support?(rest)
-  defp under_test_support?([]), do: false
 
   defp forbidden_call({module, function, arity}) when is_atom(function) and is_integer(arity) do
     {{module, function, arity}, @message}
