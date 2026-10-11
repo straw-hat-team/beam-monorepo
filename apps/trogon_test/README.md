@@ -74,3 +74,13 @@ A process the test starts through `Task.async` or `Task.start` already sees the 
 Trogon.Test.allow(MyApp.Worker)
 start_supervised!(MyApp.Worker)
 ```
+
+## Report failures to a file
+
+`Trogon.Test.ReportFormatter` writes a compact plain-text report of the run to a file, for a tool or an agent to read instead of the terminal output. A run that passes writes one summary line. A failing test writes its location, the assertion or error that failed, the values the assertion compared that its code does not already show, its stacktrace without ExUnit's own frames, and the logs it captured. Run it next to the CLI formatter in `test/test_helper.exs`, so the terminal output stays the same:
+
+```elixir
+ExUnit.start(formatters: [ExUnit.CLIFormatter, Trogon.Test.ReportFormatter])
+```
+
+The report lands in `test-report.txt` by default, replaced on every run, so add it to `.gitignore`. The module documents the options for changing where it lands and whether captured logs are included.
