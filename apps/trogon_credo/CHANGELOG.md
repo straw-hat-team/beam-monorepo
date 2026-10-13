@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.10.0...trogon_credo@v0.11.0) (2026-10-13)
+
+
+### Features
+
+* **trogon_credo:** Keep Ecto.Multi.run steps on the transaction's connection ([#538](https://github.com/straw-hat-team/beam-monorepo/issues/538)) ([a086641](https://github.com/straw-hat-team/beam-monorepo/commit/a0866411a1e2bb78128136add5ff60995505c889))
+
 ## [0.10.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.9.0...trogon_credo@v0.10.0) (2026-10-11)
 
 
