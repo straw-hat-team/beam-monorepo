@@ -1,6 +1,7 @@
 defmodule Trogon.Credo.Plugin.EctoTest do
   use Trogon.Credo.PluginCase, async: false
 
+  alias Trogon.Credo.Check.Ecto.MultiRunRepo
   alias Trogon.Credo.Check.Ecto.RepoTransact
   alias Trogon.Credo.Plugin.Ecto, as: EctoPlugin
 
@@ -17,6 +18,18 @@ defmodule Trogon.Credo.Plugin.EctoTest do
     issues = run_credo(config([{EctoPlugin, []}]), [{"sample.ex", @source}])
 
     assert [%{check: RepoTransact, trigger: "MyApp.Repo.transact"}] = issues
+  end
+
+  test "enables the check on Ecto.Multi.run callbacks" do
+    source = """
+    defmodule Sample do
+      def run(multi) do
+        Ecto.Multi.run(multi, :step, fn _repo, _changes -> {:ok, :done} end)
+      end
+    end
+    """
+
+    assert [%{check: MultiRunRepo}] = run_credo(config([{EctoPlugin, []}]), [{"sample.ex", source}])
   end
 
   test "enables its checks when the project lists checks with extra:" do

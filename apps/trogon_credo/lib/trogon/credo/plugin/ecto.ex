@@ -13,6 +13,7 @@ defmodule Trogon.Credo.Plugin.Ecto do
 
   It enables:
 
+    * `Trogon.Credo.Check.Ecto.MultiRunRepo`
     * `Trogon.Credo.Check.Ecto.RepoTransact`
 
   ## Params
@@ -29,12 +30,14 @@ defmodule Trogon.Credo.Plugin.Ecto do
   selects.
   """
 
+  alias Trogon.Credo.Check.Ecto.MultiRunRepo
   alias Trogon.Credo.Check.Ecto.RepoTransact
   alias Trogon.Credo.PluginSupport
 
   @doc false
   def init(exec) do
     PluginSupport.enable_checks(exec, __MODULE__, [
+      {MultiRunRepo, []},
       {RepoTransact, PluginSupport.check_params(exec, __MODULE__, [:repos])}
     ])
   end
