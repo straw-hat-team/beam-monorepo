@@ -3,6 +3,7 @@ defmodule EventStoreDashboard.Repo do
 
   require Logger
 
+  alias EventStore.Sql.Statements
   alias EventStore.UUID
   alias EventStoreDashboard.{Event, Snapshot, Stream, Subscription}
   alias EventStoreDashboard.Repo.Context
@@ -216,7 +217,136 @@ defmodule EventStoreDashboard.Repo do
 
   def string_to_uuid(_), do: :error
 
-  def count_snapshots(node, %Context{} = ctx, search_term) do
+  @doc """
+  Approximate row count for an entire table from PostgreSQL planner statistics
+  (`pg_class.reltuples`), avoiding a `COUNT(*)` sequential scan.
+
+  Used for unfiltered dashboard pagination totals. Event-store tables such as
+  `streams` and `events` are frequently very large and deliberately lightly
+  indexed for write throughput, so a full `COUNT(*)` reads every row and can peg
+  the database CPU. `reltuples` is maintained by `ANALYZE`/autovacuum and is
+  accurate enough for a monitoring view. A never-analyzed table reports `-1`,
+  which is clamped to `0`.
+
+  Returns `{:ok, non_neg_integer}`, `:restricted` if the role can't read
+  `pg_class` (reproduced locally: `permission denied for table pg_class`,
+  Postgres error code `42501` / `insufficient_privilege` — happens when a role
+  has table-level `SELECT` but catalog access has been explicitly revoked), or
+  `:error` for anything else.
+
+  The schema-qualified table name is interpolated into the `::regclass` literal
+  rather than passed as a parameter: `$1::regclass` makes PostgreSQL infer the
+  bind type as `oid`, and Postgrex then refuses to encode the textual name as an
+  integer oid. `schema` is trusted config and `table` is a fixed internal value,
+  so interpolation is safe here (matching the other queries in this module).
+  """
+  def estimate_count(node, %Context{} = ctx, table) when is_binary(table) do
+    sql =
+      "SELECT GREATEST(reltuples, 0)::bigint FROM pg_class " <>
+        "WHERE oid = '#{ctx.schema}.#{table}'::regclass"
+
+    case :rpc.call(node, Postgrex, :query, [ctx.conn, sql, []]) do
+      {:ok, %Postgrex.Result{rows: [[count]]}} ->
+        {:ok, count}
+
+      {:error, %Postgrex.Error{postgres: %{code: :insufficient_privilege}}} ->
+        :restricted
+
+      other ->
+        Logger.debug(fn ->
+          "EventStoreDashboard.Repo.estimate_count failed: #{inspect(other)}\nSQL: #{sql}"
+        end)
+
+        :error
+    end
+  end
+
+  @doc """
+  Total number of streams for the dashboard's streams table.
+
+  `"%"` is the match-all term used by the unfiltered view; it returns a fast
+  `estimate_count/3` rather than `COUNT(*)` over the entire streams table,
+  falling back to the exact count only if the role can't read `pg_class`
+  (`estimate_count/3` returns `:restricted`). A real search term always uses an
+  exact filtered count. Returns `{:ok, non_neg_integer}` or `:error`.
+  """
+  def count_streams(node, %Context{} = ctx, "%") do
+    case estimate_count(node, ctx, "streams") do
+      {:ok, _count} = result -> result
+      :restricted -> count_streams_exact(node, ctx, "%")
+      :error -> :error
+    end
+  end
+
+  def count_streams(node, %Context{} = ctx, search_term), do: count_streams_exact(node, ctx, search_term)
+
+  defp count_streams_exact(node, %Context{} = ctx, search_term) do
+    sql = IO.iodata_to_binary(Statements.count_streams(ctx.schema))
+
+    case query(node, ctx.conn, sql, [search_term]) do
+      {:ok, [[count]]} -> {:ok, count}
+      _ -> :error
+    end
+  end
+
+  @doc """
+  Total number of subscriptions for the dashboard's subscriptions table.
+
+  With no search term, returns a fast `estimate_count/3`, falling back to the
+  exact count only if the role can't read `pg_class` (`estimate_count/3`
+  returns `:restricted`). A real search term always uses an exact `ILIKE`
+  filtered count. Returns `{:ok, non_neg_integer}` or `:error`.
+  """
+  def count_subscriptions(node, %Context{} = ctx, nil) do
+    case estimate_count(node, ctx, "subscriptions") do
+      {:ok, _count} = result -> result
+      :restricted -> count_subscriptions_exact(node, ctx, nil)
+      :error -> :error
+    end
+  end
+
+  def count_subscriptions(node, %Context{} = ctx, search_term),
+    do: count_subscriptions_exact(node, ctx, search_term)
+
+  defp count_subscriptions_exact(node, %Context{} = ctx, nil) do
+    sql = "SELECT COUNT(*) FROM #{ctx.schema}.subscriptions;"
+
+    case query(node, ctx.conn, sql, []) do
+      {:ok, [[count]]} -> {:ok, count}
+      _ -> :error
+    end
+  end
+
+  defp count_subscriptions_exact(node, %Context{} = ctx, search_term) do
+    sql =
+      "SELECT COUNT(*) FROM #{ctx.schema}.subscriptions s " <>
+        "WHERE s.subscription_name ILIKE $1 OR s.stream_uuid ILIKE $1;"
+
+    case query(node, ctx.conn, sql, [search_term]) do
+      {:ok, [[count]]} -> {:ok, count}
+      _ -> :error
+    end
+  end
+
+  @doc """
+  Total number of snapshots for the dashboard's snapshots table.
+
+  With no search term, returns a fast `estimate_count/3`, falling back to the
+  exact count only if the role can't read `pg_class` (`estimate_count/3`
+  returns `:restricted`). A real search term always uses an exact filtered
+  count. Returns `{:ok, non_neg_integer}` or `:error`.
+  """
+  def count_snapshots(node, %Context{} = ctx, nil) do
+    case estimate_count(node, ctx, "snapshots") do
+      {:ok, _count} = result -> result
+      :restricted -> count_snapshots_exact(node, ctx, nil)
+      :error -> :error
+    end
+  end
+
+  def count_snapshots(node, %Context{} = ctx, search_term), do: count_snapshots_exact(node, ctx, search_term)
+
+  defp count_snapshots_exact(node, %Context{} = ctx, search_term) do
     {where, params} = snapshot_search_clause(search_term, [], 1)
 
     sql = "SELECT COUNT(*) FROM #{ctx.schema}.snapshots#{where};"
