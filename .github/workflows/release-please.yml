@@ -16,13 +16,28 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     environment: release
+    permissions:
+      id-token: write
     steps:
+      - name: Google Cloud auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: shp-terraform
+          workload_identity_provider: projects/630372936919/locations/global/workloadIdentityPools/github-release/providers/github
+
+      - name: Releaser key
+        id: releaser_key
+        uses: google-github-actions/get-secretmanager-secrets@bc9c54b29fdffb8a47776820a7d26e77b379d262 # v3.0.0
+        with:
+          secrets: |-
+            private_key:shp-terraform/releaser-app-private-key
+
       - name: Releaser token
         id: releaser
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.RELEASER_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASER_APP_PRIVATE_KEY }}
+          private-key: ${{ steps.releaser_key.outputs.private_key }}
           permission-contents: write
           permission-pull-requests: write
           permission-issues: write
