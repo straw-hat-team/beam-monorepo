@@ -24,6 +24,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@b99440c3e6eead1c1b7ebf74d2a5b34fb1db80e1
+      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@314c912e708201c27ece4bbbba3454303a79ac3c
         with:
           ref-name: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
