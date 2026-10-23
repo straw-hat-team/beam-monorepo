@@ -12,19 +12,20 @@ on:
         required: true
         type: string
 
+permissions: {}
+
 jobs:
   publish:
     name: Publish to Hex.pm
     runs-on: ubuntu-latest
+    environment: hexpm
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v4
         with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          HEX_API_KEY: "${{ secrets.SECRETS_VAULT_ID }}/ozrgpobr7rqqgg4inmqqurfgfy/HEX_API_KEY"
-      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.ref-name) || '' }}
+      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@5e4caa3ebb3f3e1f90c6b392f0b0328157b5dc5e
         with:
-          hex-api-key: ${{ env.HEX_API_KEY }}
           ref-name: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
