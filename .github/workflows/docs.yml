@@ -11,8 +11,11 @@ on:
           - eventstore_dashboard
           - trogon_commanded
           - trogon_configurable
+          - trogon_credo
           - trogon_dispatcher
+          - trogon_ecto
           - trogon_error
+          - trogon_object_id
           - trogon_proto
           - trogon_result
           - trogon_test
