@@ -1,0 +1,31 @@
+name: hex-owners
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - apps/*/mix.exs
+      - .config/mise/hex-owners.tsv
+      - .config/mise/tasks/hex/owners/audit
+      - .github/workflows/hex-owners.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  audit:
+    name: Hex Owners
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          install: false
+      - run: mise run hex:owners:audit
