@@ -90,7 +90,6 @@ defmodule EventStoreDashboard.MixProject do
         "README*",
         "LICENSE*"
       ],
-      maintainers: ["Yordis Prieto"],
       licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url
