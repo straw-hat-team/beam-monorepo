@@ -24,35 +24,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: straw-hat-team/github-actions-workflows/elixir/setup@55b445acf7641ffd48132742e4fe278718040d13 # master
-        env:
-          MIX_IN_UMBRELLA_DEPS: "true"
-      - name: Install Hex
-        run: mix archive.install github hexpm/hex ref 4920866da55ec8e3b73f224d953309508f900e77 --force
-      - name: Publish
-        env:
-          REF_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
-        run: |
-          if [[ ! $REF_NAME =~ ^(.+)@v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "no package release found in the release tag: '$REF_NAME'. Skipping publishing."
-            exit 0
-          fi
-
-          PACKAGE_NAME="${BASH_REMATCH[1]}"
-          PACKAGE_VERSION="${BASH_REMATCH[2]}"
-
-          if [ ! -d "apps/$PACKAGE_NAME" ]; then
-            echo "::error::'$PACKAGE_NAME' package was not found under 'apps' directory"
-            exit 1
-          fi
-
-          cd "apps/$PACKAGE_NAME"
-          mix deps.get
-
-          MIX_VERSION=$(mix run --no-compile --no-start -e 'Mix.Project.config() |> Keyword.get(:version) |> IO.puts()')
-          if [ "$MIX_VERSION" != "$PACKAGE_VERSION" ]; then
-            echo "::error::'$PACKAGE_NAME' package with '$MIX_VERSION' version does not match the '$PACKAGE_VERSION' release tag version"
-            exit 1
-          fi
-
-          mix hex.publish --yes
+      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@3b6914b7e17d325102d5c60e984677ec4dbfc87a
+        with:
+          hex-ref: 4920866da55ec8e3b73f224d953309508f900e77
+          ref-name: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
