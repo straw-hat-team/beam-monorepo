@@ -22,44 +22,37 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      REF_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v4
-        with:
-          export-env: true
+      - uses: straw-hat-team/github-actions-workflows/elixir/setup@55b445acf7641ffd48132742e4fe278718040d13 # master
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          HEX_API_KEY: "${{ secrets.SECRETS_VAULT_ID }}/ozrgpobr7rqqgg4inmqqurfgfy/HEX_API_KEY"
-      - name: Exchange the OIDC token for a Hex token
+          MIX_IN_UMBRELLA_DEPS: "true"
+      - name: Install Hex
+        run: mix archive.install github hexpm/hex ref 4920866da55ec8e3b73f224d953309508f900e77 --force
+      - name: Publish
         env:
-          HEX_API_URL: https://hex.pm/api
+          REF_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
         run: |
-          set -euo pipefail
-
-          PACKAGE_NAME="${REF_NAME%@v*}"
-          AUDIENCE=$(curl -fsS "$HEX_API_URL/oidc/audience" | jq -r .audience)
-          OIDC_TOKEN=$(curl -fsS \
-            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUDIENCE}" \
-            | jq -r .value)
-
-          RESPONSE=$(curl -sS -X POST "$HEX_API_URL/oauth/token" \
-            -H "content-type: application/x-www-form-urlencoded" \
-            --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
-            --data-urlencode "assertion=$OIDC_TOKEN" \
-            --data-urlencode "scope=package:hexpm/$PACKAGE_NAME")
-
-          ACCESS_TOKEN=$(printf '%s' "$RESPONSE" | jq -r '.access_token // empty')
-          if [ -z "$ACCESS_TOKEN" ]; then
-            echo "::warning::No Hex workload identity for $PACKAGE_NAME, publishing with HEX_API_KEY: $(printf '%s' "$RESPONSE" | jq -c '{error, error_description}')"
+          if [[ ! $REF_NAME =~ ^(.+)@v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "no package release found in the release tag: '$REF_NAME'. Skipping publishing."
             exit 0
           fi
 
-          echo "::add-mask::$ACCESS_TOKEN"
-          echo "HEX_API_KEY=Bearer $ACCESS_TOKEN" >> "$GITHUB_ENV"
-      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
-        with:
-          hex-api-key: ${{ env.HEX_API_KEY }}
-          ref-name: ${{ env.REF_NAME }}
+          PACKAGE_NAME="${BASH_REMATCH[1]}"
+          PACKAGE_VERSION="${BASH_REMATCH[2]}"
+
+          if [ ! -d "apps/$PACKAGE_NAME" ]; then
+            echo "::error::'$PACKAGE_NAME' package was not found under 'apps' directory"
+            exit 1
+          fi
+
+          cd "apps/$PACKAGE_NAME"
+          mix deps.get
+
+          MIX_VERSION=$(mix run --no-compile --no-start -e 'Mix.Project.config() |> Keyword.get(:version) |> IO.puts()')
+          if [ "$MIX_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error::'$PACKAGE_NAME' package with '$MIX_VERSION' version does not match the '$PACKAGE_VERSION' release tag version"
+            exit 1
+          fi
+
+          mix hex.publish --yes
