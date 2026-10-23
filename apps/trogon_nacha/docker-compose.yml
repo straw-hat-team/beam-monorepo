@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  moov_ach:
+    image: moov/ach:v1.21.1
+    ports:
+      - "7080:8080"
+      - "7091:9090"
