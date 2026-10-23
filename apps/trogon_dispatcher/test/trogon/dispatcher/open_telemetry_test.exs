@@ -478,7 +478,13 @@ defmodule Trogon.Dispatcher.OpenTelemetryTest do
           {parent_trace_id, parent_span_id}
         end
 
-      assert_receive {:span, span(trace_id: trace_id, parent_span_id: dispatch_parent_span_id)}, 1000
+      assert_receive {:span,
+                      span(
+                        name: "dispatch Trogon.Dispatcher.TestSupport.RegisterUser",
+                        trace_id: trace_id,
+                        parent_span_id: dispatch_parent_span_id
+                      )},
+                     1000
 
       assert trace_id == parent_trace_id
       assert dispatch_parent_span_id == parent_span_id
