@@ -12,10 +12,18 @@ on:
         required: true
         type: string
 
+permissions: {}
+
 jobs:
   publish:
     name: Publish to Hex.pm
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REF_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v4
@@ -24,7 +32,34 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           HEX_API_KEY: "${{ secrets.SECRETS_VAULT_ID }}/ozrgpobr7rqqgg4inmqqurfgfy/HEX_API_KEY"
+      - name: Exchange the OIDC token for a Hex token
+        env:
+          HEX_API_URL: https://hex.pm/api
+        run: |
+          set -euo pipefail
+
+          PACKAGE_NAME="${REF_NAME%@v*}"
+          AUDIENCE=$(curl -fsS "$HEX_API_URL/oidc/audience" | jq -r .audience)
+          OIDC_TOKEN=$(curl -fsS \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUDIENCE}" \
+            | jq -r .value)
+
+          RESPONSE=$(curl -sS -X POST "$HEX_API_URL/oauth/token" \
+            -H "content-type: application/x-www-form-urlencoded" \
+            --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
+            --data-urlencode "assertion=$OIDC_TOKEN" \
+            --data-urlencode "scope=package:hexpm/$PACKAGE_NAME")
+
+          ACCESS_TOKEN=$(printf '%s' "$RESPONSE" | jq -r '.access_token // empty')
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "::warning::No Hex workload identity for $PACKAGE_NAME, publishing with HEX_API_KEY: $(printf '%s' "$RESPONSE" | jq -c '{error, error_description}')"
+            exit 0
+          fi
+
+          echo "::add-mask::$ACCESS_TOKEN"
+          echo "HEX_API_KEY=Bearer $ACCESS_TOKEN" >> "$GITHUB_ENV"
       - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
         with:
           hex-api-key: ${{ env.HEX_API_KEY }}
-          ref-name: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
+          ref-name: ${{ env.REF_NAME }}
