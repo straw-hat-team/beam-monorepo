@@ -33,6 +33,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@b1d7d5d97b8fa8eff84abfc0214337e007bebb5f # v1.10.0
+      - uses: straw-hat-team/github-actions-workflows/elixir/publish-docs@daf633f9b5b97157f59ce2fcbbc20de4b5ba2bd8 # master
         with:
           package-name: ${{ inputs.package-name }}
