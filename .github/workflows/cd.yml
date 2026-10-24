@@ -26,6 +26,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.ref-name) || '' }}
-      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@b1d7d5d97b8fa8eff84abfc0214337e007bebb5f # v1.10.0
+      - uses: straw-hat-team/github-actions-workflows/elixir/umbrella-publish@daf633f9b5b97157f59ce2fcbbc20de4b5ba2bd8 # master
         with:
           ref-name: ${{ github.event_name == 'workflow_dispatch' && inputs.ref-name || github.ref_name }}
