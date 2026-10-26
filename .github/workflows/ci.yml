@@ -25,6 +25,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: straw-hat-team/github-actions-workflows/elixir/setup@5ab906d801d41b723636b498e57509e18db1856a # v1.9.1
+      - uses: straw-hat-team/github-actions-workflows/elixir/setup@a5940bd7110b44acd9fd23b250e95ed4bc3e8848 # v1.11.0
       - name: Check compile-time cycles
         run: mix xref graph --format cycles --label compile-connected --fail-above 0
