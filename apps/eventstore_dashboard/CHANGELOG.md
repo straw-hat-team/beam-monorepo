@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.2.3...eventstore_dashboard@v0.2.4) (2026-11-07)
+
+
+### Bug Fixes
+
+* **eventstore_dashboard:** Estimate unfiltered table totals via pg_class.reltuples, with a ~ hint ([#458](https://github.com/straw-hat-team/beam-monorepo/issues/458)) ([fc014ee](https://github.com/straw-hat-team/beam-monorepo/commit/fc014ee21cb31fb4abe34493df4fceabbb092ed7))
+
 ## [0.2.3](https://github.com/straw-hat-team/beam-monorepo/compare/eventstore_dashboard@v0.2.2...eventstore_dashboard@v0.2.3) (2026-10-09)
 
 
