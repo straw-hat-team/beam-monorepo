@@ -156,13 +156,13 @@ defmodule EventStoreDashboard.Components.SubscriptionsTable do
              sort_by,
              sort_dir,
              search_term,
-             limit,
+             limit + 1,
              offset
            ) do
-      total_pages = if total_entries == 0, do: 0, else: div(total_entries - 1, limit) + 1
+      total_pages = Pagination.total_pages(total_entries, limit, page_number, length(rows))
 
       %{
-        entries: Enum.map(rows, &row_to_subscription/1),
+        entries: rows |> Enum.take(limit) |> Enum.map(&row_to_subscription/1),
         total_entries: format_total(total_entries, search_term),
         total_pages: total_pages
       }
