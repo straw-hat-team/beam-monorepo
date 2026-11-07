@@ -99,20 +99,23 @@ defmodule EventStoreDashboard.Components.SnapshotsTable do
              sort_by,
              sort_dir,
              search_term,
-             limit,
+             limit + 1,
              offset
            ) do
-      total_pages = if total_entries == 0, do: 0, else: div(total_entries - 1, limit) + 1
+      total_pages = Pagination.total_pages(total_entries, limit, page_number, length(rows))
 
       %{
-        entries: Enum.map(rows, &Repo.row_to_snapshot_summary/1),
-        total_entries: total_entries,
+        entries: rows |> Enum.take(limit) |> Enum.map(&Repo.row_to_snapshot_summary/1),
+        total_entries: format_total(total_entries, search_term),
         total_pages: total_pages
       }
     else
       _ -> %{entries: [], total_entries: 0, total_pages: 0}
     end
   end
+
+  defp format_total(total_entries, nil), do: "~#{total_entries}"
+  defp format_total(total_entries, _search_term), do: total_entries
 
   defp like_pattern(nil), do: nil
   defp like_pattern(term), do: "%" <> term <> "%"

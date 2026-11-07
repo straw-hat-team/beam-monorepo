@@ -41,6 +41,23 @@ defmodule EventStoreDashboard.Components.Pagination do
     """
   end
 
+  @doc """
+  Page count for a table that fetched `limit + 1` rows for `page_number`.
+
+  `total_entries` may be a planner estimate, so it only sizes the page count.
+  Whether a next page exists comes from the extra row, which keeps every row
+  reachable even when the estimate is stale.
+  """
+  def total_pages(total_entries, limit, page_number, fetched_count) do
+    estimated = if total_entries == 0, do: 0, else: div(total_entries - 1, limit) + 1
+
+    cond do
+      fetched_count > limit -> max(estimated, page_number + 1)
+      fetched_count > 0 -> page_number
+      true -> estimated
+    end
+  end
+
   defp path_for(socket, page, param, page_number) do
     PageBuilder.live_dashboard_path(socket, page, [{param, page_number}])
   end

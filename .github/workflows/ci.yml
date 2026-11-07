@@ -28,3 +28,33 @@ jobs:
       - uses: straw-hat-team/github-actions-workflows/elixir/setup@584a3ef553828729a59758a4ca26ac13b55bd385 # v2.0.0
       - name: Check compile-time cycles
         run: mix xref graph --format cycles --label compile-connected --fail-above 0
+
+  eventstore-dashboard-postgres:
+    name: EventStore Dashboard (Postgres)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      MIX_ENV: test
+      MIX_IN_UMBRELLA_DEPS: true
+      EVENTSTORE_DASHBOARD_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: straw-hat-team/github-actions-workflows/elixir/setup@584a3ef553828729a59758a4ca26ac13b55bd385 # v2.0.0
+      - name: Run Postgres-backed tests
+        working-directory: apps/eventstore_dashboard
+        run: mix test --only postgres
