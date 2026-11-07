@@ -2,7 +2,7 @@ defmodule Trogon.Credo.MixProject do
   use Mix.Project
 
   @app :trogon_credo
-  @version "0.10.0"
+  @version "0.11.0"
   @elixir_version "~> 1.18"
   @source_url "https://github.com/straw-hat-team/beam-monorepo"
 
@@ -86,7 +86,6 @@ defmodule Trogon.Credo.MixProject do
         "README*",
         "LICENSE*"
       ],
-      maintainers: ["Yordis Prieto"],
       licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url

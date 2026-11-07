@@ -100,7 +100,6 @@ defmodule Trogon.Error.MixProject do
         "README*",
         "LICENSE*"
       ],
-      maintainers: ["Yordis Prieto"],
       licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url

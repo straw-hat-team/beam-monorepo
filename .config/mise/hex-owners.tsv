@@ -1,0 +1,6 @@
+# Who owns every package published from apps/ on hex.pm, one owner per line: username, then level.
+# Owner changes need a two-factor code, so `hex:owners:audit` only reads them back.
+# Workload Identity cannot publish a package's first release. Publish it by hand, pick `trogonstack`
+# when Hex asks who owns it, then add every other owner below with `mix hex.owner add`.
+trogonstack	full
+alchemist_ubi	maintainer
