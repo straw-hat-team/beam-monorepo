@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.11.0...trogon_credo@v0.12.0) (2026-11-10)
+
+
+### Features
+
+* **trogon_credo:** Add Readability.OneModulePerFile check ([#563](https://github.com/straw-hat-team/beam-monorepo/issues/563)) ([8ee2af6](https://github.com/straw-hat-team/beam-monorepo/commit/8ee2af630c5490f13452d57221fff35a3a852863))
+
 ## [0.11.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.10.0...trogon_credo@v0.11.0) (2026-10-23)
 
 
