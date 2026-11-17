@@ -98,11 +98,11 @@ defmodule Trogon.Test.TestEnum do
   # Walks the enumerable once, so a single-use one, such as an `IO.stream/2`,
   # is not exhausted before membership is checked.
   defp find(enumerable, value) do
-    Enum.reduce_while(enumerable, :empty, fn
-      ^value, _acc -> {:halt, :found}
-      _element, _acc -> {:cont, :missing}
-    end)
+    Enum.reduce_while(enumerable, :empty, &match_element(value, &1, &2))
   end
+
+  defp match_element(value, value, _acc), do: {:halt, :found}
+  defp match_element(_value, _element, _acc), do: {:cont, :missing}
 
   @doc """
   Asserts an expected `random/1` call was given `enumerable`.
