@@ -4,6 +4,7 @@ defmodule Trogon.TestTest do
 
   alias Trogon.Test.MockApplication
   alias Trogon.Test.MockDateTime
+  alias Trogon.Test.MockEnum
   alias Trogon.Test.MockProcess
   alias Trogon.Test.MockRand
   alias Trogon.Test.MockTask
@@ -123,6 +124,7 @@ defmodule Trogon.TestTest do
       TestApplication.expect_get_env(times: 1, returns: "overridden")
       TestDateTime.expect_utc_now(times: 1, returns: ~U[2026-01-01 00:00:00.000000Z])
       TestProcess.expect_sleep(times: 1)
+      TestEnum.expect_random(times: 1, returns: :a)
       TestRand.expect_uniform(times: 1, returns: 1)
       TestTask.expect_async(times: 1)
       TestUUID.expect_uuid7(times: 1, returns: "01a128c8-383e-7f3b-8f53-5fa308ac0d07")
@@ -134,6 +136,7 @@ defmodule Trogon.TestTest do
           MockApplication.get_env(:trogon_test, :seeded_value, nil)
           MockDateTime.utc_now()
           MockProcess.sleep(100)
+          MockEnum.random([:a])
           MockRand.uniform(1)
           MockUUID.uuid7(:default)
           Task.await(MockTask.async(fn -> :ran end))
@@ -144,6 +147,7 @@ defmodule Trogon.TestTest do
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
       TestDateTime.assert_received_utc_now()
       TestProcess.assert_received_sleep(100)
+      TestEnum.assert_received_random([:a])
       TestRand.assert_received_uniform(1)
       TestUUID.assert_received_uuid7()
       Trogon.Test.assert_empty_mailbox()
