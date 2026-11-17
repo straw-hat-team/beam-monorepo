@@ -80,17 +80,27 @@ defmodule Trogon.Test.TestEnum do
     value = Expectation.returns!(opts)
 
     Mox.expect(MockEnum, :random, Expectation.times(opts), fn enumerable ->
-      if Enum.empty?(enumerable) do
-        raise Enum.EmptyError
-      end
+      case find(enumerable, value) do
+        :found ->
+          Expectation.record(recorder, __MODULE__, {:random, [enumerable]}, value)
 
-      if not Enum.member?(enumerable, value) do
-        raise ArgumentError,
-              "expected :returns to be an element of the enumerable random/1 was given, " <>
-                "got: #{inspect(value)} for #{inspect(enumerable)}"
-      end
+        :empty ->
+          raise Enum.EmptyError
 
-      Expectation.record(recorder, __MODULE__, {:random, [enumerable]}, value)
+        :missing ->
+          raise ArgumentError,
+                "expected :returns to be an element of the enumerable random/1 was given, " <>
+                  "got: #{inspect(value)} for #{inspect(enumerable)}"
+      end
+    end)
+  end
+
+  # Walks the enumerable once, so a single-use one, such as an `IO.stream/2`,
+  # is not exhausted before membership is checked.
+  defp find(enumerable, value) do
+    Enum.reduce_while(enumerable, :empty, fn
+      ^value, _acc -> {:halt, :found}
+      _element, _acc -> {:cont, :missing}
     end)
   end
 

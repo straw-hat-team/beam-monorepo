@@ -43,6 +43,18 @@ defmodule Trogon.Test.TestEnumTest do
       Trogon.Test.assert_empty_mailbox()
     end
 
+    test "returns an element of a single-use enumerable, as Enum.random/1 does" do
+      TestEnum.expect_random(times: 1, returns: "a\n")
+      {:ok, device} = StringIO.open("a\n")
+      stream = IO.stream(device, :line)
+
+      result = MockEnum.random(stream)
+
+      assert result == "a\n"
+      TestEnum.assert_received_random(stream)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "rejects a call past times" do
       TestEnum.expect_random(times: 1, returns: :a)
       MockEnum.random([:a])
