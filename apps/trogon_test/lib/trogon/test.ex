@@ -139,6 +139,7 @@ defmodule Trogon.Test do
     [
       Trogon.Test.MockApplication,
       Trogon.Test.MockDateTime,
+      Trogon.Test.MockEnum,
       Trogon.Test.MockProcess,
       Trogon.Test.MockRand,
       Trogon.Test.MockTask
@@ -149,6 +150,7 @@ defmodule Trogon.Test do
     [
       Trogon.Test.TestApplication,
       Trogon.Test.TestDateTime,
+      Trogon.Test.TestEnum,
       Trogon.Test.TestProcess,
       Trogon.Test.TestRand,
       Trogon.Test.TestTask
