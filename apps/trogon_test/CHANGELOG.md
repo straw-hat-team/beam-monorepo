@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.2.0...trogon_test@v0.3.0) (2026-11-17)
+
+
+### Features
+
+* **trogon_test:** Let tests pin what Enum.random/1 picks ([#566](https://github.com/straw-hat-team/beam-monorepo/issues/566)) ([bde7e60](https://github.com/straw-hat-team/beam-monorepo/commit/bde7e60466076419f62ef81b6370cb73e65f88aa))
+
 ## [0.2.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.1.0...trogon_test@v0.2.0) (2026-10-11)
 
 
