@@ -14,16 +14,19 @@ if Code.ensure_loaded?(Uniq.UUID) do
         defmodule MyApp do
           @uuid Application.compile_env(:my_app, [__MODULE__, :uuid], Uniq.UUID)
 
-          defdelegate uuid4(format \\\\ :default), to: @uuid
-          defdelegate uuid7(format \\\\ :default), to: @uuid
+          defdelegate uuid4, to: @uuid
+          defdelegate uuid4(format), to: @uuid
+          defdelegate uuid7, to: @uuid
+          defdelegate uuid7(format), to: @uuid
         end
 
     and in `config/test.exs`:
 
         config :my_app, MyApp, uuid: Trogon.Test.MockUUID
 
-    The mock has `uuid4/1` and `uuid7/1` and no `/0`, so the facade always passes
-    a format, as the one above does through its default argument.
+    A `uuid4/0` or `uuid7/0` call on the stubbed mock asks for the `:default`
+    format, as `Uniq.UUID` does, so the expectations and assertions below cover
+    both arities.
 
     `use Trogon.Test` stubs the mock to generate real UUIDs. Each test expects
     the UUIDs it cares about with what they return, and asserts on what they

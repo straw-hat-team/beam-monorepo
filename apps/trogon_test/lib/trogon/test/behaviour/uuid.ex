@@ -4,7 +4,9 @@ if Code.ensure_loaded?(Uniq.UUID) do
     The `Uniq.UUID` functions `Trogon.Test.MockUUID` mocks.
     """
 
+    @callback uuid4() :: Uniq.UUID.formatted()
     @callback uuid4(format :: Uniq.UUID.format()) :: Uniq.UUID.formatted()
+    @callback uuid7() :: Uniq.UUID.formatted()
     @callback uuid7(format :: Uniq.UUID.format()) :: Uniq.UUID.formatted()
   end
 end

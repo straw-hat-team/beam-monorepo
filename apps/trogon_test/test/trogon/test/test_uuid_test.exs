@@ -12,9 +12,24 @@ defmodule Trogon.Test.TestUUIDTest do
       assert {:ok, %{version: 4, format: :default}} = Uniq.UUID.info(MockUUID.uuid4(:default))
       assert {:ok, %{version: 7, format: :hex}} = Uniq.UUID.info(MockUUID.uuid7(:hex))
     end
+
+    test "generates real UUIDs in the default format for the default arities" do
+      assert {:ok, %{version: 4, format: :default}} = Uniq.UUID.info(MockUUID.uuid4())
+      assert {:ok, %{version: 7, format: :default}} = Uniq.UUID.info(MockUUID.uuid7())
+    end
   end
 
   describe "expect_uuid4/1" do
+    test "covers uuid4/0, recording the default format" do
+      TestUUID.expect_uuid4(times: 1, returns: @uuid4)
+
+      result = MockUUID.uuid4()
+
+      assert result == @uuid4
+      TestUUID.assert_received_uuid4(:default)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "returns the expected UUID" do
       TestUUID.expect_uuid4(times: 1, returns: @uuid4)
 
@@ -47,6 +62,17 @@ defmodule Trogon.Test.TestUUIDTest do
   end
 
   describe "expect_uuid7/1" do
+    test "covers uuid7/0, recording the default format" do
+      TestUUID.expect_uuid7(times: 2, returns: @uuid7)
+
+      results = [MockUUID.uuid7(), MockUUID.uuid7(:default)]
+
+      assert results == [@uuid7, @uuid7]
+      TestUUID.assert_received_uuid7(:default)
+      TestUUID.assert_received_uuid7(:default)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "returns the expected UUID" do
       TestUUID.expect_uuid7(times: 1, returns: @uuid7)
 
