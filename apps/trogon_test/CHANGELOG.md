@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.3.0...trogon_test@v0.4.0) (2026-11-23)
+
+
+### Features
+
+* **trogon_test:** Mock the default arities of Uniq.UUID and Task ([#572](https://github.com/straw-hat-team/beam-monorepo/issues/572)) ([f757ea9](https://github.com/straw-hat-team/beam-monorepo/commit/f757ea9a7d91aea4471fcdc67d73883f60f4cb51))
+
 ## [0.3.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.2.0...trogon_test@v0.3.0) (2026-11-17)
 
 
