@@ -22,8 +22,9 @@ defmodule Trogon.Test do
       end
 
   It aliases and requires every `Trogon.Test.Test*` helper and `Trogon.Test`,
-  verifies every Mox expectation when the test exits, and stubs each mock to
-  call the real module until the test expects a call. `Trogon.Test.TestUUID`
+  sets Mox to private mode for an `async: true` test and to global mode
+  otherwise, verifies every Mox expectation when the test exits, and stubs each
+  mock to call the real module until the test expects a call. `Trogon.Test.TestUUID`
   and `Trogon.Test.TestTelemetry` are included when the project depends on
   `:uniq` and `:telemetry`.
 
@@ -42,6 +43,7 @@ defmodule Trogon.Test do
     quote do
       require Trogon.Test
       unquote(Trogon.Test.__require_helpers__())
+      setup {Mox, :set_mox_from_context}
       setup {Mox, :verify_on_exit!}
       unquote(Trogon.Test.__stub_mocks__())
     end
