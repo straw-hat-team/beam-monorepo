@@ -68,7 +68,7 @@ To make that check run on its own, opt a test module in with `setup {Trogon.Test
 
 ## Allow a process
 
-A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` under a supervisor for instance, does not, until the test allows it on every mock with `Trogon.Test.allow/1`. Pass its pid, or the name it registers under. A name is looked up each time the process calls a mock, so the test can allow a process before it starts:
+A process the test starts through `Task.async` or `Task.start` already sees the test's expectations, since `$callers` covers it. A process started another way, a `GenServer` under a supervisor for instance, does not, until the test allows it on every mock with `Trogon.Test.allow/1`. A test with `async: false` needs no allowance, since `use Trogon.Test` puts Mox in global mode for it. Pass its pid, or the name it registers under. A name is looked up each time the process calls a mock, so the test can allow a process before it starts:
 
 ```elixir
 Trogon.Test.allow(MyApp.Worker)
