@@ -294,6 +294,16 @@ defmodule Trogon.Test.TestTaskTest do
     end
   end
 
+  describe "Task defaults" do
+    test "await/1 waits as long as Task.await/1 does" do
+      assert task_signature(:await, 2) == "await(task, timeout \\\\ 5000)"
+    end
+
+    test "async_stream/2 passes the options Task.async_stream/2 does" do
+      assert task_signature(:async_stream, 3) == "async_stream(enumerable, fun, options \\\\ [])"
+    end
+  end
+
   describe "Task contract" do
     test "rejects a function with arguments, as Task.async/1 does" do
       TestTask.expect_async(times: 2)
@@ -360,5 +370,11 @@ defmodule Trogon.Test.TestTaskTest do
       assert result == :ran
       Trogon.Test.assert_empty_mailbox()
     end
+  end
+
+  defp task_signature(name, arity) do
+    {:docs_v1, _, _, _, _, _, docs} = Code.fetch_docs(Task)
+    [signature] = for {{:function, ^name, ^arity}, _, [signature], _, _} <- docs, do: signature
+    signature
   end
 end

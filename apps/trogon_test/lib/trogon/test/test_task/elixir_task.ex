@@ -6,6 +6,7 @@ defmodule Trogon.Test.TestTask.ElixirTask do
 
   # The default arities call the mock with the defaults `Task` uses, so an
   # expectation on `await/2` or `async_stream/3` covers the shorter call too.
+  # Elixir exposes no constant for them; a test pins them to Task's signatures.
   @impl true
   defdelegate async(fun), to: Task
 

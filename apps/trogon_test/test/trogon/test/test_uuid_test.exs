@@ -19,6 +19,16 @@ defmodule Trogon.Test.TestUUIDTest do
     end
   end
 
+  describe "Uniq.UUID defaults" do
+    test "uuid4/0 asks for the format Uniq.UUID.uuid4/0 does" do
+      assert uuid_signature(:uuid4, 1) == "uuid4(format \\\\ :default)"
+    end
+
+    test "uuid7/0 asks for the format Uniq.UUID.uuid7/0 does" do
+      assert uuid_signature(:uuid7, 1) == "uuid7(format \\\\ :default)"
+    end
+  end
+
   describe "expect_uuid4/1" do
     test "covers uuid4/0, recording the default format" do
       TestUUID.expect_uuid4(times: 1, returns: @uuid4)
@@ -194,5 +204,11 @@ defmodule Trogon.Test.TestUUIDTest do
       TestUUID.assert_received_uuid7()
       Trogon.Test.assert_empty_mailbox()
     end
+  end
+
+  defp uuid_signature(name, arity) do
+    {:docs_v1, _, _, _, _, _, docs} = Code.fetch_docs(Uniq.UUID)
+    [signature] = for {{:function, ^name, ^arity}, _, [signature], _, _} <- docs, do: signature
+    signature
   end
 end
