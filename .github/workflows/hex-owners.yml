@@ -29,3 +29,5 @@ jobs:
         with:
           install: false
       - run: mise run hex:owners:audit
+        env:
+          MISE_TASK_RUN_AUTO_INSTALL: "false"
