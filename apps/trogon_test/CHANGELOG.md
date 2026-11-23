@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.4.0...trogon_test@v0.4.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **trogon_test:** Set the Mox mode from the test context ([#574](https://github.com/straw-hat-team/beam-monorepo/issues/574)) ([ab36c22](https://github.com/straw-hat-team/beam-monorepo/commit/ab36c22650cb0c8cf376268cad502f3c0338240c))
+
 ## [0.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.3.0...trogon_test@v0.4.0) (2026-11-23)
 
 
