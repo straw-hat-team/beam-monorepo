@@ -14,19 +14,18 @@ defmodule Trogon.Test.TestTask do
         @task Application.compile_env(:my_app, [__MODULE__, :task], Task)
 
         defdelegate async(fun), to: @task
-        defdelegate await(task, timeout \\\\ 5000), to: @task
-        defdelegate async_stream(enumerable, fun, opts \\\\ []), to: @task
+        defdelegate await(task, timeout), to: @task
+        defdelegate async_stream(enumerable, fun, opts), to: @task
       end
 
   and in `config/test.exs`:
 
       config :my_app, MyApp, task: Trogon.Test.MockTask
 
-  The mock has `await/2` and `async_stream/3` and no `await/1` or
-  `async_stream/2`, so the facade always passes a timeout and options, as the
-  one above does through its default arguments. The code under test keeps
-  calling `Task.yield/2` and the rest of `Task` directly, since every call
-  returns real tasks.
+  Delegate whichever `await` and `async_stream` arities the code calls. The
+  mock has them all, and the helpers below cover each. The code under test
+  keeps calling `Task.yield/2` and the rest of `Task` directly, since every
+  call returns real tasks.
 
   `use Trogon.Test` stubs the mock to start real tasks. An expected call starts
   real tasks too, running the function it was given, and Mox fails the test

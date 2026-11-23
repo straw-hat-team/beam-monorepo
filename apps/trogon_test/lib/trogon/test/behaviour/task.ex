@@ -4,6 +4,8 @@ defmodule Trogon.Test.Behaviour.Task do
   """
 
   @callback async(fun :: (-> term())) :: Task.t()
+  @callback await(task :: Task.t()) :: term()
   @callback await(task :: Task.t(), timeout :: timeout()) :: term()
+  @callback async_stream(enumerable :: Enumerable.t(), fun :: (term() -> term())) :: Enumerable.t()
   @callback async_stream(enumerable :: Enumerable.t(), fun :: (term() -> term()), opts :: keyword()) :: Enumerable.t()
 end

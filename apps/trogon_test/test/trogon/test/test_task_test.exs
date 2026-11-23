@@ -32,6 +32,18 @@ defmodule Trogon.Test.TestTaskTest do
 
       assert results == [ok: 10, ok: 20]
     end
+
+    test "awaits the real task for the default 5000 milliseconds" do
+      result = MockTask.await(Task.async(fn -> :real end))
+
+      assert result == :real
+    end
+
+    test "streams the function in real tasks with the default options" do
+      results = Enum.to_list(MockTask.async_stream([1, 2], &(&1 * 10)))
+
+      assert results == [ok: 10, ok: 20]
+    end
   end
 
   describe "expect_async/1" do
@@ -92,6 +104,16 @@ defmodule Trogon.Test.TestTaskTest do
       Trogon.Test.assert_empty_mailbox()
     end
 
+    test "covers await/1, recording the default 5000 milliseconds" do
+      TestTask.expect_await(times: 1)
+
+      result = MockTask.await(Task.async(fn -> :real end))
+
+      assert result == :real
+      TestTask.assert_received_await(5000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     @tag :capture_log
     test "exits as Task.await/2 does when the task exits" do
       TestTask.expect_await(times: 1)
@@ -113,6 +135,16 @@ defmodule Trogon.Test.TestTaskTest do
   end
 
   describe "expect_await_timeout/1" do
+    test "covers await/1, exiting with the default 5000 milliseconds" do
+      TestTask.expect_async(times: 1)
+      TestTask.expect_await_timeout(times: 1)
+      task = MockTask.async(fn -> Process.sleep(:infinity) end)
+
+      assert catch_exit(MockTask.await(task)) == {:timeout, {Task, :await, [task, 5000]}}
+      TestTask.assert_received_await(5000)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "exits as Task.await/2 does after the timeout, without waiting for it" do
       TestTask.expect_await_timeout(times: 1)
       task = Task.async(fn -> :ran end)
@@ -198,6 +230,16 @@ defmodule Trogon.Test.TestTaskTest do
   end
 
   describe "expect_async_stream/1" do
+    test "covers async_stream/2, recording no options" do
+      TestTask.expect_async_stream(times: 1)
+
+      results = Enum.to_list(MockTask.async_stream([1, 2], &(&1 * 10)))
+
+      assert results == [ok: 10, ok: 20]
+      TestTask.assert_received_async_stream([])
+      Trogon.Test.assert_empty_mailbox()
+    end
+
     test "streams the function in real tasks and records the options" do
       TestTask.expect_async_stream(times: 1)
 
@@ -249,6 +291,16 @@ defmodule Trogon.Test.TestTaskTest do
       assert_raise ExUnit.AssertionError, fn -> TestTask.assert_received_async_stream(max_concurrency: 4) end
       TestTask.assert_received_async_stream(max_concurrency: 2)
       Trogon.Test.assert_empty_mailbox()
+    end
+  end
+
+  describe "Task defaults" do
+    test "await/1 waits as long as Task.await/1 does" do
+      assert task_signature(:await, 2) == "await(task, timeout \\\\ 5000)"
+    end
+
+    test "async_stream/2 passes the options Task.async_stream/2 does" do
+      assert task_signature(:async_stream, 3) == "async_stream(enumerable, fun, options \\\\ [])"
     end
   end
 
@@ -318,5 +370,11 @@ defmodule Trogon.Test.TestTaskTest do
       assert result == :ran
       Trogon.Test.assert_empty_mailbox()
     end
+  end
+
+  defp task_signature(name, arity) do
+    {:docs_v1, _, _, _, _, _, docs} = Code.fetch_docs(Task)
+    [signature] = for {{:function, ^name, ^arity}, _, [signature], _, _} <- docs, do: signature
+    signature
   end
 end
