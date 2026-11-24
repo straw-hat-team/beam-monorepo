@@ -168,7 +168,7 @@
           #
           {Trogon.Credo.Check.Refactor.AnonymousFunction,
            [max_clauses: 1, max_expressions: :infinity, priority: :normal]},
-          {Trogon.Credo.Check.Config.SystemEnvRead, []}
+          {Trogon.Credo.Check.Warning.SystemEnvRead, []}
         ],
         disabled: [
           #

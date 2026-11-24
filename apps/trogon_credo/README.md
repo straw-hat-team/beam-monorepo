@@ -2,7 +2,7 @@
 
 **Trogon.Credo is a shared library of Credo checks you depend on instead of copy.** It turns the custom check modules that accumulate in a project's `.credo/checks/` directory into a versioned Hex package that many repositories can point at.
 
-**The package ships check modules and Credo plugins that enable them.** Each check lives under the `Trogon.Credo.Check.<Category>.<Name>` namespace, mirroring Credo's own layout, and is built on Credo's public API so a Credo patch release cannot break it. A consumer either enables the checks it wants one by one in its own `.credo.exs`, or adds a plugin under `Trogon.Credo.Plugin` that enables the checks for one library, such as Ecto, in a single line.
+**The package ships check modules and Credo plugins that enable them.** Each check lives under the `Trogon.Credo.Check.<Category>.<Name>` namespace, mirroring Credo's own layout, and is built on Credo's public API so a Credo patch release cannot break it. A consumer either enables the checks it wants one by one in its own `.credo.exs`, or adds a plugin under `Trogon.Credo.Plugin` in a single line. Most plugins enable the checks for one library, such as Ecto, and `Trogon.Credo.Plugin.Default` enables the general checks that apply to any Elixir project.
 
 **Custom Credo checks have no distribution story of their own.** A check written for one repository gets copied into the next, then the two drift: a false positive fixed in one copy stays broken in the other, and neither version is tested anywhere. Shipping the checks as a dependency gives them a single source, a test suite, and a version number, so a fix reaches every project that upgrades.
 
@@ -67,15 +67,40 @@ plugins: [{Trogon.Credo.Plugin.ExUnit, [hint: "Read config through MyApp.Config 
 
 Every `Application.put_env`, `Application.put_all_env`, `Application.delete_env`, `:application.set_env`, and `:application.unset_env` call in a `*_test.exs` file or under `test/support` is reported, since application env is global to the node and a test that writes it changes config for every test running at the same time.
 
-### Read environment variables only in config/runtime.exs
+### Enable the general checks
 
-Add the Config plugin, naming your own configuration module in `hint:` if you have one:
+Add the Default plugin:
 
 ```elixir
-plugins: [{Trogon.Credo.Plugin.Config, [hint: "Read config through MyApp.Config."]}]
+plugins: [{Trogon.Credo.Plugin.Default, []}]
 ```
 
-Every `System.get_env`, `System.fetch_env`, `System.fetch_env!`, `:os.getenv`, and `:os.env` call outside `config/runtime.exs` is reported, since a read anywhere else happens at compile time or scatters configuration across the code base. Read the variable once in `config/runtime.exs` and hand it to the rest of the project through application config. Credo does not analyze `config/` by default, so in practice the check reports reads under `lib` and `test`. If you add `mix.exs` to the analyzed files, list it in `allowed_files:` as a `{path, reason}` tuple, `allowed_files: [{"config/runtime.exs", "Read once at boot."}, {"mix.exs", "The Mix project file runs at compile time by design."}]`. The reason is required and non-blank, so whoever reads `.credo.exs` learns why each file may read the environment, and a bare path raises `ArgumentError`. Replacing the default drops `config/runtime.exs`, so list it again to keep it allowed.
+It enables the checks that apply to any Elixir project and work with their own defaults:
+
+- `Trogon.Credo.Check.Warning.SystemEnvRead` reports every `System.get_env`, `System.fetch_env`, `System.fetch_env!`, `:os.getenv`, and `:os.env` call outside `config/runtime.exs`, since a read anywhere else happens at compile time or scatters configuration across the code base. Read the variable once in `config/runtime.exs` and hand it to the rest of the project through application config.
+- `Trogon.Credo.Check.ExUnit.ApplicationEnvMutation` reports application env writes in tests. The ExUnit plugin enables the same check, and using both is harmless.
+- `Trogon.Credo.Check.Warning.RaiseString` reports `raise "message"`, which raises a `RuntimeError` nothing can match on.
+- `Trogon.Credo.Check.Readability.OneModulePerFile` reports a file that holds more than one module.
+
+A check that needs params, such as `ModuleNameMatchesPath` with its root, or that covers one library, stays out of the plugin.
+
+The plugin takes only `except:`, since each check gives `hint:` its own meaning. To change a check's params, list that check in your own `checks:`. Your entry replaces the plugin's. For example, `SystemEnvRead` accepts `allowed_files:` as `{path, reason}` tuples. The reason is required and non-blank, so whoever reads `.credo.exs` learns why each file may read the environment, and a bare path raises `ArgumentError`. Credo does not analyze `config/` by default, so in practice the check reports reads under `lib` and `test`. If you add `mix.exs` to the analyzed files, allow it. Replacing the default drops `config/runtime.exs`, so list it again to keep it allowed:
+
+```elixir
+plugins: [{Trogon.Credo.Plugin.Default, []}],
+checks: %{
+  extra: [
+    {Trogon.Credo.Check.Warning.SystemEnvRead,
+     [
+       allowed_files: [
+         {"config/runtime.exs", "Read once at boot."},
+         {"mix.exs", "The Mix project file runs at compile time by design."}
+       ],
+       hint: "Read it with Application.fetch_env!/2 and set it in config/runtime.exs."
+     ]}
+  ]
+}
+```
 
 ## References
 

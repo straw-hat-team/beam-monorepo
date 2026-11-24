@@ -1,7 +1,7 @@
-defmodule Trogon.Credo.Check.Config.SystemEnvReadTest do
+defmodule Trogon.Credo.Check.Warning.SystemEnvReadTest do
   use Credo.Test.Case
 
-  alias Trogon.Credo.Check.Config.SystemEnvRead
+  alias Trogon.Credo.Check.Warning.SystemEnvRead
 
   @message "Environment variables are read once at boot in config/runtime.exs and passed " <>
              "through application config; a read here happens at compile time or scatters " <>

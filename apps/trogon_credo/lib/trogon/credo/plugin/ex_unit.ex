@@ -23,6 +23,9 @@ defmodule Trogon.Credo.Plugin.ExUnit do
       Left out, the check's own default applies.
     * `except` - a list of the checks above to leave disabled.
 
+  `Trogon.Credo.Plugin.Default` also enables `ApplicationEnvMutation`, using both plugins
+  is harmless, since the check is enabled once.
+
   A check the project configures in its own `.credo.exs` keeps that entry, params
   and all, instead of the one this plugin adds, so
   `{Trogon.Credo.Check.ExUnit.ApplicationEnvMutation, false}` disables it as well.

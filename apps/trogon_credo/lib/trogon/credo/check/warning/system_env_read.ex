@@ -1,4 +1,4 @@
-defmodule Trogon.Credo.Check.Config.SystemEnvRead do
+defmodule Trogon.Credo.Check.Warning.SystemEnvRead do
   use Credo.Check,
     base_priority: :high,
     category: :warning,
@@ -79,7 +79,7 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
       file runs at compile time by design and may legitimately read the environment:
 
           # .credo.exs
-          {Trogon.Credo.Check.Config.SystemEnvRead,
+          {Trogon.Credo.Check.Warning.SystemEnvRead,
            allowed_files: [
              {"config/runtime.exs", "Runtime config is read once at boot."},
              {"mix.exs", "The Mix project file runs at compile time by design."}
