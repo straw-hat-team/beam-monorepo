@@ -1,4 +1,16 @@
 defmodule Trogon.Test do
+  @opts_schema NimbleOptions.new!(
+                 verify_mailbox_on_exit: [
+                   type: :boolean,
+                   default: true,
+                   doc: """
+                   Runs `verify_mailbox_on_exit!/1` for every test in the module. Pass `false`
+                   to leave a suite that does not assert every recorded call yet unchecked
+                   while it migrates.
+                   """
+                 ]
+               )
+
   @moduledoc """
   Sets a test module up to use every `Trogon.Test` mock, and holds the
   assertions they share.
@@ -23,7 +35,8 @@ defmodule Trogon.Test do
 
   It aliases and requires every `Trogon.Test.Test*` helper and `Trogon.Test`,
   sets Mox to private mode for an `async: true` test and to global mode
-  otherwise, verifies every Mox expectation when the test exits, and stubs each
+  otherwise, verifies every Mox expectation when the test exits, runs
+  `verify_mailbox_on_exit!/1`, and stubs each
   mock to call the real module until the test expects a call. `Trogon.Test.TestUUID`
   and `Trogon.Test.TestTelemetry` are included when the project depends on
   `:uniq` and `:telemetry`.
@@ -32,19 +45,29 @@ defmodule Trogon.Test do
   `Trogon.Test` tag, whichever mock recorded it. Each `assert_received_*` macro
   takes one of them out, so a test that ends with `assert_empty_mailbox/0`
   proves it asserted on every call the code under test made.
-  `verify_mailbox_on_exit!/1` runs that check when the test exits instead.
+  `verify_mailbox_on_exit!/1` runs that check for every test when it exits.
+
+  ## Options
+
+  #{NimbleOptions.docs(@opts_schema)}
 
   An expected call rejects arguments of a type the real function never takes,
   and an `expect_*` function given `:returns` rejects a value the real function
   never returns, so a test cannot pass on a call production would never see.
+
+  A library can define mocks of its own that record into the same mailbox. See
+  `Trogon.Test.Recorder`.
   """
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts) do
+    opts = NimbleOptions.validate!(opts, @opts_schema)
+
     quote do
       require Trogon.Test
       unquote(Trogon.Test.__require_helpers__())
       setup {Mox, :set_mox_from_context}
       setup {Mox, :verify_on_exit!}
+      unquote(Trogon.Test.__verify_mailbox_on_exit__(opts[:verify_mailbox_on_exit]))
       unquote(Trogon.Test.__stub_mocks__())
     end
   end
@@ -60,6 +83,17 @@ defmodule Trogon.Test do
       end
 
     quote do: (unquote_splicing(requires))
+  end
+
+  @doc false
+  def __verify_mailbox_on_exit__(true) do
+    quote do
+      setup {Trogon.Test, :verify_mailbox_on_exit!}
+    end
+  end
+
+  def __verify_mailbox_on_exit__(false) do
+    nil
   end
 
   @doc false
@@ -101,7 +135,9 @@ defmodule Trogon.Test do
   Fails the test when it exits if a call a `Trogon.Test` mock recorded was never
   asserted with an `assert_received_*` macro.
 
-  Opt in per test module, or per `describe`, before the test expects any call:
+  `use Trogon.Test` runs it for every test unless given `verify_mailbox_on_exit: false`.
+  A module that opts out, or does not `use Trogon.Test`, can still opt in per
+  module or per `describe`, before the test expects any call:
 
       setup {Trogon.Test, :verify_mailbox_on_exit!}
 
