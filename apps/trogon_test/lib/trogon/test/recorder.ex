@@ -51,10 +51,10 @@ defmodule Trogon.Test.Recorder do
         end
       end
 
-  A test then expects the call and asserts on it, and `verify_mailbox_on_exit!/1`
-  fails the test if it forgets to:
+  A test that uses `Trogon.Test` then expects the call and asserts on it, and
+  `verify_mailbox_on_exit!/1` fails the test if it forgets to:
 
-      setup {Trogon.Test, :verify_mailbox_on_exit!}
+      require Acme.TestMailer
 
       test "sends the welcome email" do
         Acme.TestMailer.expect_deliver()
