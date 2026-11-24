@@ -78,8 +78,15 @@ defmodule Trogon.Test do
   end
 
   @doc false
-  def __verify_mailbox__(true), do: quote(do: setup({Trogon.Test, :verify_mailbox_on_exit!}))
-  def __verify_mailbox__(false), do: nil
+  def __verify_mailbox__(true) do
+    quote do
+      setup {Trogon.Test, :verify_mailbox_on_exit!}
+    end
+  end
+
+  def __verify_mailbox__(false) do
+    nil
+  end
 
   @doc false
   def __stub_mocks__ do
