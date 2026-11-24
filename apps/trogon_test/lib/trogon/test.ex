@@ -34,6 +34,16 @@ defmodule Trogon.Test do
   proves it asserted on every call the code under test made.
   `verify_mailbox_on_exit!/1` runs that check when the test exits instead.
 
+  ## Options
+
+    * `:verify_mailbox` - when `true`, runs `verify_mailbox_on_exit!/1` for every
+      test in the module. Defaults to `false`.
+
+  Set it once in a case template's `using` block to cover every test that uses
+  the template:
+
+      use Trogon.Test, verify_mailbox: true
+
   An expected call rejects arguments of a type the real function never takes,
   and an `expect_*` function given `:returns` rejects a value the real function
   never returns, so a test cannot pass on a call production would never see.
@@ -42,12 +52,15 @@ defmodule Trogon.Test do
   `Trogon.Test.Recorder`.
   """
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts) do
+    opts = Keyword.validate!(opts, verify_mailbox: false)
+
     quote do
       require Trogon.Test
       unquote(Trogon.Test.__require_helpers__())
       setup {Mox, :set_mox_from_context}
       setup {Mox, :verify_on_exit!}
+      unquote(if opts[:verify_mailbox], do: quote(do: setup({Trogon.Test, :verify_mailbox_on_exit!})))
       unquote(Trogon.Test.__stub_mocks__())
     end
   end
@@ -107,6 +120,8 @@ defmodule Trogon.Test do
   Opt in per test module, or per `describe`, before the test expects any call:
 
       setup {Trogon.Test, :verify_mailbox_on_exit!}
+
+  Or for the whole module with `use Trogon.Test, verify_mailbox: true`.
 
   The check runs after the test process exits, so it cannot see the mailbox.
   It counts the calls each `assert_received_*` macro takes out, so a call
