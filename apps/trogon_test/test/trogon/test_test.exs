@@ -78,6 +78,25 @@ defmodule Trogon.TestTest do
     end
   end
 
+  describe "use Trogon.Test" do
+    test "verifies the mailbox by default" do
+      assert is_pid(Process.get({Recorder, :tracker}))
+    end
+
+    test "rejects an unknown option" do
+      assert_raise ArgumentError, ~r/unknown keys \[:verify_mailbx\]/, fn ->
+        Code.eval_quoted(
+          quote do
+            defmodule Trogon.TestTest.Typo do
+              use ExUnit.Case
+              use Trogon.Test, verify_mailbx: true
+            end
+          end
+        )
+      end
+    end
+  end
+
   describe "allow/1" do
     test "reaches a process allowed by pid" do
       TestApplication.expect_get_env(times: 1, returns: "overridden")
@@ -163,5 +182,14 @@ defmodule Trogon.TestTest do
       TestDateTime.assert_received_utc_now()
       Trogon.Test.assert_empty_mailbox()
     end
+  end
+end
+
+defmodule Trogon.TestTest.WithoutMailboxVerification do
+  use ExUnit.Case, async: true
+  use Trogon.Test, verify_mailbox: false
+
+  test "does not verify the mailbox with verify_mailbox: false" do
+    assert Process.get({Trogon.Test.Recorder, :tracker}) == nil
   end
 end
