@@ -84,7 +84,7 @@ defmodule Trogon.TestTest do
     end
 
     test "rejects an unknown option" do
-      assert_raise ArgumentError, ~r/unknown keys \[:verify_mailbx\]/, fn ->
+      assert_raise NimbleOptions.ValidationError, ~r/unknown options \[:verify_mailbx\]/, fn ->
         Code.eval_quoted(
           quote do
             defmodule Trogon.TestTest.Typo do

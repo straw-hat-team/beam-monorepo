@@ -1,4 +1,16 @@
 defmodule Trogon.Test do
+  @opts_schema NimbleOptions.new!(
+                 verify_mailbox: [
+                   type: :boolean,
+                   default: true,
+                   doc: """
+                   Runs `verify_mailbox_on_exit!/1` for every test in the module. Pass `false`
+                   to leave a suite that does not assert every recorded call yet unchecked
+                   while it migrates.
+                   """
+                 ]
+               )
+
   @moduledoc """
   Sets a test module up to use every `Trogon.Test` mock, and holds the
   assertions they share.
@@ -37,11 +49,7 @@ defmodule Trogon.Test do
 
   ## Options
 
-    * `:verify_mailbox` - runs `verify_mailbox_on_exit!/1` for every test in the
-      module. Defaults to `true`. Pass `false` to leave a suite that does not
-      assert every recorded call yet unchecked while it migrates:
-
-          use Trogon.Test, verify_mailbox: false
+  #{NimbleOptions.docs(@opts_schema)}
 
   An expected call rejects arguments of a type the real function never takes,
   and an `expect_*` function given `:returns` rejects a value the real function
@@ -52,7 +60,7 @@ defmodule Trogon.Test do
   """
 
   defmacro __using__(opts) do
-    opts = Keyword.validate!(opts, verify_mailbox: true)
+    opts = NimbleOptions.validate!(opts, @opts_schema)
 
     quote do
       require Trogon.Test

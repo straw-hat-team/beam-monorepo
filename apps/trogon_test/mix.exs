@@ -44,6 +44,7 @@ defmodule Trogon.Test.MixProject do
   defp deps do
     [
       {:mox, "~> 1.2"},
+      {:nimble_options, "~> 1.0"},
       {:telemetry, "~> 1.0", optional: true},
       {:uniq, "~> 0.6", optional: true},
 
