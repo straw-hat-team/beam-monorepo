@@ -84,12 +84,12 @@ defmodule Trogon.TestTest do
     end
 
     test "rejects an unknown option" do
-      assert_raise NimbleOptions.ValidationError, ~r/unknown options \[:verify_mailbx\]/, fn ->
+      assert_raise NimbleOptions.ValidationError, ~r/unknown options \[:verify_mailbox_on_exi\]/, fn ->
         Code.eval_quoted(
           quote do
             defmodule Trogon.TestTest.Typo do
               use ExUnit.Case
-              use Trogon.Test, verify_mailbx: true
+              use Trogon.Test, verify_mailbox_on_exi: true
             end
           end
         )

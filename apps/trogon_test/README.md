@@ -64,7 +64,7 @@ Every `expect_*` function takes `times:`, how many calls it covers, `1` by defau
 
 A mock with an `assert_received_*` macro sends each expected call to the test process, so the macro checks what the code under test passed. Every mock sends under the same `Trogon.Test` tag, so `Trogon.Test.assert_empty_mailbox/0` at the end of the test fails on any call the test did not assert on, whichever mock recorded it.
 
-`use Trogon.Test` also runs that check on its own, through `Trogon.Test.verify_mailbox_on_exit!/1`: the test fails when it exits if any recorded call was never taken out by an `assert_received_*` macro. The check runs after the test process is gone, so it counts only those macros: a call consumed with a plain `assert_received/1` still counts as unasserted, and a test that asserts that way ends with `Trogon.Test.assert_empty_mailbox/0` instead. A suite that does not assert every recorded call yet can opt out with `use Trogon.Test, verify_mailbox: false` while it migrates.
+`use Trogon.Test` also runs that check on its own, through `Trogon.Test.verify_mailbox_on_exit!/1`: the test fails when it exits if any recorded call was never taken out by an `assert_received_*` macro. The check runs after the test process is gone, so it counts only those macros: a call consumed with a plain `assert_received/1` still counts as unasserted, and a test that asserts that way ends with `Trogon.Test.assert_empty_mailbox/0` instead. A suite that does not assert every recorded call yet can opt out with `use Trogon.Test, verify_mailbox_on_exit: false` while it migrates.
 
 ## Allow a process
 

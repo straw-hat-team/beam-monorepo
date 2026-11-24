@@ -1,6 +1,6 @@
 defmodule Trogon.Test do
   @opts_schema NimbleOptions.new!(
-                 verify_mailbox: [
+                 verify_mailbox_on_exit: [
                    type: :boolean,
                    default: true,
                    doc: """
@@ -67,7 +67,7 @@ defmodule Trogon.Test do
       unquote(Trogon.Test.__require_helpers__())
       setup {Mox, :set_mox_from_context}
       setup {Mox, :verify_on_exit!}
-      unquote(Trogon.Test.__verify_mailbox__(opts[:verify_mailbox]))
+      unquote(Trogon.Test.__verify_mailbox_on_exit__(opts[:verify_mailbox_on_exit]))
       unquote(Trogon.Test.__stub_mocks__())
     end
   end
@@ -86,13 +86,13 @@ defmodule Trogon.Test do
   end
 
   @doc false
-  def __verify_mailbox__(true) do
+  def __verify_mailbox_on_exit__(true) do
     quote do
       setup {Trogon.Test, :verify_mailbox_on_exit!}
     end
   end
 
-  def __verify_mailbox__(false) do
+  def __verify_mailbox_on_exit__(false) do
     nil
   end
 
@@ -135,7 +135,7 @@ defmodule Trogon.Test do
   Fails the test when it exits if a call a `Trogon.Test` mock recorded was never
   asserted with an `assert_received_*` macro.
 
-  `use Trogon.Test` runs it for every test unless given `verify_mailbox: false`.
+  `use Trogon.Test` runs it for every test unless given `verify_mailbox_on_exit: false`.
   A module that opts out, or does not `use Trogon.Test`, can still opt in per
   module or per `describe`, before the test expects any call:
 
