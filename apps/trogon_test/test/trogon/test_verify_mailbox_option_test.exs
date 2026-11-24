@@ -1,9 +1,9 @@
 defmodule Trogon.TestVerifyMailboxOptionTest do
   use ExUnit.Case, async: true
 
-  defmodule Enabled do
+  defmodule Default do
     use ExUnit.Case, async: true
-    use Trogon.Test, verify_mailbox: true
+    use Trogon.Test
 
     test "tracks recorded calls" do
       assert is_pid(Process.get({Trogon.Test.Recorder, :tracker}))
@@ -12,7 +12,7 @@ defmodule Trogon.TestVerifyMailboxOptionTest do
 
   defmodule Disabled do
     use ExUnit.Case, async: true
-    use Trogon.Test
+    use Trogon.Test, verify_mailbox: false
 
     test "does not track recorded calls" do
       assert Process.get({Trogon.Test.Recorder, :tracker}) == nil

@@ -23,7 +23,8 @@ defmodule Trogon.Test do
 
   It aliases and requires every `Trogon.Test.Test*` helper and `Trogon.Test`,
   sets Mox to private mode for an `async: true` test and to global mode
-  otherwise, verifies every Mox expectation when the test exits, and stubs each
+  otherwise, verifies every Mox expectation when the test exits, runs
+  `verify_mailbox_on_exit!/1`, and stubs each
   mock to call the real module until the test expects a call. `Trogon.Test.TestUUID`
   and `Trogon.Test.TestTelemetry` are included when the project depends on
   `:uniq` and `:telemetry`.
@@ -32,17 +33,15 @@ defmodule Trogon.Test do
   `Trogon.Test` tag, whichever mock recorded it. Each `assert_received_*` macro
   takes one of them out, so a test that ends with `assert_empty_mailbox/0`
   proves it asserted on every call the code under test made.
-  `verify_mailbox_on_exit!/1` runs that check when the test exits instead.
+  `verify_mailbox_on_exit!/1` runs that check for every test when it exits.
 
   ## Options
 
-    * `:verify_mailbox` - when `true`, runs `verify_mailbox_on_exit!/1` for every
-      test in the module. Defaults to `false`.
+    * `:verify_mailbox` - runs `verify_mailbox_on_exit!/1` for every test in the
+      module. Defaults to `true`. Pass `false` to leave a suite that does not
+      assert every recorded call yet unchecked while it migrates:
 
-  Set it once in a case template's `using` block to cover every test that uses
-  the template:
-
-      use Trogon.Test, verify_mailbox: true
+          use Trogon.Test, verify_mailbox: false
 
   An expected call rejects arguments of a type the real function never takes,
   and an `expect_*` function given `:returns` rejects a value the real function
@@ -53,7 +52,7 @@ defmodule Trogon.Test do
   """
 
   defmacro __using__(opts) do
-    opts = Keyword.validate!(opts, verify_mailbox: false)
+    opts = Keyword.validate!(opts, verify_mailbox: true)
 
     quote do
       require Trogon.Test
@@ -117,11 +116,11 @@ defmodule Trogon.Test do
   Fails the test when it exits if a call a `Trogon.Test` mock recorded was never
   asserted with an `assert_received_*` macro.
 
-  Opt in per test module, or per `describe`, before the test expects any call:
+  `use Trogon.Test` runs it for every test unless given `verify_mailbox: false`.
+  A module that opts out, or does not `use Trogon.Test`, can still opt in per
+  module or per `describe`, before the test expects any call:
 
       setup {Trogon.Test, :verify_mailbox_on_exit!}
-
-  Or for the whole module with `use Trogon.Test, verify_mailbox: true`.
 
   The check runs after the test process exits, so it cannot see the mailbox.
   It counts the calls each `assert_received_*` macro takes out, so a call

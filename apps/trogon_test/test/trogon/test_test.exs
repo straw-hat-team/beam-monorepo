@@ -30,6 +30,7 @@ defmodule Trogon.TestTest do
 
       TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
       assert_raise ExUnit.AssertionError, fn -> Trogon.Test.assert_empty_mailbox() end
+      Recorder.asserted({Trogon.Test, {TestDateTime, {:utc_now, []}}})
     end
 
     test "ignores messages no mock sent" do
@@ -40,8 +41,6 @@ defmodule Trogon.TestTest do
   end
 
   describe "verify_mailbox_on_exit!/1" do
-    setup {Trogon.Test, :verify_mailbox_on_exit!}
-
     test "passes once every recorded call is asserted" do
       TestApplication.expect_get_env(times: 1, returns: "overridden")
 
