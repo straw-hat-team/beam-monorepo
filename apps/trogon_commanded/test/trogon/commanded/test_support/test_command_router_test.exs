@@ -5,7 +5,7 @@ defmodule Trogon.Commanded.TestSupport.TestCommandRouterTest do
   alias Acme.Billing
   alias Acme.Billing.ChargeCard
   alias Commanded.Commands.ExecutionResult
-  alias Trogon.Commanded.TestSupport.MockCommandRouter
+  alias Trogon.Commanded.TestSupport.MockCommandedApplication
   alias Trogon.Commanded.TestSupport.TestCommandRouter
   alias Trogon.Test.Recorder
 
@@ -68,7 +68,7 @@ defmodule Trogon.Commanded.TestSupport.TestCommandRouterTest do
     test "records a dispatch from an allowed process" do
       TestCommandRouter.expect_dispatch()
       supervisor = start_supervised!(Task.Supervisor)
-      Mox.allow(MockCommandRouter, self(), supervisor)
+      Mox.allow(MockCommandedApplication, self(), supervisor)
 
       task = Task.Supervisor.async_nolink(supervisor, fn -> Billing.charge("card-1", 1_000) end)
 

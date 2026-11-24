@@ -20,7 +20,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
     @moduledoc ~S"""
     Helpers for the Mox mock of `Commanded.Application` that expect a dispatch
     and assert on the command it was given. The mock is the module
-    Trogon.Commanded.TestSupport.MockCommandRouter.
+    Trogon.Commanded.TestSupport.MockCommandedApplication.
 
     The modules exist only where the project has `:mox` and `:trogon_test`, so add
     both to the test environment:
@@ -31,7 +31,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
     Point the code that dispatches commands at the mock in `config/test.exs`. The
     key is whatever your project reads to pick its router:
 
-        config :acme, Acme.Billing, command_router: Trogon.Commanded.TestSupport.MockCommandRouter
+        config :acme, Acme.Billing, command_router: Trogon.Commanded.TestSupport.MockCommandedApplication
 
     Each test expects the dispatch, runs the code under test, and asserts on the
     command:
@@ -83,7 +83,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
     """
 
     alias Commanded.Commands.ExecutionResult
-    alias Trogon.Commanded.TestSupport.MockCommandRouter
+    alias Trogon.Commanded.TestSupport.MockCommandedApplication
     alias Trogon.Test.Recorder
 
     @typedoc "Options `expect_dispatch/1` takes."
@@ -101,7 +101,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
       opts = validate_opts!(opts)
       recorder = Recorder.new()
 
-      Mox.expect(MockCommandRouter, :dispatch, opts[:times], fn command, dispatch_opts ->
+      Mox.expect(MockCommandedApplication, :dispatch, opts[:times], fn command, dispatch_opts ->
         Recorder.record(recorder, {Trogon.Test, {__MODULE__, {:dispatch, [command, dispatch_opts]}}})
         opts[:returns]
       end)
