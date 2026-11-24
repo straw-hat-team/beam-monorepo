@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.13.0...trogon_credo@v0.13.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **trogon_credo:** Leave modules defined inside a function body to OneModulePerFile ([#578](https://github.com/straw-hat-team/beam-monorepo/issues/578)) ([8915da7](https://github.com/straw-hat-team/beam-monorepo/commit/8915da7314ddba499bb6634ccb4757e91ec14f00))
+
 ## [0.13.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.12.0...trogon_credo@v0.13.0) (2026-11-24)
 
 
