@@ -75,6 +75,10 @@ Trogon.Test.allow(MyApp.Worker)
 start_supervised!(MyApp.Worker)
 ```
 
+## Define a mock in your own library
+
+A library can ship mocks that record into the same mailbox, so `Trogon.Test.assert_empty_mailbox/0` and `:verify_mailbox_on_exit!` cover them too. `Trogon.Test.Recorder` documents the contract and a complete example.
+
 ## Report a run to an AI agent
 
 `Trogon.Test.AIFormatter` writes a compact plain-text report of the run for an AI agent to read, instead of the CLI formatter's output. A run that passes writes one summary line. A failing test writes its location, the assertion or error that failed, the values the assertion compared that its code does not already show, its stacktrace without ExUnit's own frames, and the logs it captured. Run it in place of the CLI formatter, and the report goes to standard output, to read, pipe, or redirect like any other output:

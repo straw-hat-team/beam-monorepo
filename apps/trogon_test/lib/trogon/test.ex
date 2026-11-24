@@ -37,6 +37,9 @@ defmodule Trogon.Test do
   An expected call rejects arguments of a type the real function never takes,
   and an `expect_*` function given `:returns` rejects a value the real function
   never returns, so a test cannot pass on a call production would never see.
+
+  A library can define mocks of its own that record into the same mailbox. See
+  `Trogon.Test.Recorder`.
   """
 
   defmacro __using__(_opts) do
