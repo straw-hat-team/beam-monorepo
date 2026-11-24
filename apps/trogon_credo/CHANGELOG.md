@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.13.1...trogon_credo@v0.14.0) (2026-11-24)
+
+
+### Features
+
+* **trogon_credo:** Add Warning.ApplicationEnvRead ([#582](https://github.com/straw-hat-team/beam-monorepo/issues/582)) ([342535a](https://github.com/straw-hat-team/beam-monorepo/commit/342535add5f31539b481ab7c46cf9a751d9d4bc7))
+* **trogon_credo:** Always allow config/runtime.exs and mix.exs in SystemEnvRead ([#580](https://github.com/straw-hat-team/beam-monorepo/issues/580)) ([2b7934a](https://github.com/straw-hat-team/beam-monorepo/commit/2b7934a9ee55b183b984dc9ba66b0fd9eaad93cb))
+
 ## [0.13.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.13.0...trogon_credo@v0.13.1) (2026-11-24)
 
 
