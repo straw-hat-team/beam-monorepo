@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.12.0...trogon_credo@v0.13.0) (2026-11-24)
+
+
+### Features
+
+* **trogon_credo:** Add Plugin.Default and Warning.SystemEnvRead ([#576](https://github.com/straw-hat-team/beam-monorepo/issues/576)) ([a652c4e](https://github.com/straw-hat-team/beam-monorepo/commit/a652c4e89f9cc3afe359c1406f0f6b4a7fb5af62))
+
 ## [0.12.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_credo@v0.11.0...trogon_credo@v0.12.0) (2026-11-10)
 
 
