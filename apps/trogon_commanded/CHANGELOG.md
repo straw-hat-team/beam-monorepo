@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [1.4.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.3.1...trogon_commanded@v1.4.0) (2026-11-24)
+
+
+### Features
+
+* **trogon_commanded:** Add a mock command router for tests ([#587](https://github.com/straw-hat-team/beam-monorepo/issues/587)) ([227d103](https://github.com/straw-hat-team/beam-monorepo/commit/227d1037fde806595540bc782b8c8a59e91ee877))
+
 ## [1.3.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_commanded@v1.3.0...trogon_commanded@v1.3.1) (2026-10-11)
 
 
