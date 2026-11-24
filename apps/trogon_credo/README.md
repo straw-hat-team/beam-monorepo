@@ -67,6 +67,20 @@ plugins: [{Trogon.Credo.Plugin.ExUnit, [hint: "Read config through MyApp.Config 
 
 Every `Application.put_env`, `Application.put_all_env`, `Application.delete_env`, `:application.set_env`, and `:application.unset_env` call in a `*_test.exs` file or under `test/support` is reported, since application env is global to the node and a test that writes it changes config for every test running at the same time.
 
+### Keep application env reads behind a facade
+
+If your project reads application env through a facade that tests can mock, such as one built on `Application.compile_env(:acme, [__MODULE__, :application], Application)` with `Trogon.Test.MockApplication` in test, list `Trogon.Credo.Check.Warning.ApplicationEnvRead` in your own `checks:` and name the facade in `hint:`. It is not part of the Default plugin, since the facade is a project decision:
+
+```elixir
+checks: %{
+  extra: [
+    {Trogon.Credo.Check.Warning.ApplicationEnvRead, [hint: "Read it through Acme.get_env/3 instead."]}
+  ]
+}
+```
+
+It reports `Application.get_env`, `fetch_env`, `fetch_env!`, `get_all_env`, and the Erlang `:application.get_env` and `:application.get_all_env` calls, plus a bare `Application` module passed around as a value, which is how a call through a variable goes around the facade. `Application.compile_env` is never reported. The pair of this check and `ApplicationEnvMutation` keeps application env behind the facade for reads and writes alike.
+
 ### Enable the general checks
 
 Add the Default plugin:

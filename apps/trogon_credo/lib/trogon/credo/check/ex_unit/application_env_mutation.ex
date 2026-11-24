@@ -72,6 +72,10 @@ defmodule Trogon.Credo.Check.ExUnit.ApplicationEnvMutation do
             end
           end
 
+      A read that skips the facade cannot be mocked, so pair this check with
+      `Trogon.Credo.Check.Warning.ApplicationEnvRead`, which reports reads of the
+      application env outside it.
+
       This check runs `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` with a default
       list covering `Application.put_env/3,4`, `Application.put_all_env/1,2`,
       `Application.delete_env/2,3`, and their Erlang counterparts,
