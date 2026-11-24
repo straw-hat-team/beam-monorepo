@@ -5,7 +5,8 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
     param_defaults: [
       calls: [],
       except: [],
-      hint: nil
+      hint: nil,
+      use_options: false
     ],
     explanations: [
       check: """
@@ -110,13 +111,23 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
       lists the function in `only:`. An unrestricted `import` does not say which names
       it brings in, and reporting every bare call in the file on that basis would name
       calls the module has nothing to do with. An unqualified capture, `&dbg/1` for
-      instance, is not reported, since a bare capture carries no module for the check
-      to read.
+      instance, is read the same way as a bare call, since a capture resolves through
+      the imports exactly as a call does: `{Kernel, :dbg}` reports `&dbg/1`, and
+      `{System, :get_env}` reports `&get_env/1` where `import System, only: [get_env: 1]`
+      brings it in. A capture of a name no import and no `Kernel` entry accounts for is
+      a local function and is not reported.
+
+      A `use` directive's options are evaluated when the module compiles, which is the
+      moment some rules exist to catch, so `use_options: true` reads the arguments after
+      the module, `value: System.fetch_env!("VALUE")` in `use Acme.Options, value:
+      System.fetch_env!("VALUE")` for instance. The module being used stays unreported,
+      the multi alias form included.
 
       Not reported: a module named in a typespec, which is not a call to it; a module
       named in an `alias`, `import`, `require`, or `use` directive, including the multi
       alias form `System.{Foo}` that shares its AST shape with a call; anything written
-      inside such a directive, so a call in a `use` option stays silent as well; the
+      inside such a directive, so a call in a `use` option stays silent as well unless
+      `use_options` is set; the
       name in a function head, a `defdelegate` head included, since defining a function
       is not calling one; and a function of the same name defined on a different,
       unconfigured module.
@@ -145,6 +156,12 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
         no message to carry, and `Kernel` may be named on its own here. The
         default empty list means there is no exception; `nil` is also accepted
         and treated the same way.
+        """,
+        use_options: """
+        Whether a call written in the options of a `use` directive is reported. The
+        options are evaluated at compile time, which some rules care about. The module
+        the directive names is never reported. Defaults to `false`, which skips the
+        whole directive.
         """,
         hint: """
         A sentence appended to the message of every issue this check reports, so a
@@ -178,6 +195,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
         calls: calls,
         except: prepare_except(Params.get(params, :except, __MODULE__) || []),
         hint: Params.get(params, :hint, __MODULE__),
+        use_options: Params.get(params, :use_options, __MODULE__),
         aliases: aliases,
         imports: collect_imports(source_file, aliases)
       }
@@ -195,6 +213,13 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp traverse({:@, _meta, [{attribute, _, _}]}, issues, _context)
        when attribute in @typespec_attributes do
     {[], issues}
+  end
+
+  # The options of a `use` are evaluated at compile time, so a rule that cares can
+  # ask for them to be read. The module it names is left out of the walk, which
+  # keeps the multi alias form, `use System.{Foo}`, from reading as a call.
+  defp traverse({:use, _meta, [_module | options]}, issues, %{use_options: true}) do
+    {options, issues}
   end
 
   defp traverse({directive, _meta, args}, issues, _context)
@@ -218,6 +243,13 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCall do
   defp traverse({:&, _meta, [{:/, _, [{{:., _, [_module, _function]}, _, []} = call, arity]}]}, issues, context)
        when is_integer(arity) do
     {[], report_qualified(context, call, arity, issues)}
+  end
+
+  # An unqualified capture resolves through the imports exactly as a bare call
+  # does, so it is read the same way at the arity it names.
+  defp traverse({:&, _meta, [{:/, _, [{name, call_meta, ctx}, arity]}]}, issues, context)
+       when is_atom(name) and (is_atom(ctx) or is_nil(ctx)) and is_integer(arity) do
+    {[], report_unqualified(context, name, arity, call_meta, issues)}
   end
 
   # A piped call is written without its first argument, so a qualified one is

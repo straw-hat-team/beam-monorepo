@@ -125,7 +125,7 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     end)
   end
 
-  test "does not report an unqualified capture of a Kernel entry" do
+  test "reports an unqualified capture of a Kernel entry" do
     """
     defmodule CredoSampleModule do
       def run do
@@ -135,6 +135,83 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     """
     |> to_source_file()
     |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> assert_issue(fn issue -> assert issue.trigger == "dbg" end)
+  end
+
+  test "does not report an unqualified capture of a Kernel function the file takes back with except" do
+    """
+    defmodule CredoSampleModule do
+      import Kernel, except: [dbg: 1]
+
+      def run do
+        &dbg/1
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{Kernel, :dbg}])
+    |> refute_issues()
+  end
+
+  test "reports a capture of a function an import lists in only" do
+    """
+    defmodule CredoSampleModule do
+      import System, only: [get_env: 1]
+
+      def run do
+        &get_env/1
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "reports a capture of a function an open import brings in at an exported arity" do
+    """
+    defmodule CredoSampleModule do
+      import System
+
+      def run do
+        &get_env/2
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "does not report a capture of a local function at an arity an open import does not export" do
+    """
+    defmodule CredoSampleModule do
+      import System
+
+      def get_env(a, b, c, d), do: {a, b, c, d}
+
+      def run do
+        &get_env/4
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "does not report a capture of a local function when nothing imports the name" do
+    """
+    defmodule CredoSampleModule do
+      def get_env(key), do: key
+
+      def run do
+        &get_env/1
+      end
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
     |> refute_issues()
   end
 
@@ -881,6 +958,30 @@ defmodule Trogon.Credo.Check.Warning.ForbiddenFunctionCallTest do
     """
     |> to_source_file()
     |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}])
+    |> refute_issues()
+  end
+
+  test "reports a call written inside a use directive's options when use_options is set" do
+    """
+    defmodule CredoSampleModule do
+      use Acme.Worker, retries: System.get_env("RETRIES")
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}], use_options: true)
+    |> assert_issue(fn issue -> assert issue.trigger == "System.get_env" end)
+  end
+
+  test "does not report the module a use directive names when use_options is set" do
+    """
+    defmodule CredoSampleModule do
+      use System
+      use System, retries: 1
+      use System.{Foo, Bar}
+    end
+    """
+    |> to_source_file()
+    |> run_check(ForbiddenFunctionCall, calls: [{System, :get_env}], use_options: true)
     |> refute_issues()
   end
 

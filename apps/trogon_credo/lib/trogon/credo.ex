@@ -4,6 +4,7 @@ defmodule Trogon.Credo do
 
   Checks live under the `Trogon.Credo.Check.*` namespace, mirroring Credo's own
   `Credo.Check.<Category>.<Name>` layout. Plugins under `Trogon.Credo.Plugin.*`
-  enable the checks for one library at a time.
+  enable the checks for one library at a time, and `Trogon.Credo.Plugin.Default`
+  enables the general checks that apply to any project.
   """
 end
