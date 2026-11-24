@@ -93,6 +93,81 @@ defmodule Trogon.Credo.Check.Readability.OneModulePerFileTest do
     |> refute_issues()
   end
 
+  test "ignores a defmodule inside a test block" do
+    """
+    defmodule MyAppTest do
+      use ExUnit.Case
+
+      test "uses the macro" do
+        defmodule Dummy do
+          use MyApp.Thing
+        end
+      end
+    end
+    """
+    |> to_source_file("test/my_app_test.exs")
+    |> run_check(OneModulePerFile)
+    |> refute_issues()
+  end
+
+  test "ignores a defmodule inside a def" do
+    """
+    defmodule MyApp.Builder do
+      def build do
+        defmodule Built do
+        end
+      end
+    end
+    """
+    |> to_source_file("lib/my_app/builder.ex")
+    |> run_check(OneModulePerFile)
+    |> refute_issues()
+  end
+
+  test "ignores a defmodule inside an anonymous function" do
+    """
+    defmodule MyApp.Builder do
+      @builder fn ->
+        defmodule Built do
+        end
+      end
+    end
+    """
+    |> to_source_file("lib/my_app/builder.ex")
+    |> run_check(OneModulePerFile)
+    |> refute_issues()
+  end
+
+  test "reports a defmodule inside a describe block but outside a test" do
+    """
+    defmodule MyAppTest do
+      use ExUnit.Case
+
+      describe "thing" do
+        defmodule Helper do
+        end
+      end
+    end
+    """
+    |> to_source_file("test/my_app_test.exs")
+    |> run_check(OneModulePerFile)
+    |> assert_issue(fn issue -> assert issue.line_no == 5 end)
+  end
+
+  test "reports a defmodule inside a top-level if in a module body" do
+    """
+    defmodule MyApp.Conditional do
+      if Code.ensure_loaded?(Foo) do
+        defmodule Bridge do
+        end
+      end
+    end
+    """
+    |> to_source_file("lib/my_app/conditional.ex")
+    |> run_check(OneModulePerFile)
+    |> assert_issue(fn issue -> assert issue.line_no == 3 end)
+  end
+
   test "appends the hint to the message" do
     """
     defmodule MyApp.A do

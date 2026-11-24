@@ -24,8 +24,13 @@ defmodule Trogon.Credo.Check.Readability.OneModulePerFile do
 
       Code inside a `quote` block is not analyzed, since a module written there belongs
       to wherever the macro expands, which leaves macros that generate modules, structs
-      or exceptions alone. A file that deliberately holds several modules silences the
-      check with `# credo:disable-for-this-file`.
+      or exceptions alone. Neither is a `defmodule` written inside a function body, a
+      `def`, `defp`, `defmacro`, `test`, `setup` or `fn`: that module is a value the code
+      builds while it runs, such as a test defining a module to exercise a `use` macro,
+      and it has no path to be found by. A `defmodule` in a module body is reported,
+      whether it sits directly there, under an `if`, or inside a `describe`. A file
+      that deliberately holds several modules silences the check
+      with `# credo:disable-for-this-file`.
       """,
       params: [
         hint: """
@@ -45,17 +50,23 @@ defmodule Trogon.Credo.Check.Readability.OneModulePerFile do
     hint = Params.get(params, :hint, __MODULE__)
 
     source_file
-    |> Credo.Code.prewalk(&traverse/2, [])
+    |> SourceFile.ast()
+    |> collect([])
     |> Enum.reverse()
     |> Enum.drop(1)
     |> Enum.map(&issue_for(issue_meta, &1, hint))
   end
 
-  defp traverse({:quote, _meta, _args}, acc), do: {[], acc}
+  @runtime_scopes [:quote, :fn, :def, :defp, :defmacro, :defmacrop, :test, :setup, :setup_all, :on_exit]
 
-  defp traverse({:defmodule, meta, [name | _]} = ast, acc), do: {ast, [{meta, module_name(name)} | acc]}
+  defp collect({scope, _meta, _args}, acc) when scope in @runtime_scopes, do: acc
 
-  defp traverse(ast, acc), do: {ast, acc}
+  defp collect({:defmodule, meta, [name | rest]}, acc), do: collect(rest, [{meta, module_name(name)} | acc])
+
+  defp collect({form, _meta, args}, acc), do: collect(args, collect(form, acc))
+  defp collect({left, right}, acc), do: collect(right, collect(left, acc))
+  defp collect(list, acc) when is_list(list), do: Enum.reduce(list, acc, &collect/2)
+  defp collect(_ast, acc), do: acc
 
   defp module_name({:__aliases__, _meta, parts}), do: if(Enum.all?(parts, &is_atom/1), do: Name.full(parts))
   defp module_name(_ast), do: nil
