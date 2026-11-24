@@ -22,6 +22,8 @@ defmodule Trogon.Credo.Plugin.Config do
     * `hint` - forwarded to `Trogon.Credo.Check.Config.SystemEnvRead`.
       Left out, the check's own default applies.
     * `allowed_files` - forwarded to `Trogon.Credo.Check.Config.SystemEnvRead`.
+      A list of `{path, reason}` tuples, where the reason is a required non-blank string
+      saying why the file may read the environment.
       Left out, the check's own default applies.
     * `except` - a list of the checks above to leave disabled.
 

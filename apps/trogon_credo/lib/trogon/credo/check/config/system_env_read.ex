@@ -11,7 +11,10 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
         {:os, :env}
       ],
       hint: nil,
-      allowed_files: ["config/runtime.exs"]
+      allowed_files: [
+        {"config/runtime.exs",
+         "Runtime config is read once at boot, where the release's environment is the one that runs it."}
+      ]
     ],
     explanations: [
       check: """
@@ -58,9 +61,13 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
       a `use`, `use Acme.Options, value: System.fetch_env!("VALUE")`, is reported too,
       since those options are evaluated when the module compiles.
 
-      A file is left alone when its path ends in one of `allowed_files`, `config/runtime.exs`
-      by default. The path is matched on whole segments, so `apps/acme/config/runtime.exs`
-      and an absolute path to it are allowed, and `myconfig/runtime.exs` is not.
+      A file is left alone when its path ends in the path of one of `allowed_files`,
+      `config/runtime.exs` by default. Every entry is a `{path, reason}` tuple, and the
+      reason is required: it states why that file may read the environment, so whoever
+      reads the `.credo.exs` learns the situation instead of guessing, and a bare path,
+      a blank reason, or any other shape raises `ArgumentError`. The path is matched on
+      whole segments, so `apps/acme/config/runtime.exs` and an absolute path to it are
+      allowed, and `myconfig/runtime.exs` is not.
       Writing the environment, `System.put_env/2` and `System.delete_env/1`, is a
       different decision and is not reported.
 
@@ -69,7 +76,16 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
       and `test`, and `config/runtime.exs` stays unreported even before `allowed_files`
       applies. A project that adds `config/` or `mix.exs` to `files.included` lists
       each file it allows in `allowed_files`, `mix.exs` for instance, since a Mix project
-      file runs at compile time by design and may legitimately read the environment.
+      file runs at compile time by design and may legitimately read the environment:
+
+          # .credo.exs
+          {Trogon.Credo.Check.Config.SystemEnvRead,
+           allowed_files: [
+             {"config/runtime.exs", "Runtime config is read once at boot."},
+             {"mix.exs", "The Mix project file runs at compile time by design."}
+           ]}
+
+      Replacing the default drops `config/runtime.exs`, so list it again to keep it allowed.
       """,
       params: [
         calls: """
@@ -86,9 +102,13 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
         instead."` for instance. Skipped when set to `nil`, the default.
         """,
         allowed_files: """
-        The files allowed to read the environment, given as paths matched against the end
-        of a file's path on whole segments. Defaults to `["config/runtime.exs"]`. A
-        project that analyzes `mix.exs` adds it here.
+        The files allowed to read the environment, given as `{path, reason}` tuples. The
+        path is matched against the end of a file's path on whole segments, and the reason
+        is a non-blank string that documents why the file may read the environment; an
+        entry without one raises `ArgumentError`. Defaults to `config/runtime.exs` with
+        the reason that runtime config is read once at boot. A project that analyzes
+        `mix.exs` adds `{"mix.exs", "<reason>"}` here, along with `config/runtime.exs`
+        again, since replacing the default drops it.
         """
       ]
     ]
@@ -104,7 +124,8 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
-    allowed_files = params |> Params.get(:allowed_files, __MODULE__) |> List.wrap()
+    allowed_files =
+      params |> Params.get(:allowed_files, __MODULE__) |> List.wrap() |> Enum.map(&allowed_path!/1)
 
     if allowed_file?(source_file.filename, allowed_files) do
       []
@@ -122,6 +143,19 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
       hint: Params.get(params, :hint, __MODULE__),
       use_options: true
     )
+  end
+
+  defp allowed_path!({path, reason} = entry) when is_binary(path) and is_binary(reason) do
+    if String.trim(reason) == "", do: invalid_allowed_file!(entry), else: path
+  end
+
+  defp allowed_path!(entry), do: invalid_allowed_file!(entry)
+
+  defp invalid_allowed_file!(entry) do
+    raise ArgumentError,
+          "invalid allowed_files entry #{inspect(entry)}: expected a {path, reason} tuple " <>
+            "with a non-blank reason string, such as " <>
+            ~s({"test/support/postgres.ex", "Gates the Postgres tests on a database URL."})
   end
 
   # An allowed path matches the whole filename or a tail of it that starts at a

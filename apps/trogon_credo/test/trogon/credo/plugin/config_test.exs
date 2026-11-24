@@ -63,7 +63,11 @@ defmodule Trogon.Credo.Plugin.ConfigTest do
   end
 
   test "forwards allowed_files to the check" do
-    assert [] == run_credo(config([{ConfigPlugin, [allowed_files: ["sample.ex"]]}]), [{"sample.ex", @source}])
+    assert [] ==
+             run_credo(
+               config([{ConfigPlugin, [allowed_files: [{"sample.ex", "A sample that reads the environment."}]]}]),
+               [{"sample.ex", @source}]
+             )
   end
 
   test "forwards calls to the check" do

@@ -288,7 +288,7 @@ defmodule Trogon.Credo.Check.Config.SystemEnvReadTest do
     System.get_env("TAX_RATE")
     """
     |> to_source_file("mix.exs")
-    |> run_check(SystemEnvRead, allowed_files: ["mix.exs"])
+    |> run_check(SystemEnvRead, allowed_files: [{"mix.exs", "The Mix project file runs at compile time."}])
     |> refute_issues()
   end
 
@@ -297,8 +297,26 @@ defmodule Trogon.Credo.Check.Config.SystemEnvReadTest do
     System.get_env("TAX_RATE")
     """
     |> to_source_file("config/runtime.exs")
-    |> run_check(SystemEnvRead, allowed_files: ["mix.exs"])
+    |> run_check(SystemEnvRead, allowed_files: [{"mix.exs", "The Mix project file runs at compile time."}])
     |> assert_issue(fn issue -> assert issue.trigger == "System.get_env" end)
+  end
+
+  for {label, entry} <- [
+        {"a bare path", "mix.exs"},
+        {"a blank reason", {"mix.exs", ""}},
+        {"a whitespace reason", {"mix.exs", "   "}},
+        {"a non-string reason", {"mix.exs", :because}},
+        {"a non-string path", {:"mix.exs", "Reason."}},
+        {"a triple", {"mix.exs", "Reason.", :extra}}
+      ] do
+    test "raises on an allowed_files entry that is #{label}" do
+      entry = unquote(Macro.escape(entry))
+
+      assert_raise ArgumentError, ~r/invalid allowed_files entry .*\{path, reason\}.*postgres\.ex/s, fn ->
+        source_file = to_source_file("System.get_env(\"TAX_RATE\")", "lib/acme.ex")
+        SystemEnvRead.run(source_file, allowed_files: [entry])
+      end
+    end
   end
 
   test "does not report System.put_env" do

@@ -75,7 +75,7 @@ Add the Config plugin, naming your own configuration module in `hint:` if you ha
 plugins: [{Trogon.Credo.Plugin.Config, [hint: "Read config through MyApp.Config."]}]
 ```
 
-Every `System.get_env`, `System.fetch_env`, `System.fetch_env!`, `:os.getenv`, and `:os.env` call outside `config/runtime.exs` is reported, since a read anywhere else happens at compile time or scatters configuration across the code base. Read the variable once in `config/runtime.exs` and hand it to the rest of the project through application config. Credo does not analyze `config/` by default, so in practice the check reports reads under `lib` and `test`. If you add `mix.exs` to the analyzed files, list it in `allowed_files:`.
+Every `System.get_env`, `System.fetch_env`, `System.fetch_env!`, `:os.getenv`, and `:os.env` call outside `config/runtime.exs` is reported, since a read anywhere else happens at compile time or scatters configuration across the code base. Read the variable once in `config/runtime.exs` and hand it to the rest of the project through application config. Credo does not analyze `config/` by default, so in practice the check reports reads under `lib` and `test`. If you add `mix.exs` to the analyzed files, list it in `allowed_files:` as a `{path, reason}` tuple, `allowed_files: [{"config/runtime.exs", "Read once at boot."}, {"mix.exs", "The Mix project file runs at compile time by design."}]`. The reason is required and non-blank, so whoever reads `.credo.exs` learns why each file may read the environment, and a bare path raises `ArgumentError`. Replacing the default drops `config/runtime.exs`, so list it again to keep it allowed.
 
 ## References
 
