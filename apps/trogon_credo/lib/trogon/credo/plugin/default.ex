@@ -49,8 +49,7 @@ defmodule Trogon.Credo.Plugin.Default do
                 {Trogon.Credo.Check.Warning.SystemEnvRead,
                  [
                    allowed_files: [
-                     {"config/runtime.exs", "Read once at boot."},
-                     {"mix.exs", "The Mix project file runs at compile time by design."}
+                     {"test/support/postgres.ex", "Gates the Postgres tests on a database URL."}
                    ],
                    hint: "Read it with Application.fetch_env!/2 and set it in config/runtime.exs."
                  ]}
