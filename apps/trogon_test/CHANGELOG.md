@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.4.1...trogon_test@v0.5.0) (2026-11-24)
+
+
+### Features
+
+* **trogon_test:** Add TestApplication.stub_env ([#581](https://github.com/straw-hat-team/beam-monorepo/issues/581)) ([abefb99](https://github.com/straw-hat-team/beam-monorepo/commit/abefb993959ba34e2b8776858aeebd4568412b3f))
+
 ## [0.4.1](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.4.0...trogon_test@v0.4.1) (2026-11-23)
 
 
