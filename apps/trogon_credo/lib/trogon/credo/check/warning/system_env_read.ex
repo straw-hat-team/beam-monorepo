@@ -11,10 +11,7 @@ defmodule Trogon.Credo.Check.Warning.SystemEnvRead do
         {:os, :env}
       ],
       hint: nil,
-      allowed_files: [
-        {"config/runtime.exs",
-         "Runtime config is read once at boot, where the release's environment is the one that runs it."}
-      ]
+      allowed_files: []
     ],
     explanations: [
       check: """
@@ -61,31 +58,32 @@ defmodule Trogon.Credo.Check.Warning.SystemEnvRead do
       a `use`, `use Acme.Options, value: System.fetch_env!("VALUE")`, is reported too,
       since those options are evaluated when the module compiles.
 
-      A file is left alone when its path ends in the path of one of `allowed_files`,
-      `config/runtime.exs` by default. Every entry is a `{path, reason}` tuple, and the
+      Two files are always left alone, since reading the environment is what they are
+      for: `config/runtime.exs`, which runs once at boot in the environment of the
+      release, and `mix.exs`, which runs when Mix loads the project, where a build
+      setting such as a version or a dependency source may come from the environment.
+      Both are matched on whole path segments, so `apps/acme/mix.exs` and an absolute
+      path to `config/runtime.exs` are left alone, and `myconfig/runtime.exs` or
+      `remix.exs` are not.
+
+      Any other file is left alone when its path ends in the path of one of
+      `allowed_files`, empty by default. Every entry is a `{path, reason}` tuple, and the
       reason is required: it states why that file may read the environment, so whoever
       reads the `.credo.exs` learns the situation instead of guessing, and a bare path,
-      a blank reason, or any other shape raises `ArgumentError`. The path is matched on
-      whole segments, so `apps/acme/config/runtime.exs` and an absolute path to it are
-      allowed, and `myconfig/runtime.exs` is not.
-      Writing the environment, `System.put_env/2` and `System.delete_env/1`, is a
-      different decision and is not reported.
-
-      Credo does not analyze `config/` by default, since its `files.included` lists
-      `lib/`, `test/` and the like, so in practice the check reports reads under `lib`
-      and `test`, and `config/runtime.exs` stays unreported even before `allowed_files`
-      applies. A project that adds `config/` or `mix.exs` to `files.included` lists
-      each file it allows in `allowed_files`, `mix.exs` for instance, since a Mix project
-      file runs at compile time by design and may legitimately read the environment:
+      a blank reason, or any other shape raises `ArgumentError`:
 
           # .credo.exs
           {Trogon.Credo.Check.Warning.SystemEnvRead,
            allowed_files: [
-             {"config/runtime.exs", "Runtime config is read once at boot."},
-             {"mix.exs", "The Mix project file runs at compile time by design."}
+             {"test/support/postgres.ex", "Gates the Postgres tests on a database URL."}
            ]}
 
-      Replacing the default drops `config/runtime.exs`, so list it again to keep it allowed.
+      Writing the environment, `System.put_env/2` and `System.delete_env/1`, is a
+      different decision and is not reported.
+
+      Credo does not analyze `config/` or `mix.exs` by default, since its
+      `files.included` lists `lib/`, `test/` and the like, so in practice the check
+      reports reads under `lib` and `test`.
       """,
       params: [
         calls: """
@@ -105,10 +103,8 @@ defmodule Trogon.Credo.Check.Warning.SystemEnvRead do
         The files allowed to read the environment, given as `{path, reason}` tuples. The
         path is matched against the end of a file's path on whole segments, and the reason
         is a non-blank string that documents why the file may read the environment; an
-        entry without one raises `ArgumentError`. Defaults to `config/runtime.exs` with
-        the reason that runtime config is read once at boot. A project that analyzes
-        `mix.exs` adds `{"mix.exs", "<reason>"}` here, along with `config/runtime.exs`
-        again, since replacing the default drops it.
+        entry without one raises `ArgumentError`. Defaults to `[]`. `config/runtime.exs`
+        and `mix.exs` are always allowed and need no entry.
         """
       ]
     ]
@@ -121,11 +117,15 @@ defmodule Trogon.Credo.Check.Warning.SystemEnvRead do
              "configuration across the code base. Read the value from application config " <>
              "or take it as an argument instead."
 
+  @always_allowed_files ["config/runtime.exs", "mix.exs"]
+
   @doc false
   @impl true
   def run(%SourceFile{} = source_file, params) do
     allowed_files =
       params |> Params.get(:allowed_files, __MODULE__) |> List.wrap() |> Enum.map(&allowed_path!/1)
+
+    allowed_files = @always_allowed_files ++ allowed_files
 
     if allowed_file?(source_file.filename, allowed_files) do
       []

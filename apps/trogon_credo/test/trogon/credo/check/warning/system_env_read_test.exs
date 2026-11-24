@@ -229,11 +229,29 @@ defmodule Trogon.Credo.Check.Warning.SystemEnvReadTest do
     |> assert_issue(fn issue -> assert issue.trigger == "System.get_env" end)
   end
 
-  test "reports a read in mix.exs by default" do
+  test "does not report mix.exs" do
     """
     System.get_env("TAX_RATE")
     """
     |> to_source_file("mix.exs")
+    |> run_check(SystemEnvRead)
+    |> refute_issues()
+  end
+
+  test "does not report an app's mix.exs" do
+    """
+    System.get_env("TAX_RATE")
+    """
+    |> to_source_file("apps/acme/mix.exs")
+    |> run_check(SystemEnvRead)
+    |> refute_issues()
+  end
+
+  test "reports a file whose name only ends in mix.exs" do
+    """
+    System.get_env("TAX_RATE")
+    """
+    |> to_source_file("lib/acme/remix.exs")
     |> run_check(SystemEnvRead)
     |> assert_issue(fn issue -> assert issue.trigger == "System.get_env" end)
   end
@@ -287,18 +305,22 @@ defmodule Trogon.Credo.Check.Warning.SystemEnvReadTest do
     """
     System.get_env("TAX_RATE")
     """
-    |> to_source_file("mix.exs")
-    |> run_check(SystemEnvRead, allowed_files: [{"mix.exs", "The Mix project file runs at compile time."}])
+    |> to_source_file("test/support/postgres.ex")
+    |> run_check(SystemEnvRead, allowed_files: [{"test/support/postgres.ex", "Gates the Postgres tests."}])
     |> refute_issues()
   end
 
-  test "reports config/runtime.exs once allowed_files replaces the default" do
-    """
-    System.get_env("TAX_RATE")
-    """
-    |> to_source_file("config/runtime.exs")
-    |> run_check(SystemEnvRead, allowed_files: [{"mix.exs", "The Mix project file runs at compile time."}])
-    |> assert_issue(fn issue -> assert issue.trigger == "System.get_env" end)
+  test "still does not report config/runtime.exs or mix.exs when allowed_files lists other files" do
+    allowed_files = [{"test/support/postgres.ex", "Gates the Postgres tests."}]
+
+    for filename <- ["config/runtime.exs", "mix.exs"] do
+      """
+      System.get_env("TAX_RATE")
+      """
+      |> to_source_file(filename)
+      |> run_check(SystemEnvRead, allowed_files: allowed_files)
+      |> refute_issues()
+    end
   end
 
   for {label, entry} <- [
