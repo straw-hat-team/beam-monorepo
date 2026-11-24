@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.5.0...trogon_test@v0.6.0) (2026-11-24)
+
+
+### Features
+
+* **trogon_test:** Document Recorder and verify the mailbox by default ([#585](https://github.com/straw-hat-team/beam-monorepo/issues/585)) ([50e9644](https://github.com/straw-hat-team/beam-monorepo/commit/50e96440769ecd475cd5ef5054ba085dc753e7c9))
+
 ## [0.5.0](https://github.com/straw-hat-team/beam-monorepo/compare/trogon_test@v0.4.1...trogon_test@v0.5.0) (2026-11-24)
 
 
