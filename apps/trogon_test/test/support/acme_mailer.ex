@@ -1,4 +1,6 @@
 defmodule Trogon.Test.AcmeMailer do
+  @moduledoc false
+
   alias Trogon.Test.Recorder
 
   def expect_deliver(email) do
