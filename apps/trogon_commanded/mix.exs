@@ -48,6 +48,9 @@ defmodule Trogon.Commanded.MixProject do
       {:protobuf, "~> 0.16", optional: true},
       trogon_proto_dep(),
       trogon_object_id_dep(),
+      {:mox, "~> 1.2", optional: true},
+      {:nimble_options, "~> 1.0", optional: true},
+      trogon_test_dep(),
 
       # Tools
       {:dialyxir, ">= 0.0.0", only: [:dev], runtime: false},
@@ -73,6 +76,14 @@ defmodule Trogon.Commanded.MixProject do
       {:trogon_object_id, in_umbrella: true}
     else
       {:trogon_object_id, "~> 0.1"}
+    end
+  end
+
+  defp trogon_test_dep do
+    if System.get_env("MIX_IN_UMBRELLA_DEPS") == "true" do
+      {:trogon_test, in_umbrella: true}
+    else
+      {:trogon_test, "~> 0.6", optional: true}
     end
   end
 
