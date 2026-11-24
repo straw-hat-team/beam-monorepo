@@ -53,7 +53,10 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
       and the Erlang `:os.getenv/0,1,2` and `:os.env/0`, the way
       `Trogon.Credo.Check.Warning.ForbiddenFunctionCall` reports every call to them:
       qualified, through an alias, piped, captured, or written against the Erlang module
-      directly.
+      directly. A bare call or capture is reported where an `import` brings the function
+      in, `import System, only: [get_env: 1]` for instance, and a read in the options of
+      a `use`, `use Acme.Options, value: System.fetch_env!("VALUE")`, is reported too,
+      since those options are evaluated when the module compiles.
 
       A file is left alone when its path ends in one of `allowed_files`, `config/runtime.exs`
       by default. The path is matched on whole segments, so `apps/acme/config/runtime.exs`
@@ -116,7 +119,8 @@ defmodule Trogon.Credo.Check.Config.SystemEnvRead do
     CheckDelegate.run(source_file, params, __MODULE__, ForbiddenFunctionCall,
       calls: Enum.map(calls, &forbidden_call/1),
       except: [],
-      hint: Params.get(params, :hint, __MODULE__)
+      hint: Params.get(params, :hint, __MODULE__),
+      use_options: true
     )
   end
 

@@ -167,6 +167,46 @@ defmodule Trogon.Credo.Check.Config.SystemEnvReadTest do
     |> assert_issue(fn issue -> assert issue.trigger == "System.get_env" end)
   end
 
+  test "reports a capture of an imported function" do
+    """
+    defmodule Acme.Billing do
+      import System, only: [get_env: 1]
+
+      def rate do
+        &get_env/1
+      end
+    end
+    """
+    |> to_source_file("lib/acme/billing.ex")
+    |> run_check(SystemEnvRead)
+    |> assert_issue(fn issue -> assert issue.trigger == "get_env" end)
+  end
+
+  test "reports a read in the options of a use, not the used module" do
+    """
+    defmodule Acme.Billing do
+      use Acme.Options, value: System.fetch_env!("VALUE")
+    end
+    """
+    |> to_source_file("lib/acme/billing.ex")
+    |> run_check(SystemEnvRead)
+    |> assert_issue(fn issue ->
+      assert issue.trigger == "System.fetch_env!"
+      assert issue.line_no == 2
+    end)
+  end
+
+  test "does not report a use directive without a read in its options" do
+    """
+    defmodule Acme.Billing do
+      use Acme.Options, value: "VALUE"
+    end
+    """
+    |> to_source_file("lib/acme/billing.ex")
+    |> run_check(SystemEnvRead)
+    |> refute_issues()
+  end
+
   test "reports a read in a test file" do
     """
     defmodule Acme.Billing do
