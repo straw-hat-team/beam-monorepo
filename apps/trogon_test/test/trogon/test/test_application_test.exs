@@ -293,4 +293,172 @@ defmodule Trogon.Test.TestApplicationTest do
       Trogon.Test.assert_empty_mailbox()
     end
   end
+
+  describe "stub_env/3" do
+    test "overrides only the given key with a literal value" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "overridden")
+
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "overridden"
+      assert MockApplication.get_env(:trogon_test, :seeded_list, nil) == [a: 1, b: 2]
+    end
+
+    test "gives a function the real value" do
+      TestApplication.stub_env(:trogon_test, :seeded_list, &Keyword.merge(&1, b: 3, c: 4))
+
+      assert MockApplication.get_env(:trogon_test, :seeded_list, nil) == [a: 1, b: 3, c: 4]
+    end
+
+    test "gives a function the caller's default when the key is unset" do
+      TestApplication.stub_env(:trogon_test, :unset_key, &Keyword.put(&1, :a, 1))
+
+      assert MockApplication.get_env(:trogon_test, :unset_key, []) == [a: 1]
+    end
+
+    test "returns a literal override of an unset key" do
+      TestApplication.stub_env(:trogon_test, :unset_key, "overridden")
+
+      assert MockApplication.get_env(:trogon_test, :unset_key, :default) == "overridden"
+    end
+
+    test "returns a function value when wrapped" do
+      fun = fn -> :config_fun end
+      TestApplication.stub_env(:trogon_test, :seeded_value, fn _real -> fun end)
+
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == fun
+    end
+
+    test "does not affect other apps with the same key" do
+      TestApplication.stub_env(:other_app, :seeded_value, "overridden")
+
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "real value"
+    end
+
+    test "overrides fetch_env/2" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "overridden")
+
+      assert MockApplication.fetch_env(:trogon_test, :seeded_value) == {:ok, "overridden"}
+      assert MockApplication.fetch_env(:trogon_test, :seeded_list) == {:ok, [a: 1, b: 2]}
+    end
+
+    test "overrides an unset key for fetch_env/2 and gives a function nil" do
+      TestApplication.stub_env(:trogon_test, :unset_key, &(&1 || "from nil"))
+
+      assert MockApplication.fetch_env(:trogon_test, :unset_key) == {:ok, "from nil"}
+    end
+
+    test "overrides fetch_env!/2" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, &(&1 <> " changed"))
+
+      assert MockApplication.fetch_env!(:trogon_test, :seeded_value) == "real value changed"
+      assert MockApplication.fetch_env!(:trogon_test, :seeded_list) == [a: 1, b: 2]
+    end
+
+    test "overrides get_all_env/1" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "overridden")
+      TestApplication.stub_env(:trogon_test, :added_key, "added")
+
+      env = MockApplication.get_all_env(:trogon_test)
+
+      assert env[:seeded_value] == "overridden"
+      assert env[:added_key] == "added"
+      assert env[:seeded_list] == [a: 1, b: 2]
+    end
+
+    test "does not change get_all_env/1 of another app" do
+      TestApplication.stub_env(:other_app, :seeded_value, "overridden")
+
+      env = MockApplication.get_all_env(:trogon_test)
+
+      assert env[:seeded_value] == "real value"
+    end
+
+    test "keeps every override of different keys" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "first")
+      TestApplication.stub_env(:trogon_test, :seeded_list, [:second])
+
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "first"
+      assert MockApplication.get_env(:trogon_test, :seeded_list, nil) == [:second]
+    end
+
+    test "applies overrides of the same key in call order" do
+      TestApplication.stub_env(:trogon_test, :seeded_list, &Keyword.put(&1, :a, 10))
+      TestApplication.stub_env(:trogon_test, :seeded_list, &Keyword.put(&1, :c, 3))
+
+      assert Enum.sort(MockApplication.get_env(:trogon_test, :seeded_list, nil)) == [a: 10, b: 2, c: 3]
+    end
+
+    test "lets a later literal replace an earlier override of the same key" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "first")
+      TestApplication.stub_env(:trogon_test, :seeded_value, "last")
+
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "last"
+    end
+
+    test "keeps an expectation ahead of the stub" do
+      TestApplication.expect_get_env(times: 1, returns: "expected")
+      TestApplication.stub_env(:trogon_test, :seeded_value, "stubbed")
+
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "expected"
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "stubbed"
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "loses the stub of a function expected after it" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "stubbed")
+      TestApplication.expect_get_env(times: 1, returns: "expected")
+
+      MockApplication.get_env(:trogon_test, :seeded_value, nil)
+
+      assert_raise Mox.UnexpectedCallError, fn -> MockApplication.get_env(:trogon_test, :seeded_value, nil) end
+      TestApplication.assert_received_get_env(:trogon_test, :seeded_value)
+    end
+
+    test "does not record reads" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "stubbed")
+
+      MockApplication.get_env(:trogon_test, :seeded_value, nil)
+
+      Trogon.Test.assert_empty_mailbox()
+    end
+
+    test "is dropped by stub/1" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "stubbed")
+      TestApplication.stub()
+      TestApplication.stub_env(:trogon_test, :seeded_list, [:only])
+
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "real value"
+      assert MockApplication.get_env(:trogon_test, :seeded_list, nil) == [:only]
+    end
+
+    test "reaches a Task spawned by the test" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "stubbed")
+
+      value = Task.await(Task.async(fn -> MockApplication.get_env(:trogon_test, :seeded_value, nil) end))
+
+      assert value == "stubbed"
+    end
+
+    test "reaches a process allowed with Trogon.Test.allow/1" do
+      TestApplication.stub_env(:trogon_test, :seeded_value, "stubbed")
+      parent = self()
+
+      pid =
+        spawn(fn ->
+          receive do
+            :read -> send(parent, {:read, MockApplication.get_env(:trogon_test, :seeded_value, nil)})
+          end
+        end)
+
+      Trogon.Test.allow(pid)
+
+      send(pid, :read)
+
+      assert_receive {:read, "stubbed"}
+    end
+
+    test "does not leak into the next test" do
+      assert MockApplication.get_env(:trogon_test, :seeded_value, nil) == "real value"
+    end
+  end
 end
