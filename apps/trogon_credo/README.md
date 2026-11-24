@@ -67,6 +67,16 @@ plugins: [{Trogon.Credo.Plugin.ExUnit, [hint: "Read config through MyApp.Config 
 
 Every `Application.put_env`, `Application.put_all_env`, `Application.delete_env`, `:application.set_env`, and `:application.unset_env` call in a `*_test.exs` file or under `test/support` is reported, since application env is global to the node and a test that writes it changes config for every test running at the same time.
 
+### Read environment variables only in config/runtime.exs
+
+Add the Config plugin, naming your own configuration module in `hint:` if you have one:
+
+```elixir
+plugins: [{Trogon.Credo.Plugin.Config, [hint: "Read config through MyApp.Config."]}]
+```
+
+Every `System.get_env`, `System.fetch_env`, `System.fetch_env!`, `:os.getenv`, and `:os.env` call outside `config/runtime.exs` is reported, since a read anywhere else happens at compile time or scatters configuration across the code base. Read the variable once in `config/runtime.exs` and hand it to the rest of the project through application config. Credo does not analyze `config/` by default, so in practice the check reports reads under `lib` and `test`. If you add `mix.exs` to the analyzed files, list it in `allowed_files:`.
+
 ## References
 
 Every check documents what it flags and the parameters it accepts in its own
