@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
-  defmodule Trogon.Commanded.TestSupport.TestCommandRouter do
+  defmodule Trogon.Commanded.TestSupport.TestCommandedApplication do
     @expect_opts_schema NimbleOptions.new!(
                           times: [
                             type: :non_neg_integer,
@@ -20,7 +20,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
     @moduledoc ~S"""
     Helpers for the Mox mock of `Commanded.Application` that expect a dispatch
     and assert on the command it was given. The mock is the module
-    Trogon.Commanded.TestSupport.MockCommandRouter.
+    Trogon.Commanded.TestSupport.MockCommandedApplication.
 
     The modules exist only where the project has `:mox` and `:trogon_test`, so add
     both to the test environment:
@@ -31,7 +31,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
     Point the code that dispatches commands at the mock in `config/test.exs`. The
     key is whatever your project reads to pick its router:
 
-        config :acme, Acme.Billing, command_router: Trogon.Commanded.TestSupport.MockCommandRouter
+        config :acme, Acme.Billing, command_router: Trogon.Commanded.TestSupport.MockCommandedApplication
 
     Each test expects the dispatch, runs the code under test, and asserts on the
     command:
@@ -40,22 +40,22 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
           use ExUnit.Case, async: true
           use Trogon.Test
 
-          require Trogon.Commanded.TestSupport.TestCommandRouter, as: TestCommandRouter
+          require Trogon.Commanded.TestSupport.TestCommandedApplication, as: TestCommandedApplication
 
           test "charges the card" do
-            TestCommandRouter.expect_dispatch()
+            TestCommandedApplication.expect_dispatch()
 
             assert :ok = Acme.Billing.charge("card-1", 1_000)
 
-            TestCommandRouter.assert_received_dispatch(%Acme.Billing.ChargeCard{card_id: "card-1", cents: 1_000}, [])
+            TestCommandedApplication.assert_received_dispatch(%Acme.Billing.ChargeCard{card_id: "card-1", cents: 1_000}, [])
           end
 
           test "reports a declined card" do
-            TestCommandRouter.expect_dispatch(returns: {:error, :card_declined})
+            TestCommandedApplication.expect_dispatch(returns: {:error, :card_declined})
 
             assert {:error, :card_declined} = Acme.Billing.charge("card-1", 1_000)
 
-            TestCommandRouter.assert_received_dispatch(%Acme.Billing.ChargeCard{card_id: "card-1", cents: 1_000}, [])
+            TestCommandedApplication.assert_received_dispatch(%Acme.Billing.ChargeCard{card_id: "card-1", cents: 1_000}, [])
           end
         end
 
@@ -83,7 +83,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
     """
 
     alias Commanded.Commands.ExecutionResult
-    alias Trogon.Commanded.TestSupport.MockCommandRouter
+    alias Trogon.Commanded.TestSupport.MockCommandedApplication
     alias Trogon.Test.Recorder
 
     @typedoc "Options `expect_dispatch/1` takes."
@@ -101,7 +101,7 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
       opts = validate_opts!(opts)
       recorder = Recorder.new()
 
-      Mox.expect(MockCommandRouter, :dispatch, opts[:times], fn command, dispatch_opts ->
+      Mox.expect(MockCommandedApplication, :dispatch, opts[:times], fn command, dispatch_opts ->
         Recorder.record(recorder, {Trogon.Test, {__MODULE__, {:dispatch, [command, dispatch_opts]}}})
         opts[:returns]
       end)
@@ -127,14 +127,14 @@ if Code.ensure_loaded?(Mox) and Code.ensure_loaded?(Trogon.Test.Recorder) do
     `ExUnit.Assertions.assert_received/1`, so pass the whole command and the
     exact options or timeout the code under test dispatched with:
 
-        TestCommandRouter.assert_received_dispatch(%Acme.Billing.ChargeCard{card_id: "card-1", cents: 1_000}, [])
-        TestCommandRouter.assert_received_dispatch(command, timeout: 5_000)
+        TestCommandedApplication.assert_received_dispatch(%Acme.Billing.ChargeCard{card_id: "card-1", cents: 1_000}, [])
+        TestCommandedApplication.assert_received_dispatch(command, timeout: 5_000)
     """
     defmacro assert_received_dispatch(command, opts) do
       quote bind_quoted: [command: command, opts: opts] do
         Recorder.asserted(
           ExUnit.Assertions.assert_received(
-            {Trogon.Test, {Trogon.Commanded.TestSupport.TestCommandRouter, {:dispatch, [^command, ^opts]}}}
+            {Trogon.Test, {Trogon.Commanded.TestSupport.TestCommandedApplication, {:dispatch, [^command, ^opts]}}}
           )
         )
       end

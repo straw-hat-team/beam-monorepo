@@ -1,12 +1,9 @@
 defmodule Acme.Billing do
   @moduledoc false
 
-  defmodule ChargeCard do
-    @moduledoc false
-    defstruct [:card_id, :cents]
-  end
+  alias Acme.Billing.ChargeCard
 
-  @router Trogon.Commanded.TestSupport.MockCommandRouter
+  @router Trogon.Commanded.TestSupport.MockCommandedApplication
 
   def charge(card_id, cents, opts \\ []) do
     @router.dispatch(%ChargeCard{card_id: card_id, cents: cents}, opts)
