@@ -168,6 +168,29 @@ defmodule Trogon.Credo.Check.Readability.OneModulePerFileTest do
     |> assert_issue(fn issue -> assert issue.line_no == 3 end)
   end
 
+  test "ignores a defmodule inside a capture" do
+    """
+    defmodule MyApp.Builder do
+      @builder &{&1, defmodule(Built, do: nil)}
+    end
+    """
+    |> to_source_file("lib/my_app/builder.ex")
+    |> run_check(OneModulePerFile)
+    |> refute_issues()
+  end
+
+  test "reports a defmodule in a module attribute named like a runtime scope" do
+    """
+    defmodule MyApp.Attribute do
+      @setup (defmodule Helper do
+      end)
+    end
+    """
+    |> to_source_file("lib/my_app/attribute.ex")
+    |> run_check(OneModulePerFile)
+    |> assert_issue(fn issue -> assert issue.line_no == 2 end)
+  end
+
   test "appends the hint to the message" do
     """
     defmodule MyApp.A do

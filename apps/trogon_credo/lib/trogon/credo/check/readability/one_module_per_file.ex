@@ -25,12 +25,12 @@ defmodule Trogon.Credo.Check.Readability.OneModulePerFile do
       Code inside a `quote` block is not analyzed, since a module written there belongs
       to wherever the macro expands, which leaves macros that generate modules, structs
       or exceptions alone. Neither is a `defmodule` written inside a function body, a
-      `def`, `defp`, `defmacro`, `test`, `setup` or `fn`: that module is a value the code
-      builds while it runs, such as a test defining a module to exercise a `use` macro,
-      and it has no path to be found by. A `defmodule` in a module body is reported,
-      whether it sits directly there, under an `if`, or inside a `describe`. A file
-      that deliberately holds several modules silences the check
-      with `# credo:disable-for-this-file`.
+      `def`, `defp`, `defmacro`, `test`, `setup`, `fn` or `&` capture: that module is a
+      value the code builds while it runs, such as a test defining a module to exercise
+      a `use` macro, and it has no path to be found by. A `defmodule` in a module body
+      is reported, whether it sits directly there, under an `if`, inside a `describe`,
+      or in a module attribute. A file that deliberately holds several modules silences
+      the check with `# credo:disable-for-this-file`.
       """,
       params: [
         hint: """
@@ -58,6 +58,11 @@ defmodule Trogon.Credo.Check.Readability.OneModulePerFile do
   end
 
   @runtime_scopes [:quote, :fn, :def, :defp, :defmacro, :defmacrop, :test, :setup, :setup_all, :on_exit]
+
+  defp collect({:@, _meta, [{_name, _attr_meta, value}]}, acc), do: collect(value, acc)
+
+  defp collect({:&, _meta, [{:/, _slash_meta, [function, _arity]}]}, acc), do: collect(function, acc)
+  defp collect({:&, _meta, _body}, acc), do: acc
 
   defp collect({scope, _meta, _args}, acc) when scope in @runtime_scopes, do: acc
 
