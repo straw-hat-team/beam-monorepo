@@ -59,7 +59,7 @@ defmodule Trogon.Test do
       unquote(Trogon.Test.__require_helpers__())
       setup {Mox, :set_mox_from_context}
       setup {Mox, :verify_on_exit!}
-      unquote(if opts[:verify_mailbox], do: quote(do: setup({Trogon.Test, :verify_mailbox_on_exit!})))
+      unquote(Trogon.Test.__verify_mailbox__(opts[:verify_mailbox]))
       unquote(Trogon.Test.__stub_mocks__())
     end
   end
@@ -76,6 +76,10 @@ defmodule Trogon.Test do
 
     quote do: (unquote_splicing(requires))
   end
+
+  @doc false
+  def __verify_mailbox__(true), do: quote(do: setup({Trogon.Test, :verify_mailbox_on_exit!}))
+  def __verify_mailbox__(false), do: nil
 
   @doc false
   def __stub_mocks__ do
